@@ -1,0 +1,1 @@
+"""Menu resolver core package."""

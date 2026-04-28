@@ -1,0 +1,261 @@
+{
+  "menu_version": "1.0",
+  "restaurant": "Sozo Cakery & Cafe",
+  "last_updated": "2026-04-17",
+
+  "categories": [
+    {"id": "speciality_cakes", "name": "Speciality Cakes"},
+    {"id": "cake_slices", "name": "Cake Slices"},
+    {"id": "desserts", "name": "Desserts and More"},
+    {"id": "brownies_and_cookies", "name": "Brownies & Cookies"},
+    {"id": "all_day_bowls", "name": "All Day Menu & Bowls"},
+    {"id": "sandwiches_and_toasts", "name": "Sandwiches & Toasts"},
+    {"id": "small_plates", "name": "Small Plates & Sliders"},
+    {"id": "pizza", "name": "Pizza"},
+    {"id": "pasta", "name": "Pasta"},
+    {"id": "sozo_bakes", "name": "Sozo Bakes"},
+    {"id": "coffee", "name": "Coffee"},
+    {"id": "non_coffee_teas", "name": "Non-Coffee & Specialty Tea"}
+  ],
+
+  "items": [
+
+    {"id": "salted_caramel_crunch_cake", "name": "Salted Caramel Crunch Cake", "category": "speciality_cakes", "type": "variant_group", "tags": ["veg"], "variants": [{"id": "salted_caramel_crunch_cake_500g", "name": "500 Gms", "price": 1000}, {"id": "salted_caramel_crunch_cake_1kg", "name": "1 Kg", "price": 1900}]},
+    {"id": "chocolate_hazelnut_cake", "name": "Chocolate Hazelnut Cake", "category": "speciality_cakes", "type": "variant_group", "tags": ["veg"], "variants": [{"id": "chocolate_hazelnut_cake_500g", "name": "500 Gms", "price": 950}, {"id": "chocolate_hazelnut_cake_1kg", "name": "1 Kg", "price": 1800}]},
+    {"id": "ultra_chocolate_cake", "name": "Ultra Chocolate Cake", "category": "speciality_cakes", "type": "variant_group", "tags": ["veg"], "variants": [{"id": "ultra_chocolate_cake_500g", "name": "500 Gms", "price": 950}, {"id": "ultra_chocolate_cake_1kg", "name": "1 Kg", "price": 1800}]},
+    {"id": "chocolate_valencia_cake", "name": "Chocolate Valencia Cake", "category": "speciality_cakes", "type": "variant_group", "tags": ["veg"], "variants": [{"id": "chocolate_valencia_cake_500g", "name": "500 Gms", "price": 950}, {"id": "chocolate_valencia_cake_1kg", "name": "1 Kg", "price": 1800}]},
+    {"id": "vanilla_blueberry_cake", "name": "Vanilla Blueberry Cake", "category": "speciality_cakes", "type": "variant_group", "tags": ["veg"], "variants": [{"id": "vanilla_blueberry_cake_500g", "name": "500 Gms", "price": 850}, {"id": "vanilla_blueberry_cake_1kg", "name": "1 Kg", "price": 1600}]},
+    {"id": "coconut_pineapple_cake", "name": "Coconut Pineapple Cake", "category": "speciality_cakes", "type": "variant_group", "tags": ["veg"], "variants": [{"id": "coconut_pineapple_cake_500g", "name": "500 Gms", "price": 740}, {"id": "coconut_pineapple_cake_1kg", "name": "1 Kg", "price": 1150}]},
+    {"id": "carrot_cake", "name": "Carrot Cake", "category": "speciality_cakes", "type": "simple", "price": 1200, "description": "Available in 1 Kg only", "tags": ["veg"]},
+    {"id": "mawa_cake", "name": "Mawa Cake", "category": "speciality_cakes", "type": "variant_group", "tags": ["veg"], "variants": [{"id": "mawa_cake_500g", "name": "500 Gms", "price": 650}, {"id": "mawa_cake_1kg", "name": "1 Kg", "price": 1300}]},
+    {"id": "date_walnut_cake", "name": "Date & Walnut Cake", "category": "speciality_cakes", "type": "variant_group", "tags": ["veg"], "variants": [{"id": "date_walnut_cake_500g", "name": "500 Gms", "price": 750}, {"id": "date_walnut_cake_1kg", "name": "1 Kg", "price": 1500}]},
+    {"id": "red_velvet_cake", "name": "Red Velvet Cake", "category": "speciality_cakes", "type": "variant_group", "tags": ["veg"], "variants": [{"id": "red_velvet_cake_500g", "name": "500 Gms", "price": 775}, {"id": "red_velvet_cake_1kg", "name": "1 Kg", "price": 1400}]},
+    {"id": "mocha_cake", "name": "Mocha Cake", "category": "speciality_cakes", "type": "variant_group", "tags": ["veg"], "variants": [{"id": "mocha_cake_500g", "name": "500 Gms", "price": 800}, {"id": "mocha_cake_1kg", "name": "1 Kg", "price": 1600}]},
+    {"id": "rainbow_cake", "name": "Rainbow Cake", "category": "speciality_cakes", "type": "variant_group", "tags": ["veg"], "variants": [{"id": "rainbow_cake_500g", "name": "500 Gms", "price": 700}, {"id": "rainbow_cake_1kg", "name": "1 Kg", "price": 1350}]},
+    {"id": "black_forest_cake", "name": "Black Forest Cake", "category": "speciality_cakes", "type": "variant_group", "tags": ["veg"], "variants": [{"id": "black_forest_cake_500g", "name": "500 Gms", "price": 1000}, {"id": "black_forest_cake_1kg", "name": "1 Kg", "price": 1900}]},
+    {"id": "berry_chiffon_cake", "name": "Berry Chiffon Cake", "category": "speciality_cakes", "type": "variant_group", "tags": ["veg"], "variants": [{"id": "berry_chiffon_cake_500g", "name": "500 Gms", "price": 900}, {"id": "berry_chiffon_cake_1kg", "name": "1 Kg", "price": 1725}]},
+
+    {"id": "carrot_cake_slice", "name": "Carrot Cake Slice", "category": "cake_slices", "type": "simple", "price": 250, "tags": ["veg"]},
+    {"id": "coconut_pineapple_cake_slice", "name": "Coconut Pineapple Cake Slice", "category": "cake_slices", "type": "simple", "price": 250, "tags": ["veg"]},
+    {"id": "vanilla_blueberry_cake_slice", "name": "Vanilla Blueberry Cake Slice", "category": "cake_slices", "type": "simple", "price": 260, "tags": ["veg"]},
+    {"id": "red_velvet_cake_slice", "name": "Red Velvet Cake Slice", "category": "cake_slices", "type": "simple", "price": 260, "tags": ["veg"]},
+    {"id": "mocha_cake_slice", "name": "Mocha Cake Slice", "category": "cake_slices", "type": "simple", "price": 260, "tags": ["veg"]},
+    {"id": "chocolate_hazelnut_cake_slice", "name": "Chocolate Hazelnut Cake Slice", "category": "cake_slices", "type": "simple", "price": 310, "tags": ["veg"]},
+    {"id": "chocolate_valencia_cake_slice", "name": "Chocolate Valencia Cake Slice", "category": "cake_slices", "type": "simple", "price": 300, "tags": ["veg"]},
+    {"id": "ultra_chocolate_cake_slice", "name": "Ultra Chocolate Cake Slice", "category": "cake_slices", "type": "simple", "price": 300, "tags": ["veg"]},
+    {"id": "mawa_cake_slice", "name": "Mawa Cake Slice", "category": "cake_slices", "type": "simple", "price": 175, "tags": ["veg"]},
+    {"id": "date_walnut_cake_slice", "name": "Date & Walnut Cake Slice", "category": "cake_slices", "type": "simple", "price": 185, "tags": ["veg"]},
+    {"id": "rainbow_cake_slice", "name": "Rainbow Cake Slice", "category": "cake_slices", "type": "simple", "price": 190, "tags": ["veg"]},
+
+    {"id": "matcha_berry_cheesecake", "name": "Matcha Berry Cheesecake", "category": "desserts", "type": "simple", "price": 200, "tags": ["veg"]},
+    {"id": "blueberry_cheesecake", "name": "Blueberry Cheesecake", "category": "desserts", "type": "simple", "price": 180, "tags": ["veg"]},
+    {"id": "sozo_cupcakes", "name": "Cupcakes", "category": "desserts", "type": "variant_group", "tags": ["veg"], "variants": [
+      {"id": "cupcake_funfetti", "name": "Funfetti", "price": 50},
+      {"id": "cupcake_lemon", "name": "Lemon", "price": 50},
+      {"id": "cupcake_biscoff", "name": "Biscoff", "price": 60},
+      {"id": "cupcake_belgium_chocolate", "name": "Belgium Chocolate", "price": 60},
+      {"id": "cupcake_red_velvet", "name": "Red Velvet", "price": 60}
+    ]},
+    {"id": "lemon_tart", "name": "Lemon Tart", "category": "desserts", "type": "simple", "price": 220, "tags": ["veg"]},
+    {"id": "tiramisu", "name": "Tiramisu", "category": "desserts", "type": "simple", "price": 330, "tags": ["veg"]},
+    {"id": "pistachio_tiramisu", "name": "Pistachio Tiramisu", "category": "desserts", "type": "simple", "price": 350, "tags": ["veg"]},
+    {"id": "banoffee_jar", "name": "Banoffee Jar", "category": "desserts", "type": "simple", "price": 300, "tags": ["veg"]},
+    {"id": "hazelnut_og", "name": "Hazelnut OG", "category": "desserts", "type": "simple", "price": 200, "tags": ["veg"]},
+    {"id": "classic_opera", "name": "Classic Opera", "category": "desserts", "type": "simple", "price": 180, "tags": ["veg"]},
+    {"id": "florentine_bars", "name": "Florentine Bars", "category": "desserts", "type": "simple", "price": 314, "tags": ["veg"]},
+
+    {"id": "brownie_box", "name": "Brownie Box (Sampler)", "category": "brownies_and_cookies", "type": "variant_group", "tags": ["veg"], "variants": [
+      {"id": "brownie_box_6pack", "name": "Pack of 6", "price": 720},
+      {"id": "brownie_box_7pack", "name": "Pack of 7", "price": 960}
+    ]},
+    {"id": "triple_choc_chip_cookies", "name": "Triple Chocolate Chip Cookies", "category": "brownies_and_cookies", "type": "simple", "price": 90, "tags": ["veg"]},
+    {"id": "oats_raisin_cookies", "name": "Oats & Raisin Cookies", "category": "brownies_and_cookies", "type": "simple", "price": 140, "tags": ["veg"]},
+    {"id": "sozo_koko_cookies", "name": "Sozo Koko Cookies", "category": "brownies_and_cookies", "type": "simple", "price": 300, "tags": ["veg"]},
+    {"id": "jam_cookies", "name": "Jam Cookies", "category": "brownies_and_cookies", "type": "simple", "price": 250, "tags": ["veg"]},
+
+    {"id": "dragon_fruit_granola_bowl", "name": "Dragon Fruit Granola Bowl", "category": "all_day_bowls", "type": "simple", "price": 350, "tags": ["veg"]},
+    {"id": "granola_yogurt_bowl", "name": "Granola Yogurt Bowl", "category": "all_day_bowls", "type": "simple", "price": 275, "tags": ["veg"]},
+    {"id": "honey_butter_toast", "name": "Honey Butter Toast", "category": "all_day_bowls", "type": "simple", "price": 350, "tags": ["veg"]},
+    {"id": "sozo_pancakes", "name": "Pancakes", "category": "all_day_bowls", "type": "variant_group", "tags": ["veg"], "variants": [
+      {"id": "sozo_pancakes_classic", "name": "Classic", "price": 300},
+      {"id": "sozo_pancakes_berry_nana", "name": "Berry Nana", "price": 300},
+      {"id": "sozo_pancakes_chocolate_decadence", "name": "Chocolate Decadence", "price": 300},
+      {"id": "sozo_pancakes_funfetti", "name": "Funfetti", "price": 300}
+    ]},
+    {"id": "thai_red_curry_rice_bowl", "name": "Thai Red Curry Rice Bowl", "category": "all_day_bowls", "type": "simple", "price": 475, "tags": ["veg"]},
+    {"id": "cottage_cheese_spinach_rice_bowl", "name": "Cottage Cheese Creamy Spinach Rice Bowl", "category": "all_day_bowls", "type": "simple", "price": 450, "tags": ["veg"]},
+    {"id": "tibetan_manchurian_rice_bowl", "name": "Tibetan Manchurian Rice Bowl", "category": "all_day_bowls", "type": "simple", "price": 450, "tags": ["veg"]},
+    {"id": "quinoa_bowl", "name": "Quinoa Bowl", "category": "all_day_bowls", "type": "simple", "price": 450, "tags": ["veg"]},
+    {"id": "lasagna_romaine", "name": "Lasagna with Romaine & Cheese Garlic Bread", "category": "all_day_bowls", "type": "simple", "price": 450, "tags": ["veg"]},
+
+    {"id": "avocado_tempura_sandwich", "name": "Avocado Tempura Sandwich", "category": "sandwiches_and_toasts", "type": "simple", "price": 350, "tags": ["veg"]},
+    {"id": "three_cheese_stacked_sandwich", "name": "Three Cheese Stacked Sandwich", "category": "sandwiches_and_toasts", "type": "simple", "price": 350, "tags": ["veg"]},
+    {"id": "bbq_soy_steak_stacks", "name": "Barbeque Soy Steak Stacks", "category": "sandwiches_and_toasts", "type": "simple", "price": 350, "tags": ["veg"]},
+    {"id": "veg_club_sandwich", "name": "Veg Club Sandwich", "category": "sandwiches_and_toasts", "type": "simple", "price": 350, "tags": ["veg"]},
+    {"id": "veg_ham_cheese_croissant", "name": "Buttery Veg Ham & Cheese Croissant", "category": "sandwiches_and_toasts", "type": "simple", "price": 350, "tags": ["veg"]},
+    {"id": "avo_sourdough_toast", "name": "Avo Sourdough Toast", "category": "sandwiches_and_toasts", "type": "simple", "price": 350, "tags": ["veg"]},
+    {"id": "two_way_mushroom_toast", "name": "Two Way Mushroom Toast", "category": "sandwiches_and_toasts", "type": "simple", "price": 350, "tags": ["veg"]},
+    {"id": "cheese_garlic_bread", "name": "Cheese Garlic Bread", "category": "sandwiches_and_toasts", "type": "simple", "price": 300, "tags": ["veg"]},
+    {"id": "pesto_cherry_tomato_baguette", "name": "Pesto Cherry Tomato Baguette", "category": "sandwiches_and_toasts", "type": "simple", "price": 300, "tags": ["veg"]},
+
+    {"id": "mushroom_mexican_salad", "name": "Mushroom Mexican Salad", "category": "small_plates", "type": "simple", "price": 350, "tags": ["veg"]},
+    {"id": "greek_salad", "name": "Greek Salad", "category": "small_plates", "type": "simple", "price": 250, "tags": ["veg"]},
+    {"id": "loaded_potato_soup", "name": "Loaded Potato Soup", "category": "small_plates", "type": "simple", "price": 250, "tags": ["veg"]},
+    {"id": "roasted_pomodoro_soup", "name": "Roasted Pomodoro Soup", "category": "small_plates", "type": "simple", "price": 250, "tags": ["veg"]},
+    {"id": "hummus_pita", "name": "Hummus with Pita", "category": "small_plates", "type": "simple", "price": 300, "tags": ["veg"]},
+    {"id": "mozzarella_sticks", "name": "Mozzarella Sticks", "category": "small_plates", "type": "simple", "price": 275, "tags": ["veg"]},
+    {"id": "american_corn_cheese_balls", "name": "American Corn Cheese Balls", "category": "small_plates", "type": "simple", "price": 320, "tags": ["veg"]},
+    {"id": "og_oriental_noodle_roll", "name": "OG Oriental Noodle Roll", "category": "small_plates", "type": "simple", "price": 320, "tags": ["veg"]},
+    {"id": "pesto_burrata_puff", "name": "Pesto Burrata Puff", "category": "small_plates", "type": "simple", "price": 185, "tags": ["veg"]},
+    {"id": "loaded_nachos", "name": "Loaded Nachos", "category": "small_plates", "type": "simple", "price": 300, "tags": ["veg"]},
+    {"id": "crusted_stuffed_mushrooms", "name": "Crusted Stuffed Mushrooms", "category": "small_plates", "type": "simple", "price": 300, "tags": ["veg"]},
+    {"id": "rajmah_shammi_slider", "name": "Rajmah Shammi Slider", "category": "small_plates", "type": "simple", "price": 375, "tags": ["veg"]},
+    {"id": "avo_lime_beetroot_slider", "name": "Avo Lime & Beetroot Slider", "category": "small_plates", "type": "simple", "price": 375, "tags": ["veg"]},
+
+    {"id": "sozo_margherita_pizza", "name": "Margherita Pizza", "category": "pizza", "type": "variant_group", "tags": ["veg"], "variants": [
+      {"id": "sozo_margherita_pizza_thin", "name": "Thin Crust", "price": 400},
+      {"id": "sozo_margherita_pizza_puff", "name": "Puff Crust", "price": 450}
+    ]},
+    {"id": "sozo_all_veggies_pizza", "name": "All Veggies Pizza", "category": "pizza", "type": "variant_group", "tags": ["veg"], "variants": [
+      {"id": "sozo_all_veggies_pizza_thin", "name": "Thin Crust", "price": 425},
+      {"id": "sozo_all_veggies_pizza_puff", "name": "Puff Crust", "price": 475}
+    ]},
+    {"id": "sozo_peri_peri_paneer_pizza", "name": "Peri Peri Paneer Pizza", "category": "pizza", "type": "variant_group", "tags": ["veg"], "variants": [
+      {"id": "sozo_peri_peri_paneer_pizza_thin", "name": "Thin Crust", "price": 450},
+      {"id": "sozo_peri_peri_paneer_pizza_puff", "name": "Puff Crust", "price": 500}
+    ]},
+    {"id": "sozo_mushroom_corn_pizza", "name": "Mushroom & Corn Pizza", "category": "pizza", "type": "variant_group", "tags": ["veg"], "variants": [
+      {"id": "sozo_mushroom_corn_pizza_thin", "name": "Thin Crust", "price": 450},
+      {"id": "sozo_mushroom_corn_pizza_puff", "name": "Puff Crust", "price": 500}
+    ]},
+
+    {"id": "arabiatta_pasta", "name": "Arabiatta Pasta", "category": "pasta", "type": "variant_group", "tags": ["veg"], "variants": [
+      {"id": "arabiatta_pasta_penne", "name": "Penne", "price": 380},
+      {"id": "arabiatta_pasta_spaghetti", "name": "Spaghetti", "price": 380}
+    ]},
+    {"id": "alfredo_pasta", "name": "Alfredo Pasta", "category": "pasta", "type": "variant_group", "tags": ["veg"], "variants": [
+      {"id": "alfredo_pasta_penne", "name": "Penne", "price": 380},
+      {"id": "alfredo_pasta_spaghetti", "name": "Spaghetti", "price": 380}
+    ]},
+    {"id": "pesto_pasta", "name": "Pesto Pasta", "category": "pasta", "type": "variant_group", "tags": ["veg"], "variants": [
+      {"id": "pesto_pasta_penne", "name": "Penne", "price": 380},
+      {"id": "pesto_pasta_spaghetti", "name": "Spaghetti", "price": 380}
+    ]},
+    {"id": "aglio_olio_pasta", "name": "Aglio Olio Pasta", "category": "pasta", "type": "variant_group", "tags": ["veg"], "variants": [
+      {"id": "aglio_olio_pasta_penne", "name": "Penne", "price": 380},
+      {"id": "aglio_olio_pasta_spaghetti", "name": "Spaghetti", "price": 380}
+    ]},
+
+    {"id": "palmier", "name": "Palmier", "category": "sozo_bakes", "type": "simple", "price": 80, "tags": ["veg"]},
+    {"id": "cinnamon_roll", "name": "Cinnamon Roll", "category": "sozo_bakes", "type": "simple", "price": 80, "tags": ["veg"]},
+    {"id": "veg_sausage_puff", "name": "Veg Sausage Puff", "category": "sozo_bakes", "type": "simple", "price": 120, "tags": ["veg"]},
+    {"id": "butter_croissant", "name": "Butter Croissant", "category": "sozo_bakes", "type": "simple", "price": 120, "tags": ["veg"]},
+    {"id": "chocolate_croissant", "name": "Chocolate Croissant", "category": "sozo_bakes", "type": "simple", "price": 200, "tags": ["veg"]},
+    {"id": "korean_cream_cheese_bun", "name": "Korean Cream Cheese Bun", "category": "sozo_bakes", "type": "simple", "price": 200, "tags": ["veg"]},
+    {"id": "spiced_nuts", "name": "Spiced Nuts", "category": "sozo_bakes", "type": "simple", "price": 350, "tags": ["veg"]},
+
+    {"id": "vanilla_latte", "name": "Vanilla Latte", "category": "coffee", "type": "variant_group", "variants": [
+      {"id": "vanilla_latte_hot", "name": "Hot", "price": 310},
+      {"id": "vanilla_latte_iced", "name": "Iced", "price": 320}
+    ]},
+    {"id": "caramel_latte", "name": "Caramel Latte", "category": "coffee", "type": "variant_group", "variants": [
+      {"id": "caramel_latte_hot", "name": "Hot", "price": 310},
+      {"id": "caramel_latte_iced", "name": "Iced", "price": 320}
+    ]},
+    {"id": "mocha_coffee", "name": "Mocha", "category": "coffee", "type": "variant_group", "variants": [
+      {"id": "mocha_coffee_hot", "name": "Hot", "price": 260},
+      {"id": "mocha_coffee_iced", "name": "Iced", "price": 280}
+    ]},
+    {"id": "long_black", "name": "Long Black", "category": "coffee", "type": "variant_group", "variants": [
+      {"id": "long_black_hot", "name": "Hot", "price": 180},
+      {"id": "long_black_iced", "name": "Iced", "price": 200}
+    ]},
+    {"id": "honey_black", "name": "Honey Black", "category": "coffee", "type": "variant_group", "variants": [
+      {"id": "honey_black_hot", "name": "Hot", "price": 180},
+      {"id": "honey_black_iced", "name": "Iced", "price": 220}
+    ]},
+    {"id": "espresso_shot", "name": "Espresso Shot", "category": "coffee", "type": "variant_group", "variants": [
+      {"id": "espresso_shot_single", "name": "Single", "price": 140},
+      {"id": "espresso_shot_double", "name": "Double", "price": 150}
+    ]},
+    {"id": "cafe_latte", "name": "Cafe Latte", "category": "coffee", "type": "variant_group", "variants": [
+      {"id": "cafe_latte_hot", "name": "Hot", "price": 230},
+      {"id": "cafe_latte_iced", "name": "Iced", "price": 250}
+    ]},
+    {"id": "cortado", "name": "Cortado", "category": "coffee", "type": "simple", "price": 200, "description": "Hot only"},
+    {"id": "flat_white", "name": "Flat White", "category": "coffee", "type": "simple", "price": 210, "description": "Hot only"},
+    {"id": "cappuccino", "name": "Cappuccino", "category": "coffee", "type": "simple", "price": 220, "description": "Hot only"},
+    {"id": "vietnamese_latte", "name": "Vietnamese Latte", "category": "coffee", "type": "simple", "price": 260, "description": "Iced"},
+    {"id": "tiramisu_latte", "name": "Tiramisu Latte", "category": "coffee", "type": "simple", "price": 300, "description": "Iced"},
+    {"id": "sozo_cold_brews", "name": "Cold Brews", "category": "coffee", "type": "variant_group", "variants": [
+      {"id": "cold_brew_classic", "name": "Classic", "price": 220},
+      {"id": "cold_brew_coconut", "name": "Coconut", "price": 250},
+      {"id": "cold_brew_pineapple", "name": "Pineapple", "price": 260},
+      {"id": "cold_brew_peach", "name": "Peach", "price": 270}
+    ]},
+    {"id": "brownie_cold_coffee", "name": "Brownie Cold Coffee", "category": "coffee", "type": "simple", "price": 300},
+    {"id": "affogato", "name": "Affogato", "category": "coffee", "type": "simple", "price": 250},
+
+    {"id": "matcha_berry_bliss", "name": "Matcha Berry Bliss", "category": "non_coffee_teas", "type": "simple", "price": 335, "tags": ["veg"]},
+    {"id": "bancha_latte", "name": "Bancha Latte", "category": "non_coffee_teas", "type": "simple", "price": 335, "tags": ["veg"]},
+    {"id": "spiced_citrus_glow", "name": "Spiced Citrus Glow", "category": "non_coffee_teas", "type": "simple", "price": 335, "tags": ["veg"]},
+    {"id": "dragon_swirl", "name": "Dragon Swirl", "category": "non_coffee_teas", "type": "simple", "price": 335, "tags": ["veg"]},
+    {"id": "peach_berry_ale", "name": "Peach Berry Ale", "category": "non_coffee_teas", "type": "simple", "price": 335, "tags": ["veg"]},
+    {"id": "soft_serve_sip", "name": "Soft Serve Sip", "category": "non_coffee_teas", "type": "simple", "price": 335, "tags": ["veg"]},
+    {"id": "peachy_boba_pearls", "name": "Peachy Boba Pearls", "category": "non_coffee_teas", "type": "simple", "price": 335, "tags": ["veg"]},
+    {"id": "hot_chocolate", "name": "Hot Chocolate", "category": "non_coffee_teas", "type": "simple", "price": 300, "tags": ["veg"]},
+    {"id": "sozo_cold_chocolate", "name": "Sozo Cold Chocolate", "category": "non_coffee_teas", "type": "simple", "price": 300, "tags": ["veg"]},
+    {"id": "lavender_blueberry_sparkler", "name": "Lavender Blueberry Sparkler", "category": "non_coffee_teas", "type": "simple", "price": 230, "tags": ["veg"]},
+    {"id": "spiced_strawberry_coconut", "name": "Spiced Strawberry Coconut", "category": "non_coffee_teas", "type": "simple", "price": 260, "tags": ["veg"]},
+    {"id": "mango_spritzer", "name": "Mango Spritzer", "category": "non_coffee_teas", "type": "simple", "price": 240, "tags": ["veg"]},
+    {"id": "lemon_mint_spritzer", "name": "Lemon Mint Spritzer", "category": "non_coffee_teas", "type": "simple", "price": 220, "tags": ["veg"]},
+    {"id": "iced_matcha", "name": "Iced Matcha", "category": "non_coffee_teas", "type": "simple", "price": 315, "tags": ["veg"]},
+    {"id": "matcha_latte_hot", "name": "Matcha Latte", "category": "non_coffee_teas", "type": "simple", "price": 295, "tags": ["veg"]},
+    {"id": "hot_specialty_teas", "name": "Hot Specialty Teas", "category": "non_coffee_teas", "type": "variant_group", "tags": ["veg"], "variants": [
+      {"id": "hot_tea_jasmine", "name": "Jasmine", "price": 170},
+      {"id": "hot_tea_peach", "name": "Peach", "price": 170},
+      {"id": "hot_tea_earl_grey", "name": "Earl Grey", "price": 170}
+    ]},
+    {"id": "iced_specialty_teas", "name": "Iced Specialty Teas", "category": "non_coffee_teas", "type": "variant_group", "tags": ["veg"], "variants": [
+      {"id": "iced_tea_honey_ginger", "name": "Honey Ginger", "price": 250},
+      {"id": "iced_tea_peach", "name": "Peach", "price": 250}
+    ]}
+
+  ],
+
+  "aliases": {
+    "black forest": "black_forest_cake",
+    "berry chiffon": "berry_chiffon_cake",
+    "mawa": "mawa_cake",
+    "banoffee": "banoffee_jar",
+    "opera": "classic_opera",
+    "florentine": "florentine_bars",
+    "cupcake": "sozo_cupcakes",
+    "brownie": "brownie_box",
+    "brownie box": "brownie_box",
+    "pancake": "sozo_pancakes",
+    "lasagna": "lasagna_romaine",
+    "avo toast": "avo_sourdough_toast",
+    "avocado toast": "avo_sourdough_toast",
+    "garlic bread": "cheese_garlic_bread",
+    "hummus": "hummus_pita",
+    "nachos": "loaded_nachos",
+    "stuffed mushrooms": "crusted_stuffed_mushrooms",
+    "rajmah slider": "rajmah_shammi_slider",
+    "beetroot slider": "avo_lime_beetroot_slider",
+    "margherita": "sozo_margherita_pizza",
+    "arabiatta": "arabiatta_pasta",
+    "alfredo": "alfredo_pasta",
+    "aglio olio": "aglio_olio_pasta",
+    "espresso": "espresso_shot",
+    "cold brew": "sozo_cold_brews",
+    "vietnamese": "vietnamese_latte",
+    "hot chocolate": "hot_chocolate",
+    "cold chocolate": "sozo_cold_chocolate",
+    "matcha latte": "matcha_latte_hot",
+    "boba": "peachy_boba_pearls",
+    "jasmine tea": "hot_tea_jasmine",
+    "earl grey": "hot_tea_earl_grey",
+    "peach tea": "hot_tea_peach"
+  }
+}

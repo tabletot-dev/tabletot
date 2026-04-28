@@ -1,0 +1,14 @@
+# Scenario 1: Simple Order (English)
+# Tests: Basic add, confirmation
+
+Turn 1:
+  Input: I'd like a butter chicken and two garlic naan
+  Expected intents: add_item("butter chicken", 1), add_item("garlic naan", 2)
+  Expected order: Butter Chicken x1, Naan Garlic x2
+  Pass if: both items in order with correct quantities
+
+Turn 2:
+  Input: that's all, confirm please
+  Expected intents: confirm_order
+  Expected order status: confirmed
+  Pass if: order confirmed with 2 items

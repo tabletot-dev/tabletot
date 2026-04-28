@@ -1,0 +1,17 @@
+# Scenario 5: Order Modification
+# Tests: Remove item, add replacement
+
+Turn 1:
+  Input: ek butter chicken aur ek garlic naan
+  Expected: both added to order
+
+Turn 2:
+  Input: actually butter chicken cancel karo, dal makhni dena instead
+  Expected intents: remove_item("butter chicken"), add_item("dal makhni", 1)
+  Expected order: Dal Makhni x1, Naan Garlic x1
+  Pass if: butter chicken removed, dal makhni added
+
+Turn 3:
+  Input: naan ek aur add karo
+  Expected: garlic naan quantity incremented or variant selection
+  Pass if: naan quantity increases or variant clarification asked

@@ -1,0 +1,20 @@
+# Scenario 2: Multi-Item Hindi Mixed
+# Tests: Hindi quantity parsing, code-switching, multiple items
+
+Turn 1:
+  Input: bhaiya ek dal makhni, do butter roti aur ek masala chai
+  Expected intents: add_item("dal makhni", 1), add_item("butter roti", 2), add_item("masala chai", 1)
+  Expected resolver: dal_makhni, roti_butter, classic_masala_chai
+  Expected order: 3 items
+  Pass if: all three resolved correctly, quantities correct
+
+Turn 2:
+  Input: aur ek jeera rice bhi
+  Expected intents: add_item("jeera rice", 1)
+  Expected order: 4 items
+  Pass if: jeera rice added
+
+Turn 3:
+  Input: bas, order karo
+  Expected intents: confirm_order
+  Pass if: order confirmed with 4 items

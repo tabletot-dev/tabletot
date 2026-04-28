@@ -1,0 +1,18 @@
+{
+  "roast-ccx-hyd": {
+    "name": "Roast CCx Hyderabad",
+    "language_code": "en-IN",
+    "speaker": "rohan",
+    "menu_path": "menus/roast-ccx-hyd.json",
+    "fallback_language_code": "hi-IN",
+    "fallback_speaker": "ishita"
+  },
+  "sozo-cakery-banjara": {
+    "name": "Sozo Cakery & Cafe Banjara Hills",
+    "language_code": "en-IN",
+    "speaker": "rohan",
+    "menu_path": "menus/sozo-cakery-banjara.json",
+    "fallback_language_code": "hi-IN",
+    "fallback_speaker": "ishita"
+  }
+}

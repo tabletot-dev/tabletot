@@ -1,0 +1,16 @@
+# Scenario 4: Ambiguity Resolution
+# Tests: Ambiguous input -> clarification -> specific selection
+
+Turn 1:
+  Input: ek coffee dena
+  Expected intents: add_item("coffee", 1)
+  Expected resolver: Ambiguous (multiple coffee items)
+  Expected order: empty
+  Pass if: LLM asks which coffee and lists options
+
+Turn 2:
+  Input: filter coffee
+  Expected intents: select_variant("filter coffee", 1) or add_item("filter coffee", 1)
+  Expected resolver: south_indian_filter_coffee via alias
+  Expected order: South Indian Filter Coffee x1
+  Pass if: correct coffee added

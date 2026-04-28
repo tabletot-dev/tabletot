@@ -1,0 +1,19 @@
+# Scenario 10: Large Order with Mixed Languages
+# Tests: Stress test — many items, Hindi-English mixing, Telugu
+
+Turn 1:
+  Input: bhaiya suno, ek butter chicken, do garlic naan, ek dal makhni, ek jeera rice, do masala chai, aur ek margherita pizza
+  Expected intents: 6 add_item intents
+  Expected order: 6 distinct items
+  Pass if: all 6 resolved correctly
+
+Turn 2:
+  Input: actually pizza cancel, ek penne pesto dena with extra cheese
+  Expected: pizza removed, penne pesto added with notes
+  Pass if: pizza out, penne pesto in with "extra cheese" note
+
+Turn 3:
+  Input: rendu filter coffee kuda ivvu
+  Expected: add_item("filter coffee", 2) — Telugu "rendu" = 2
+  Expected order: 7 items including 2 filter coffees
+  Pass if: Telugu quantity parsed correctly
