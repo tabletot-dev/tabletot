@@ -26,12 +26,30 @@ export default function Kitchen() {
   useEffect(() => {
     fetchTickets();
 
-    // Subscribe to real-time updates
     const channel = supabase
       .channel('kot_tickets')
+      // New pending tickets appended directly — no round-trip fetch needed.
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'kot_tickets' },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'kot_tickets',
+          filter: 'status=eq.pending',
+        },
+        (payload) => {
+          setTickets((prev) => [...prev, payload.new as KOTTicket]);
+        }
+      )
+      // Status changes and deletions require a full refresh to reflect current DB state.
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'kot_tickets' },
+        () => fetchTickets()
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'kot_tickets' },
         () => fetchTickets()
       )
       .subscribe();
