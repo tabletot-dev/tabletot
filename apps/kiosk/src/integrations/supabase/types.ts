@@ -35,6 +35,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      anchor_items: {
+        Row: {
+          active: boolean | null
+          active_window: Json | null
+          anchor_type: string | null
+          created_at: string | null
+          id: string
+          item_id: string | null
+          priority: number | null
+        }
+        Insert: {
+          active?: boolean | null
+          active_window?: Json | null
+          anchor_type?: string | null
+          created_at?: string | null
+          id?: string
+          item_id?: string | null
+          priority?: number | null
+        }
+        Update: {
+          active?: boolean | null
+          active_window?: Json | null
+          anchor_type?: string | null
+          created_at?: string | null
+          id?: string
+          item_id?: string | null
+          priority?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anchor_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       areas: {
         Row: {
           created_at: string
@@ -162,6 +200,48 @@ export type Database = {
           },
         ]
       }
+      item_pairings: {
+        Row: {
+          context: string | null
+          created_at: string | null
+          id: string
+          paired_item_id: string | null
+          priority: number | null
+          source_item_id: string | null
+        }
+        Insert: {
+          context?: string | null
+          created_at?: string | null
+          id?: string
+          paired_item_id?: string | null
+          priority?: number | null
+          source_item_id?: string | null
+        }
+        Update: {
+          context?: string | null
+          created_at?: string | null
+          id?: string
+          paired_item_id?: string | null
+          priority?: number | null
+          source_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_pairings_paired_item_id_fkey"
+            columns: ["paired_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_pairings_source_item_id_fkey"
+            columns: ["source_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       item_variants: {
         Row: {
           created_at: string
@@ -246,6 +326,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      meal_completion_rules: {
+        Row: {
+          active: boolean | null
+          condition: Json | null
+          created_at: string | null
+          id: string
+          priority: number | null
+          rule_name: string
+          suggestion: Json | null
+        }
+        Insert: {
+          active?: boolean | null
+          condition?: Json | null
+          created_at?: string | null
+          id?: string
+          priority?: number | null
+          rule_name: string
+          suggestion?: Json | null
+        }
+        Update: {
+          active?: boolean | null
+          condition?: Json | null
+          created_at?: string | null
+          id?: string
+          priority?: number | null
+          rule_name?: string
+          suggestion?: Json | null
+        }
+        Relationships: []
       }
       menu_categories: {
         Row: {
@@ -518,6 +628,47 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      recommendation_events: {
+        Row: {
+          cart_value_at_show: number | null
+          id: string
+          item_accepted: boolean | null
+          item_shown: string | null
+          pattern_type: string | null
+          session_id: string | null
+          table_id: string | null
+          timestamp: string | null
+        }
+        Insert: {
+          cart_value_at_show?: number | null
+          id?: string
+          item_accepted?: boolean | null
+          item_shown?: string | null
+          pattern_type?: string | null
+          session_id?: string | null
+          table_id?: string | null
+          timestamp?: string | null
+        }
+        Update: {
+          cart_value_at_show?: number | null
+          id?: string
+          item_accepted?: boolean | null
+          item_shown?: string | null
+          pattern_type?: string | null
+          session_id?: string | null
+          table_id?: string | null
+          timestamp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recommendation_events_item_shown_fkey"
+            columns: ["item_shown"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       restaurant_tables: {
         Row: {
