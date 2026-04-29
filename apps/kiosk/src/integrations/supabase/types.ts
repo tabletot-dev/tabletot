@@ -35,249 +35,211 @@ export type Database = {
   }
   public: {
     Tables: {
-      addon_group_categories: {
-        Row: {
-          addon_group_id: string
-          category_id: string
-        }
-        Insert: {
-          addon_group_id: string
-          category_id: string
-        }
-        Update: {
-          addon_group_id?: string
-          category_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "addon_group_categories_addon_group_id_fkey"
-            columns: ["addon_group_id"]
-            isOneToOne: false
-            referencedRelation: "addon_groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "addon_group_categories_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      addon_groups: {
+      areas: {
         Row: {
           created_at: string
           id: string
+          is_active: boolean
           name: string
         }
         Insert: {
           created_at?: string
           id?: string
+          is_active?: boolean
           name: string
         }
         Update: {
           created_at?: string
           id?: string
+          is_active?: boolean
           name?: string
         }
         Relationships: []
       }
-      addon_options: {
+      discount_types: {
         Row: {
-          addon_group_id: string
+          coupon_code: string | null
           created_at: string
+          discount_type: string
           id: string
-          is_available: boolean
+          is_active: boolean
+          max_discount: number | null
+          min_order_value: number
           name: string
-          price: number
-          sort_order: number
+          valid_until: string | null
+          value: number
         }
         Insert: {
-          addon_group_id: string
+          coupon_code?: string | null
           created_at?: string
+          discount_type: string
           id?: string
-          is_available?: boolean
+          is_active?: boolean
+          max_discount?: number | null
+          min_order_value?: number
           name: string
-          price: number
-          sort_order?: number
+          valid_until?: string | null
+          value: number
         }
         Update: {
-          addon_group_id?: string
+          coupon_code?: string | null
           created_at?: string
+          discount_type?: string
           id?: string
-          is_available?: boolean
+          is_active?: boolean
+          max_discount?: number | null
+          min_order_value?: number
           name?: string
-          price?: number
-          sort_order?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "addon_options_addon_group_id_fkey"
-            columns: ["addon_group_id"]
-            isOneToOne: false
-            referencedRelation: "addon_groups"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      categories: {
-        Row: {
-          available_days: string[] | null
-          available_from: string | null
-          available_until: string | null
-          created_at: string
-          id: string
-          name: string
-          sort_order: number
-        }
-        Insert: {
-          available_days?: string[] | null
-          available_from?: string | null
-          available_until?: string | null
-          created_at?: string
-          id?: string
-          name: string
-          sort_order?: number
-        }
-        Update: {
-          available_days?: string[] | null
-          available_from?: string | null
-          available_until?: string | null
-          created_at?: string
-          id?: string
-          name?: string
-          sort_order?: number
+          valid_until?: string | null
+          value?: number
         }
         Relationships: []
       }
-      item_variants: {
+      external_id_mapping: {
         Row: {
           created_at: string
+          external_id: string
           id: string
-          is_available: boolean
-          name: string
-          parent_item_id: string
-          price: number
-          sort_order: number
-          tags: string[]
+          internal_item_id: string
+          provider: string
         }
         Insert: {
           created_at?: string
+          external_id: string
           id?: string
-          is_available?: boolean
-          name: string
-          parent_item_id: string
-          price: number
-          sort_order?: number
-          tags?: string[]
+          internal_item_id: string
+          provider: string
         }
         Update: {
           created_at?: string
+          external_id?: string
           id?: string
-          is_available?: boolean
-          name?: string
-          parent_item_id?: string
-          price?: number
-          sort_order?: number
-          tags?: string[]
+          internal_item_id?: string
+          provider?: string
         }
         Relationships: [
           {
-            foreignKeyName: "item_variants_parent_item_id_fkey"
-            columns: ["parent_item_id"]
+            foreignKeyName: "external_id_mapping_internal_item_id_fkey"
+            columns: ["internal_item_id"]
             isOneToOne: false
             referencedRelation: "menu_items"
             referencedColumns: ["id"]
           },
         ]
       }
-      kot_items: {
+      item_addons: {
         Row: {
+          addon_name: string
           created_at: string
           id: string
-          item_name: string
-          kot_id: string
-          menu_item_id: string | null
-          quantity: number
-          unit_price: number
-          variant_id: string | null
+          is_available: boolean
+          menu_item_id: string
+          price: number
         }
         Insert: {
+          addon_name: string
           created_at?: string
           id?: string
-          item_name: string
-          kot_id: string
-          menu_item_id?: string | null
-          quantity?: number
-          unit_price: number
-          variant_id?: string | null
+          is_available?: boolean
+          menu_item_id: string
+          price?: number
         }
         Update: {
+          addon_name?: string
           created_at?: string
           id?: string
-          item_name?: string
-          kot_id?: string
-          menu_item_id?: string | null
-          quantity?: number
-          unit_price?: number
-          variant_id?: string | null
+          is_available?: boolean
+          menu_item_id?: string
+          price?: number
         }
         Relationships: [
           {
-            foreignKeyName: "kot_items_kot_id_fkey"
-            columns: ["kot_id"]
-            isOneToOne: false
-            referencedRelation: "kots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "kot_items_menu_item_id_fkey"
+            foreignKeyName: "item_addons_menu_item_id_fkey"
             columns: ["menu_item_id"]
             isOneToOne: false
             referencedRelation: "menu_items"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "kot_items_variant_id_fkey"
-            columns: ["variant_id"]
-            isOneToOne: false
-            referencedRelation: "item_variants"
-            referencedColumns: ["id"]
-          },
         ]
       }
-      kots: {
+      item_variants: {
         Row: {
           created_at: string
           id: string
-          order_id: string
-          round_number: number
-          status: Database["public"]["Enums"]["kot_status"]
-          total: number
-          updated_at: string
+          is_default: boolean
+          menu_item_id: string
+          price_modifier: number
+          variant_name: string
+          variant_type: string | null
         }
         Insert: {
           created_at?: string
           id?: string
-          order_id: string
-          round_number?: number
-          status?: Database["public"]["Enums"]["kot_status"]
-          total?: number
-          updated_at?: string
+          is_default?: boolean
+          menu_item_id: string
+          price_modifier?: number
+          variant_name: string
+          variant_type?: string | null
         }
         Update: {
           created_at?: string
           id?: string
-          order_id?: string
-          round_number?: number
-          status?: Database["public"]["Enums"]["kot_status"]
-          total?: number
-          updated_at?: string
+          is_default?: boolean
+          menu_item_id?: string
+          price_modifier?: number
+          variant_name?: string
+          variant_type?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "kots_order_id_fkey"
+            foreignKeyName: "item_variants_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kot_tickets: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          items: Json | null
+          kot_number: string | null
+          order_id: string | null
+          printed_at: string
+          special_notes: string | null
+          status: string
+          table_number: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          items?: Json | null
+          kot_number?: string | null
+          order_id?: string | null
+          printed_at?: string
+          special_notes?: string | null
+          status?: string
+          table_number?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          items?: Json | null
+          kot_number?: string | null
+          order_id?: string | null
+          printed_at?: string
+          special_notes?: string | null
+          status?: string
+          table_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kot_tickets_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
@@ -285,118 +247,374 @@ export type Database = {
           },
         ]
       }
-      menu_items: {
+      menu_categories: {
         Row: {
-          category_id: string
           created_at: string
           description: string | null
+          display_order: number
           id: string
-          image_url: string | null
-          is_available: boolean
-          modifiers: Json | null
+          is_active: boolean
           name: string
-          price: number | null
-          serves: number | null
-          sort_order: number
-          tags: string[]
-          type: Database["public"]["Enums"]["item_type"]
-          updated_at: string
         }
         Insert: {
-          category_id: string
           created_at?: string
           description?: string | null
+          display_order?: number
           id?: string
-          image_url?: string | null
-          is_available?: boolean
-          modifiers?: Json | null
+          is_active?: boolean
           name: string
-          price?: number | null
-          serves?: number | null
-          sort_order?: number
-          tags?: string[]
-          type?: Database["public"]["Enums"]["item_type"]
-          updated_at?: string
         }
         Update: {
-          category_id?: string
           created_at?: string
           description?: string | null
+          display_order?: number
           id?: string
-          image_url?: string | null
-          is_available?: boolean
-          modifiers?: Json | null
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
+      menu_items: {
+        Row: {
+          active: boolean
+          category: string | null
+          created_at: string
+          id: string
+          name: string
+          price: number | null
+          tags: Json | null
+        }
+        Insert: {
+          active?: boolean
+          category?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          price?: number | null
+          tags?: Json | null
+        }
+        Update: {
+          active?: boolean
+          category?: string | null
+          created_at?: string
+          id?: string
           name?: string
           price?: number | null
-          serves?: number | null
-          sort_order?: number
-          tags?: string[]
-          type?: Database["public"]["Enums"]["item_type"]
-          updated_at?: string
+          tags?: Json | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "menu_items_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      order_history: {
+        Row: {
+          amount_paid: number
+          created_at: string
+          created_by: string | null
+          customer_name: string | null
+          discount: number
+          id: string
+          items_json: Json | null
+          order_created_at: string | null
+          order_id: string | null
+          order_type: string | null
+          original_order_id: string | null
+          payment_method: string | null
+          source: string | null
+          special_instructions: string | null
+          subtotal: number
+          table_no: string | null
+          tax: number
+          tips: number
+          total: number
+        }
+        Insert: {
+          amount_paid?: number
+          created_at?: string
+          created_by?: string | null
+          customer_name?: string | null
+          discount?: number
+          id?: string
+          items_json?: Json | null
+          order_created_at?: string | null
+          order_id?: string | null
+          order_type?: string | null
+          original_order_id?: string | null
+          payment_method?: string | null
+          source?: string | null
+          special_instructions?: string | null
+          subtotal?: number
+          table_no?: string | null
+          tax?: number
+          tips?: number
+          total?: number
+        }
+        Update: {
+          amount_paid?: number
+          created_at?: string
+          created_by?: string | null
+          customer_name?: string | null
+          discount?: number
+          id?: string
+          items_json?: Json | null
+          order_created_at?: string | null
+          order_id?: string | null
+          order_type?: string | null
+          original_order_id?: string | null
+          payment_method?: string | null
+          source?: string | null
+          special_instructions?: string | null
+          subtotal?: number
+          table_no?: string | null
+          tax?: number
+          tips?: number
+          total?: number
+        }
+        Relationships: []
+      }
+      order_items: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string | null
+          item_name: string | null
+          line_total: number
+          order_id: string | null
+          qty: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          item_name?: string | null
+          line_total?: number
+          order_id?: string | null
+          qty?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          item_name?: string | null
+          line_total?: number
+          order_id?: string | null
+          qty?: number
+        }
+        Relationships: []
       }
       orders: {
         Row: {
           created_at: string
+          created_by: string | null
+          customer_name: string | null
+          discount: number
           id: string
-          status: Database["public"]["Enums"]["order_status"]
-          table_id: string
+          items_json: Json | null
+          order_id: string | null
+          order_type: string | null
+          source: string | null
+          special_instructions: string | null
+          status: string
+          subtotal: number
+          table_no: string | null
+          tax: number
+          total: number
           updated_at: string
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
+          customer_name?: string | null
+          discount?: number
           id?: string
-          status?: Database["public"]["Enums"]["order_status"]
-          table_id: string
+          items_json?: Json | null
+          order_id?: string | null
+          order_type?: string | null
+          source?: string | null
+          special_instructions?: string | null
+          status?: string
+          subtotal?: number
+          table_no?: string | null
+          tax?: number
+          total?: number
           updated_at?: string
         }
         Update: {
           created_at?: string
+          created_by?: string | null
+          customer_name?: string | null
+          discount?: number
           id?: string
-          status?: Database["public"]["Enums"]["order_status"]
-          table_id?: string
+          items_json?: Json | null
+          order_id?: string | null
+          order_type?: string | null
+          source?: string | null
+          special_instructions?: string | null
+          status?: string
+          subtotal?: number
+          table_no?: string | null
+          tax?: number
+          total?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          order_id: string | null
+          payment_method: string | null
+          status: string
+          tips: number
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          order_id?: string | null
+          payment_method?: string | null
+          status?: string
+          tips?: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          order_id?: string | null
+          payment_method?: string | null
+          status?: string
+          tips?: number
         }
         Relationships: [
           {
-            foreignKeyName: "orders_table_id_fkey"
-            columns: ["table_id"]
+            foreignKeyName: "payments_order_id_fkey"
+            columns: ["order_id"]
             isOneToOne: false
-            referencedRelation: "restaurant_tables"
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
         ]
       }
-      restaurant_tables: {
+      profiles: {
         Row: {
           created_at: string
+          email: string | null
+          full_name: string | null
           id: string
-          status: Database["public"]["Enums"]["table_status"]
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      restaurant_tables: {
+        Row: {
+          area_id: string | null
+          assigned_captain: string | null
+          capacity: number | null
+          created_at: string
+          current_order_id: string | null
+          id: string
+          status: string
           table_number: string
           updated_at: string
         }
         Insert: {
+          area_id?: string | null
+          assigned_captain?: string | null
+          capacity?: number | null
           created_at?: string
+          current_order_id?: string | null
           id?: string
-          status?: Database["public"]["Enums"]["table_status"]
+          status?: string
           table_number: string
           updated_at?: string
         }
         Update: {
+          area_id?: string | null
+          assigned_captain?: string | null
+          capacity?: number | null
           created_at?: string
+          current_order_id?: string | null
           id?: string
-          status?: Database["public"]["Enums"]["table_status"]
+          status?: string
           table_number?: string
           updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_restaurant_tables_current_order"
+            columns: ["current_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restaurant_tables_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "areas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff: {
+        Row: {
+          created_at: string
+          full_name: string
+          id: string
+          is_active: boolean
+          phone: string | null
+          role: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          full_name: string
+          id?: string
+          is_active?: boolean
+          phone?: string | null
+          role: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          full_name?: string
+          id?: string
+          is_active?: boolean
+          phone?: string | null
+          role?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          role?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -408,10 +626,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      item_type: "simple" | "variant_group"
-      kot_status: "pending" | "preparing" | "ready" | "served"
-      order_status: "open" | "paid" | "cancelled"
-      table_status: "available" | "occupied" | "bill_requested"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -541,12 +756,7 @@ export const Constants = {
     Enums: {},
   },
   public: {
-    Enums: {
-      item_type: ["simple", "variant_group"],
-      kot_status: ["pending", "preparing", "ready", "served"],
-      order_status: ["open", "paid", "cancelled"],
-      table_status: ["available", "occupied", "bill_requested"],
-    },
+    Enums: {},
   },
 } as const
 
