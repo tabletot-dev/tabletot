@@ -1,6 +1,7 @@
 import { menuItems, menuCategories, MenuItem, OrderItem } from "@/data/menu";
 import { getUpsellItem } from "@/data/upsell";
 import { useMemo, useState, useCallback } from "react";
+import ChefsPicks from "@/components/ChefsPicks";
 
 type PageTab = "menu" | "about" | "info";
 
@@ -92,6 +93,8 @@ const MenuScreen = ({ onSelect, onAddToCart, onUpdateQuantity, order }: MenuScre
               </button>
             ))}
           </div>
+
+          <ChefsPicks order={order} onAddToCart={onAddToCart} />
 
           {/* Items list */}
           <div className="flex-1 overflow-y-auto p-3">
