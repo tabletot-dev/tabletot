@@ -45,6 +45,16 @@ interface MealRuleRow {
   suggestion: unknown;
 }
 
+interface AovLiftRow {
+  pattern_type: string | null;
+  total_shown: number | null;
+  accepted: number | null;
+  acceptance_rate_pct: number | null;
+  avg_cart_when_accepted: number | null;
+  avg_cart_when_rejected: number | null;
+  aov_lift_estimate: number | null;
+}
+
 const ANCHOR_TYPES = ['chef_pick', 'bestseller', 'new', 'signature'] as const;
 
 // ─── page ────────────────────────────────────────────────────────────────────
@@ -70,6 +80,10 @@ export default function RecommendationCuration() {
   // Section 3
   const [mealRules, setMealRules] = useState<MealRuleRow[]>([]);
   const [mealRulesLoading, setMealRulesLoading] = useState(true);
+
+  // Section 4 — Measurement
+  const [aovRows, setAovRows] = useState<AovLiftRow[]>([]);
+  const [aovLoading, setAovLoading] = useState(true);
 
   // ── fetch helpers ────────────────────────────────────────────────────────
 
@@ -138,12 +152,21 @@ export default function RecommendationCuration() {
     setMealRulesLoading(false);
   }, []);
 
+  const fetchAovLift = useCallback(async () => {
+    const { data } = await supabase.from('recommendation_aov_lift').select('*');
+    setAovRows((data as AovLiftRow[]) ?? []);
+    setAovLoading(false);
+  }, []);
+
   useEffect(() => {
     fetchMenuItems();
     fetchAnchors();
     fetchPairings();
     fetchMealRules();
-  }, [fetchMenuItems, fetchAnchors, fetchPairings, fetchMealRules]);
+    fetchAovLift();
+    const interval = setInterval(fetchAovLift, 30_000);
+    return () => clearInterval(interval);
+  }, [fetchMenuItems, fetchAnchors, fetchPairings, fetchMealRules, fetchAovLift]);
 
   // ── anchor actions ────────────────────────────────────────────────────────
 
@@ -498,6 +521,49 @@ export default function RecommendationCuration() {
                       <pre className="text-xs text-muted-foreground max-w-[160px] truncate">
                         {row.suggestion ? JSON.stringify(row.suggestion) : '—'}
                       </pre>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Section 4: Measurement ───────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Measurement</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {aovLoading ? (
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+            </div>
+          ) : aovRows.length === 0 ? (
+            <p className="text-muted-foreground text-sm py-4 text-center">No data yet.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Pattern</TableHead>
+                  <TableHead className="text-right">Shown</TableHead>
+                  <TableHead className="text-right">Accepted</TableHead>
+                  <TableHead className="text-right">Acceptance rate</TableHead>
+                  <TableHead className="text-right">AOV lift estimate</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {aovRows.map((row) => (
+                  <TableRow key={row.pattern_type ?? 'null'}>
+                    <TableCell className="font-medium">{row.pattern_type ?? '—'}</TableCell>
+                    <TableCell className="text-right">{row.total_shown ?? 0}</TableCell>
+                    <TableCell className="text-right">{row.accepted ?? 0}</TableCell>
+                    <TableCell className="text-right">
+                      {row.acceptance_rate_pct != null ? `${row.acceptance_rate_pct}%` : '—'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {row.aov_lift_estimate != null ? `₹${row.aov_lift_estimate}` : '—'}
                     </TableCell>
                   </TableRow>
                 ))}
