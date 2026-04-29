@@ -11,6 +11,8 @@ The Sheets layer flattened structured order data into strings (e.g. `"2x Pizza"`
 
 Both apps already use Supabase as their data layer. The middleware existed because the two PoCs were generated independently and Sheets was the easiest glue at PoC time, not because the architecture required a broker.
 
+Update: "the handoff described a Sheets middleware; on inspection it didn't exist; the decision remains direct Supabase regardless.
+
 ## Decision
 
 Retire the Google Sheets middleware and the polling Edge Function. The kiosk and POS will share a single Supabase project per restaurant deployment and write directly to the same tables. Order submission becomes a direct Supabase insert from the kiosk; the POS reads via existing Realtime subscriptions on the same tables.

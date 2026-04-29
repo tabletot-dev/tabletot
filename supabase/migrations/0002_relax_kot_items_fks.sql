@@ -1,0 +1,11 @@
+-- 0002_relax_kot_items_fks.sql
+-- The kiosk's hardcoded MenuItem.id values ("1"–"21") are numeric strings that
+-- cannot reference menu_items.id (uuid). Both will stay decoupled until the menu
+-- is seeded from menu.json and the kiosk is re-pointed at DB-sourced menu items
+-- (planned for a later beat).
+--
+-- For now, make menu_item_id nullable so kot_items rows can be inserted with
+-- item identity captured via item_name + unit_price (fully denormalized). The FK
+-- column and the relationship to menu_items are intentionally retained so the
+-- constraint can be re-enabled once menu data is present.
+ALTER TABLE kot_items ALTER COLUMN menu_item_id DROP NOT NULL;

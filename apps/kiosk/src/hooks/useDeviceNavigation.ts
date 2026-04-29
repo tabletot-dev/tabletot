@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { MenuItem, OrderItem } from "@/data/menu";
+import { submitOrder } from "@/lib/orderSubmission";
 
 export type ScreenType =
   | "idle"
@@ -50,8 +51,15 @@ export function useDeviceNavigation() {
     setOrder((prev) => prev.filter((o) => o.id !== itemId));
   }, []);
 
-  const confirmOrder = useCallback(() => {
+  const confirmOrder = useCallback(async () => {
     if (order.length > 0) {
+      try {
+        await submitOrder(order);
+      } catch (err) {
+        console.error("Order submission failed:", err);
+        alert("Order could not be sent. Please try again.");
+        return;
+      }
       setPreviousOrders((prev) => [
         ...prev,
         {
