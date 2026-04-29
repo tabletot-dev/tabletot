@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import type { OrderItem } from '@/data/menu';
 
 // Cached for the lifetime of the browser session. Single-table kiosk: always T1.
@@ -16,39 +17,59 @@ async function resolveTableId(): Promise<string> {
   return data.id;
 }
 
+export class OrderSubmissionError extends Error {
+  constructor(
+    public readonly step: 'order' | 'kot',
+    message: string,
+  ) {
+    super(message);
+    this.name = 'OrderSubmissionError';
+  }
+}
+
 export async function submitOrder(
   cart: OrderItem[],
 ): Promise<{ orderId: string; kotId: string }> {
-  const tableId = await resolveTableId();
+  // Warm the table-id cache; the uuid is not needed for the order insert
+  // (orders uses table_no text, not a uuid FK) but may be needed by callers.
+  await resolveTableId();
+
+  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  const itemsJson = cart.map((item) => ({
+    name: item.name,
+    qty: item.quantity,
+    price: item.price,
+    modifiers: [] as string[],
+  })) as unknown as Json;
 
   const { data: order, error: orderError } = await supabase
     .from('orders')
-    .insert({ table_id: tableId })
+    .insert({
+      table_no: 'T1',
+      order_type: 'dine-in',
+      source: 'Tabletot',
+      status: 'pending',
+      items_json: itemsJson,
+      subtotal,
+      total: subtotal,
+    })
     .select('id')
     .single();
-  if (orderError) throw new Error(`Failed to create order: ${orderError.message}`);
-
-  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  if (orderError) throw new OrderSubmissionError('order', orderError.message);
 
   const { data: kot, error: kotError } = await supabase
-    .from('kots')
-    .insert({ order_id: order.id, round_number: 1, total })
+    .from('kot_tickets')
+    .insert({
+      order_id: order.id,
+      kot_number: `KOT-${Date.now()}`,
+      table_number: 'T1',
+      items: itemsJson,
+      status: 'pending',
+    })
     .select('id')
     .single();
-  if (kotError) throw new Error(`Failed to create KOT: ${kotError.message}`);
-
-  const kotItems = cart.map((item) => ({
-    kot_id: kot.id,
-    // menu_item_id is null until the kiosk is re-pointed at DB-sourced menu items.
-    // Item identity is fully captured by item_name + unit_price. See migration 0002.
-    menu_item_id: null as string | null,
-    item_name: item.name,
-    unit_price: item.price,
-    quantity: item.quantity,
-  }));
-
-  const { error: itemsError } = await supabase.from('kot_items').insert(kotItems);
-  if (itemsError) throw new Error(`Failed to create KOT items: ${itemsError.message}`);
+  if (kotError) throw new OrderSubmissionError('kot', kotError.message);
 
   return { orderId: order.id, kotId: kot.id };
 }
