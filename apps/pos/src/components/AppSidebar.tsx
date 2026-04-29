@@ -13,7 +13,7 @@ import {
   useSidebar,
   SidebarFooter,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, ShoppingCart, FileText, Users, TrendingUp, Settings, FolderTree, UtensilsCrossed, LogOut, Coffee, Grid3X3 } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, FileText, Users, TrendingUp, Settings, FolderTree, UtensilsCrossed, LogOut, Coffee, Grid3X3, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export function AppSidebar() {
@@ -31,6 +31,7 @@ export function AppSidebar() {
     { title: 'Tables', url: '/tables', icon: Grid3X3, roles: ['admin', 'manager'] },
     { title: 'Categories', url: '/admin/categories', icon: FolderTree, roles: ['admin', 'manager'] },
     { title: 'Menu Items', url: '/admin/menu-items', icon: UtensilsCrossed, roles: ['admin', 'manager'] },
+    { title: 'Recommendations', url: '/admin/recommendations', icon: Sparkles, roles: ['admin', 'manager'] },
     { title: 'Staff', url: '/staff', icon: Users, roles: ['admin', 'manager'] },
     { title: 'Reports', url: '/reports', icon: TrendingUp, roles: ['admin', 'manager'] },
     { title: 'Settings', url: '/settings', icon: Settings, roles: ['admin', 'manager'] },

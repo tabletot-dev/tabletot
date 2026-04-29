@@ -20,6 +20,7 @@ import Settings from "./pages/Settings";
 import TableManagement from "./pages/TableManagement";
 import AdminCategories from "./pages/AdminCategories";
 import AdminMenuItems from "./pages/AdminMenuItems";
+import RecommendationCuration from "./pages/RecommendationCuration";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -157,6 +158,16 @@ const App = () => (
                 <ProtectedRoute allowedRoles={['admin', 'manager']}>
                   <Layout>
                     <Settings />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/recommendations"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'manager']}>
+                  <Layout>
+                    <RecommendationCuration />
                   </Layout>
                 </ProtectedRoute>
               }
