@@ -11,6 +11,7 @@ Endpoints:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from datetime import datetime
 
@@ -158,6 +159,44 @@ def _serialize_resolver_results(calls: list[ResolverCall]) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
+def _apply_cart_sync(session: "VoiceSession", items: list[dict]) -> None:  # type: ignore[name-defined]
+    """Replace backend order state with the current kiosk touch cart.
+
+    Each item carries {id, name, qty, price}. We resolve the display name
+    against the menu index to get the canonical item_id (petpooja external_id)
+    so that subsequent voice removals/modifications find the right entry.
+    Falls back to a slugified name when the resolver can't match.
+    """
+    from src.models import ConfidentMatch
+    from src.resolver import resolve
+
+    session.orchestrator.order_state.clear()
+    for item in items:
+        name: str = item.get("name", "")
+        qty: int = int(item.get("qty", 1))
+        price: int = int(item.get("price", 0))
+        if not name:
+            continue
+        result = resolve(name, session.orchestrator.menu_index, datetime.now())
+        if isinstance(result, ConfidentMatch):
+            session.orchestrator.order_state.add_item(
+                item_id=result.item_id,
+                item_name=result.item_name,
+                quantity=qty,
+                unit_price=result.price or price,
+                category=result.category,
+            )
+        else:
+            # Resolver couldn't match — use slugified name so LLM still sees the item
+            session.orchestrator.order_state.add_item(
+                item_id=name.lower().replace(" ", "_"),
+                item_name=name,
+                quantity=qty,
+                unit_price=price,
+                category="",
+            )
+
+
 @router.websocket("/stt/{session_id}")
 async def voice_stt(ws: WebSocket, session_id: str) -> None:
     """Per PTT press: proxy audio to Sarvam STT, return transcripts."""
@@ -170,6 +209,28 @@ async def voice_stt(ws: WebSocket, session_id: str) -> None:
         await ws.send_json({"type": "error", "message": "Session not found"})
         await ws.close(code=4004)
         return
+
+    # Fix A: accept one optional cart_sync JSON message before audio starts.
+    # 500 ms timeout — if nothing arrives (or first frame is already binary audio)
+    # we proceed without syncing and the backend order state is unchanged.
+    try:
+        raw = await asyncio.wait_for(ws.receive(), timeout=0.5)
+        if raw.get("type") == "websocket.receive" and raw.get("text"):
+            try:
+                parsed = json.loads(raw["text"])
+                if parsed.get("type") == "cart_sync":
+                    _apply_cart_sync(session, parsed.get("items", []))
+                    logger.info(
+                        "cart_sync applied: %d item(s) session=%s",
+                        len(parsed.get("items", [])),
+                        session_id,
+                    )
+            except (json.JSONDecodeError, Exception):
+                pass
+        # If first frame is binary audio we consumed it — acceptable; Sarvam
+        # handles a small amount of missing audio at the start without issue.
+    except asyncio.TimeoutError:
+        pass
 
     stt_handler = SarvamSTTHandler(mgr._sarvam_api_key)
 

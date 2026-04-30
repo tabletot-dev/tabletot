@@ -1,8 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { useDeviceNavigation } from "@/hooks/useDeviceNavigation";
 import IdleScreen from "@/components/screens/IdleScreen";
-
-const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
 import ListeningScreen from "@/components/screens/ListeningScreen";
 import MenuScreen from "@/components/screens/MenuScreen";
 import ItemDetailScreen from "@/components/screens/ItemDetailScreen";
@@ -18,6 +16,10 @@ import { findMatchingRule, type CompletionRule, type MatchedSuggestion } from "@
 import { useMenu } from "@/lib/menuStore";
 import type { DoneMessage, OrderSnapshot } from "@/lib/voice/types";
 import { MenuItem } from "@/data/menu";
+
+const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
+// One tablet = one table. Matches restaurant_tables.table_number used in order submission.
+const TABLE_ID = "T1";
 
 // Normalize item names for matching: lowercase, collapse dashes/en-dashes to space
 function normalizeName(name: string): string {
@@ -260,7 +262,12 @@ const Index = () => {
           {/* Voice PTT button — bottom-right, visible on all active screens */}
           {showVoiceButton && (
             <div className="absolute bottom-4 right-4 z-40">
-              <VoiceOrderButton onDone={handleVoiceDone} />
+              <VoiceOrderButton
+                onDone={handleVoiceDone}
+                order={order}
+                restaurantId={RESTAURANT_ID}
+                tableId={TABLE_ID}
+              />
             </div>
           )}
 

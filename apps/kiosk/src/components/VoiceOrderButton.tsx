@@ -1,22 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { startSession, endSession } from "@/lib/voice/api";
 import { openTtsClient, unlockAudioContext, type TtsClientHandle } from "@/lib/voice/ttsClient";
-import { startSttPress, type SttPressHandle } from "@/lib/voice/sttClient";
+import { startSttPress, MicPermissionDeniedError, type SttPressHandle } from "@/lib/voice/sttClient";
 import type { DoneMessage, SttMessage } from "@/lib/voice/types";
-
-const RESTAURANT_ID = "roast-ccx-hyd";
-const TABLE_ID = "T-01";
 
 type BackendStatus = "starting" | "ready" | "error";
 type PressStatus = "idle" | "recording" | "processing";
 
-export interface VoiceOrderButtonProps {
-  onDone: (msg: DoneMessage) => void;
+interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
 }
 
-const VoiceOrderButton = ({ onDone }: VoiceOrderButtonProps) => {
+export interface VoiceOrderButtonProps {
+  onDone: (msg: DoneMessage) => void;
+  order: CartItem[];
+  restaurantId: string;
+  tableId: string;
+}
+
+const VoiceOrderButton = ({ onDone, order, restaurantId, tableId }: VoiceOrderButtonProps) => {
   const [backendStatus, setBackendStatus] = useState<BackendStatus>("starting");
   const [pressStatus, setPressStatus] = useState<PressStatus>("idle");
+  const [micBlocked, setMicBlocked] = useState(false);
 
   const sessionIdRef = useRef<string | null>(null);
   const ttsRef = useRef<TtsClientHandle | null>(null);
@@ -34,7 +42,7 @@ const VoiceOrderButton = ({ onDone }: VoiceOrderButtonProps) => {
     (async () => {
       try {
         await unlockAudioContext();
-        const id = await startSession(TABLE_ID, RESTAURANT_ID);
+        const id = await startSession(tableId, restaurantId);
         if (!mounted) return;
         sessionIdRef.current = id;
         ttsRef.current = openTtsClient(id, (msg) => {
@@ -61,6 +69,8 @@ const VoiceOrderButton = ({ onDone }: VoiceOrderButtonProps) => {
         sessionIdRef.current = null;
       }
     };
+  // restaurantId and tableId are deployment constants; no need to re-run on change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSttMessage = useCallback(
@@ -94,13 +104,23 @@ const VoiceOrderButton = ({ onDone }: VoiceOrderButtonProps) => {
     setPressStatus("recording");
 
     try {
-      const handle = await startSttPress(id, handleSttMessage);
+      const cartItems = order.map((item) => ({
+        id: item.id,
+        name: item.name,
+        qty: item.quantity,
+        price: item.price,
+      }));
+      const handle = await startSttPress(id, handleSttMessage, cartItems);
       sttRef.current = handle;
     } catch (err) {
-      console.warn("STT start failed:", err);
+      if (err instanceof MicPermissionDeniedError) {
+        setMicBlocked(true);
+      } else {
+        console.warn("STT start failed:", err);
+      }
       setPressStatus("idle");
     }
-  }, [handleSttMessage]);
+  }, [handleSttMessage, order]);
 
   const stopPress = useCallback(async () => {
     if (pressStatusRef.current !== "recording") return;
@@ -140,89 +160,98 @@ const VoiceOrderButton = ({ onDone }: VoiceOrderButtonProps) => {
         : undefined;
 
   return (
-    <div className="flex items-center gap-2">
-      {backendStatus === "ready" && pressStatus === "idle" && (
-        <div
-          className="bg-secondary/10 border border-secondary/30 px-3 py-1.5"
-          style={{ boxShadow: "0 0 12px hsl(var(--tt-orange) / 0.3), 0 0 4px hsl(var(--tt-orange) / 0.15)" }}
-        >
-          <span
-            className="text-[10px] tracking-wider text-secondary font-display font-semibold whitespace-nowrap"
-            style={{ textShadow: "0 0 8px hsl(var(--tt-orange) / 0.6)" }}
-          >
-            {buttonLabel}
-          </span>
+    <div className="flex flex-col items-end gap-1.5">
+      {/* Mic permission blocked banner — shown above the button, touch is unaffected */}
+      {micBlocked && (
+        <div className="bg-muted border border-border px-3 py-2 text-[10px] text-muted-foreground font-display leading-tight max-w-[180px] text-right">
+          Microphone needed for voice ordering. Allow mic in browser settings.
         </div>
       )}
-      {pressStatus !== "idle" && (
-        <div className="bg-muted/80 border border-border px-3 py-1.5">
-          <span className="text-[10px] tracking-wider text-foreground font-display font-semibold whitespace-nowrap">
-            {buttonLabel}
-          </span>
-        </div>
-      )}
-      <button
-        disabled={disabled}
-        onPointerDown={(e) => {
-          e.preventDefault();
-          void startPress();
-        }}
-        onPointerUp={(e) => {
-          e.preventDefault();
-          void stopPress();
-        }}
-        onPointerLeave={() => {
-          void stopPress();
-        }}
-        className={`w-12 h-12 border flex items-center justify-center cursor-pointer transition-all active:scale-95 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${ringColor} ${
-          pressStatus === "recording" ? "animate-mic-pulse-glow" : ""
-        }`}
-        style={glowStyle}
-        aria-label={buttonLabel}
-      >
-        {pressStatus === "processing" ? (
-          <svg
-            className="animate-spin text-muted-foreground"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
+
+      <div className="flex items-center gap-2">
+        {backendStatus === "ready" && pressStatus === "idle" && !micBlocked && (
+          <div
+            className="bg-secondary/10 border border-secondary/30 px-3 py-1.5"
+            style={{ boxShadow: "0 0 12px hsl(var(--tt-orange) / 0.3), 0 0 4px hsl(var(--tt-orange) / 0.15)" }}
           >
-            <circle
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeDasharray="31.4"
-              strokeDashoffset="10"
-            />
-          </svg>
-        ) : (
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            className={
-              pressStatus === "recording"
-                ? "text-red-500"
-                : backendStatus === "error"
-                  ? "text-muted-foreground"
-                  : "text-secondary"
-            }
-            style={
-              backendStatus === "ready" && pressStatus === "idle"
-                ? { filter: "drop-shadow(0 0 4px hsl(var(--tt-orange) / 0.6))" }
-                : undefined
-            }
-          >
-            <rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.5" />
-            <path d="M5 10a7 7 0 0014 0" stroke="currentColor" strokeWidth="1.5" fill="none" />
-            <line x1="12" y1="17" x2="12" y2="22" stroke="currentColor" strokeWidth="1.5" />
-          </svg>
+            <span
+              className="text-[10px] tracking-wider text-secondary font-display font-semibold whitespace-nowrap"
+              style={{ textShadow: "0 0 8px hsl(var(--tt-orange) / 0.6)" }}
+            >
+              {buttonLabel}
+            </span>
+          </div>
         )}
-      </button>
+        {pressStatus !== "idle" && (
+          <div className="bg-muted/80 border border-border px-3 py-1.5">
+            <span className="text-[10px] tracking-wider text-foreground font-display font-semibold whitespace-nowrap">
+              {buttonLabel}
+            </span>
+          </div>
+        )}
+        <button
+          disabled={disabled}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            void startPress();
+          }}
+          onPointerUp={(e) => {
+            e.preventDefault();
+            void stopPress();
+          }}
+          onPointerLeave={() => {
+            void stopPress();
+          }}
+          className={`w-12 h-12 border flex items-center justify-center cursor-pointer transition-all active:scale-95 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${ringColor} ${
+            pressStatus === "recording" ? "animate-mic-pulse-glow" : ""
+          }`}
+          style={glowStyle}
+          aria-label={buttonLabel}
+        >
+          {pressStatus === "processing" ? (
+            <svg
+              className="animate-spin text-muted-foreground"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeDasharray="31.4"
+                strokeDashoffset="10"
+              />
+            </svg>
+          ) : (
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              className={
+                pressStatus === "recording"
+                  ? "text-red-500"
+                  : backendStatus === "error"
+                    ? "text-muted-foreground"
+                    : "text-secondary"
+              }
+              style={
+                backendStatus === "ready" && pressStatus === "idle"
+                  ? { filter: "drop-shadow(0 0 4px hsl(var(--tt-orange) / 0.6))" }
+                  : undefined
+              }
+            >
+              <rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M5 10a7 7 0 0014 0" stroke="currentColor" strokeWidth="1.5" fill="none" />
+              <line x1="12" y1="17" x2="12" y2="22" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
+          )}
+        </button>
+      </div>
     </div>
   );
 };

@@ -6,6 +6,20 @@ import type { SttMessage } from "./types";
 const TARGET_RATE = 16000;
 const WORKLET_THRESHOLD = 2048;
 
+export class MicPermissionDeniedError extends Error {
+  constructor() {
+    super("Microphone access denied by the user or browser settings");
+    this.name = "MicPermissionDeniedError";
+  }
+}
+
+export interface CartSyncItem {
+  id: string;
+  name: string;
+  qty: number;
+  price: number;
+}
+
 export interface SttPressHandle {
   stop(): Promise<void>;
   closed: Promise<void>;
@@ -14,14 +28,23 @@ export interface SttPressHandle {
 export async function startSttPress(
   sessionId: string,
   onMessage: (msg: SttMessage) => void,
+  cartItems?: CartSyncItem[],
 ): Promise<SttPressHandle> {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      channelCount: 1,
-      noiseSuppression: true,
-      echoCancellation: true,
-    },
-  });
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        channelCount: 1,
+        noiseSuppression: true,
+        echoCancellation: true,
+      },
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "NotAllowedError") {
+      throw new MicPermissionDeniedError();
+    }
+    throw err;
+  }
 
   let ctx: AudioContext;
   try {
@@ -90,6 +113,13 @@ export async function startSttPress(
   };
 
   await opened;
+
+  // Send cart_sync before audio so the backend can pre-load the touch cart
+  // into its order state. Sent synchronously here; audio worklet callbacks
+  // are queued on the event loop and will fire after this returns.
+  if (cartItems && cartItems.length > 0) {
+    ws.send(JSON.stringify({ type: "cart_sync", items: cartItems }));
+  }
 
   const stop = async () => {
     try {
