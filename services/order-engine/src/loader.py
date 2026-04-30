@@ -204,6 +204,76 @@ def _add_variant_group_entries(
 _DEFAULT_DB_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
 
 
+def load_aliases_from_db(
+    db_url: str | None = None, restaurant_id: str | None = None
+) -> dict[str, str]:
+    """Query menu_item_aliases for this restaurant and return raw alias → json_item_id.
+
+    The json_item_id is the petpooja external_id (e.g. "south_indian_filter_coffee"),
+    which is the key format MenuIndex.aliases expects.
+
+    Returns an empty dict if the DB is unreachable, the table is empty, or no
+    restaurant_id is supplied — callers treat that as "use JSON aliases".
+    """
+    if not restaurant_id:
+        return {}
+
+    import psycopg2  # local import so the rest of loader works without psycopg2
+
+    url = db_url or _DEFAULT_DB_URL
+    try:
+        conn = psycopg2.connect(url)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT a.alias, e.external_id
+            FROM menu_item_aliases a
+            JOIN external_id_mapping e
+              ON e.internal_item_id = a.item_id AND e.provider = 'petpooja'
+            WHERE a.restaurant_id = %s
+            """,
+            (restaurant_id,),
+        )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        result = {alias: ext_id for alias, ext_id in rows}
+        logger.info("Aliases loaded from DB: %d for restaurant %s", len(result), restaurant_id)
+        return result
+    except Exception as exc:
+        logger.warning("DB unavailable for aliases, will fall back to JSON: %s", exc)
+        return {}
+
+
+def apply_aliases_overlay(index: MenuIndex, db_aliases: dict[str, str]) -> MenuIndex:
+    """Replace index.aliases with DB-sourced aliases.
+
+    If db_aliases is empty (DB unreachable or table has 0 rows), returns the
+    original index unchanged so JSON aliases remain in effect as a fallback.
+    """
+    if not db_aliases:
+        logger.info("Aliases loaded: 0 from DB — using JSON file aliases as fallback")
+        return index
+
+    new_index = copy.deepcopy(index)
+    new_index.aliases = {}
+    for raw_alias, target_id in db_aliases.items():
+        normalized = normalize(raw_alias)
+        if not normalized:
+            continue
+        if target_id not in new_index.items_by_id and target_id not in new_index.variants_by_id:
+            continue
+        new_index.aliases[normalized] = target_id
+
+    logger.info(
+        "Aliases loaded: %d from DB (raw: %d, skipped invalid targets: %d)",
+        len(new_index.aliases),
+        len(db_aliases),
+        len(db_aliases) - len(new_index.aliases),
+    )
+    return new_index
+
+
 def load_menu_overlay_from_db(db_url: str | None = None) -> dict[str, dict]:
     """Query Supabase for current price and active state of every menu item.
 

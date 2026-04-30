@@ -425,6 +425,45 @@ export type Database = {
         }
         Relationships: []
       }
+      menu_item_aliases: {
+        Row: {
+          alias: string
+          created_at: string | null
+          id: string
+          item_id: string | null
+          restaurant_id: string | null
+        }
+        Insert: {
+          alias: string
+          created_at?: string | null
+          id?: string
+          item_id?: string | null
+          restaurant_id?: string | null
+        }
+        Update: {
+          alias?: string
+          created_at?: string | null
+          id?: string
+          item_id?: string | null
+          restaurant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_item_aliases_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_item_aliases_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       menu_items: {
         Row: {
           active: boolean

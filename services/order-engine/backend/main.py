@@ -30,21 +30,35 @@ _MENU_REFRESH_INTERVAL = 300  # seconds
 
 
 def _load_restaurant_menus(project_root: Path, restaurant_configs: dict, db_url: str | None) -> dict:
-    from src.loader import apply_overlay, load_menu, load_menu_overlay_from_db
+    from src.loader import (
+        apply_aliases_overlay,
+        apply_overlay,
+        load_aliases_from_db,
+        load_menu,
+        load_menu_overlay_from_db,
+    )
     overlay = load_menu_overlay_from_db(db_url)
     menus = {}
     for rid, cfg in restaurant_configs.items():
         menu_path = project_root / cfg.menu_path
         menu_data = json.loads(menu_path.read_text(encoding="utf-8"))
         index = apply_overlay(load_menu(menu_path), overlay)
+        db_aliases = load_aliases_from_db(db_url, getattr(cfg, "db_restaurant_id", None))
+        index = apply_aliases_overlay(index, db_aliases)
         menus[rid] = (menu_data, index)
         logger.info("Menu loaded: %d entries for %s", len(index.entries), rid)
     return menus
 
 
 async def _refresh_loop(session_manager: SessionManager, restaurant_configs: dict, db_url: str | None) -> None:
-    """Background task: reload menu overlay from DB every 5 minutes."""
-    from src.loader import apply_overlay, load_menu, load_menu_overlay_from_db
+    """Background task: reload menu overlay and aliases from DB every 5 minutes."""
+    from src.loader import (
+        apply_aliases_overlay,
+        apply_overlay,
+        load_aliases_from_db,
+        load_menu,
+        load_menu_overlay_from_db,
+    )
     while True:
         await asyncio.sleep(_MENU_REFRESH_INTERVAL)
         try:
@@ -53,6 +67,10 @@ async def _refresh_loop(session_manager: SessionManager, restaurant_configs: dic
                 menu_path = _PROJECT_ROOT / cfg.menu_path
                 menu_data, _ = session_manager._menus[rid]
                 index = apply_overlay(load_menu(menu_path), overlay)
+                db_aliases = await asyncio.to_thread(
+                    load_aliases_from_db, db_url, getattr(cfg, "db_restaurant_id", None)
+                )
+                index = apply_aliases_overlay(index, db_aliases)
                 session_manager._menus[rid] = (menu_data, index)
                 logger.info("Menu refreshed: %d entries for %s", len(index.entries), rid)
         except Exception as exc:
@@ -125,7 +143,13 @@ async def refresh_menu() -> dict:
     Call this from POS admin after editing menu items to propagate changes
     without waiting for the 5-minute background cycle.
     """
-    from src.loader import apply_overlay, load_menu, load_menu_overlay_from_db
+    from src.loader import (
+        apply_aliases_overlay,
+        apply_overlay,
+        load_aliases_from_db,
+        load_menu,
+        load_menu_overlay_from_db,
+    )
 
     session_manager: SessionManager = app.state.session_manager
     restaurant_configs: dict = app.state.restaurant_configs
@@ -137,6 +161,10 @@ async def refresh_menu() -> dict:
         menu_path = _PROJECT_ROOT / cfg.menu_path
         menu_data, _ = session_manager._menus[rid]
         index = apply_overlay(load_menu(menu_path), overlay)
+        db_aliases = await asyncio.to_thread(
+            load_aliases_from_db, db_url, getattr(cfg, "db_restaurant_id", None)
+        )
+        index = apply_aliases_overlay(index, db_aliases)
         session_manager._menus[rid] = (menu_data, index)
         total_entries += len(index.entries)
         logger.info("Menu refreshed via /admin/refresh-menu: %d entries for %s", len(index.entries), rid)

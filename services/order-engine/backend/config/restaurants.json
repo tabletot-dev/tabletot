@@ -5,7 +5,8 @@
     "speaker": "rohan",
     "menu_path": "menus/roast-ccx-hyd.json",
     "fallback_language_code": "hi-IN",
-    "fallback_speaker": "ishita"
+    "fallback_speaker": "ishita",
+    "db_restaurant_id": "cccccccc-cccc-cccc-cccc-cccccccccccc"
   },
   "sozo-cakery-banjara": {
     "name": "Sozo Cakery & Cafe Banjara Hills",
