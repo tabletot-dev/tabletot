@@ -3,13 +3,22 @@
 Reads menu.json once at startup and produces a MenuIndex containing flat
 match entries, an alias dictionary, and lookup tables for items, variants,
 and categories.
+
+`load_menu_overlay_from_db` and `apply_overlay` extend this with a DB-sourced
+price/active layer: prices are updated from `menu_items`, inactive items are
+pruned. The file-loaded index is the structural source of truth; the DB is
+the runtime override.
 """
 
 from __future__ import annotations
 
+import copy
 import json
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from src.models import Category, IndexEntry, MenuItem, VariantItem
 from src.normalizer import normalize, normalize_for_index
@@ -186,3 +195,101 @@ def _add_variant_group_entries(
                     requires_modifier=group.modifiers if group.modifiers else None,
                 )
             )
+
+
+# ---------------------------------------------------------------------------
+# DB overlay: price + active sync
+# ---------------------------------------------------------------------------
+
+_DEFAULT_DB_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+
+
+def load_menu_overlay_from_db(db_url: str | None = None) -> dict[str, dict]:
+    """Query Supabase for current price and active state of every menu item.
+
+    Returns a mapping from Petpooja external_id → {"price": int|None, "active": bool}.
+    Returns an empty dict (with a warning) if the DB is unreachable — callers
+    treat an empty overlay as "use menu.json data as-is".
+    """
+    import psycopg2  # local import so the rest of loader works without psycopg2
+
+    url = db_url or _DEFAULT_DB_URL
+    try:
+        conn = psycopg2.connect(url)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT e.external_id, m.price, m.active
+            FROM menu_items m
+            JOIN external_id_mapping e ON m.id = e.internal_item_id
+            WHERE e.provider = 'petpooja'
+            """
+        )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        result = {
+            ext_id: {"price": int(price) if price is not None else None, "active": bool(active)}
+            for ext_id, price, active in rows
+        }
+        logger.info("Menu overlay loaded from DB: %d items", len(result))
+        return result
+    except Exception as exc:
+        logger.warning("DB unavailable, using local menu.json cache: %s", exc)
+        return {}
+
+
+def apply_overlay(index: MenuIndex, overlay: dict[str, dict]) -> MenuIndex:
+    """Return a new MenuIndex with DB prices/active status applied.
+
+    Items/variants where active=False in the overlay are pruned from entries,
+    lookups, and aliases. Prices for active items are updated in-place on the
+    deep-copied index.
+
+    If overlay is empty (DB unavailable fallback), returns the original index
+    unchanged.
+    """
+    if not overlay:
+        return index
+
+    new_index = copy.deepcopy(index)
+    inactive_ids: set[str] = set()
+
+    # Update / prune items
+    for item_id in list(new_index.items_by_id):
+        if item_id not in overlay:
+            continue
+        ov = overlay[item_id]
+        if not ov["active"]:
+            inactive_ids.add(item_id)
+            del new_index.items_by_id[item_id]
+        elif ov["price"] is not None:
+            new_index.items_by_id[item_id].price = ov["price"]
+
+    # Update / prune variants
+    for var_id in list(new_index.variants_by_id):
+        if var_id not in overlay:
+            continue
+        ov = overlay[var_id]
+        if not ov["active"]:
+            inactive_ids.add(var_id)
+            del new_index.variants_by_id[var_id]
+        elif ov["price"] is not None:
+            new_index.variants_by_id[var_id].price = ov["price"]
+
+    # Prune and update entries
+    kept: list[IndexEntry] = []
+    for entry in new_index.entries:
+        if entry.item_id in inactive_ids:
+            continue
+        if entry.item_id in overlay:
+            ov = overlay[entry.item_id]
+            if ov["price"] is not None:
+                entry.price = ov["price"]
+        kept.append(entry)
+    new_index.entries = kept
+
+    # Prune aliases pointing to deactivated items
+    new_index.aliases = {k: v for k, v in new_index.aliases.items() if v not in inactive_ids}
+
+    return new_index
