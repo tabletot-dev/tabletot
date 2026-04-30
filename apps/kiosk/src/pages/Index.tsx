@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useDeviceNavigation } from "@/hooks/useDeviceNavigation";
 import IdleScreen from "@/components/screens/IdleScreen";
 import ListeningScreen from "@/components/screens/ListeningScreen";
@@ -7,63 +7,20 @@ import ItemDetailScreen from "@/components/screens/ItemDetailScreen";
 import OrderSummaryScreen from "@/components/screens/OrderSummaryScreen";
 import BillSummaryScreen from "@/components/screens/BillSummaryScreen";
 import OrderConfirmationScreen from "@/components/screens/OrderConfirmationScreen";
-import VoiceAssistantOverlay from "@/components/VoiceAssistantOverlay";
 import SessionIdleScreen from "@/components/screens/SessionIdleScreen";
 import PairingNudge from "@/components/PairingNudge";
 import CompletionNudge from "@/components/CompletionNudge";
+import VoiceOrderButton from "@/components/VoiceOrderButton";
 import { supabase } from "@/integrations/supabase/client";
 import { findMatchingRule, type CompletionRule, type MatchedSuggestion } from "@/lib/completionRules";
+import { useMenu } from "@/lib/menuStore";
+import type { DoneMessage, OrderSnapshot } from "@/lib/voice/types";
 import { MenuItem } from "@/data/menu";
 
-const voiceHints = [
-  "Need suggestions?",
-  "Talk to your waiter",
-  "Ask about allergens",
-  "What's popular?",
-  "Get a recommendation",
-];
-
-const VoiceFab = ({ onClick }: { onClick: () => void }) => {
-  const [hintIndex, setHintIndex] = useState(0);
-  const [visible, setVisible] = useState(true);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setVisible(false);
-      setTimeout(() => {
-        setHintIndex((i) => (i + 1) % voiceHints.length);
-        setVisible(true);
-      }, 300);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="absolute bottom-4 right-4 z-40 flex items-center gap-2">
-      <div
-        className={`bg-secondary/10 border border-secondary/30 px-3 py-1.5 transition-all duration-300 ${
-          visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-2"
-        }`}
-        style={{ boxShadow: "0 0 12px hsl(var(--tt-orange) / 0.3), 0 0 4px hsl(var(--tt-orange) / 0.15)" }}
-      >
-        <span className="text-[10px] tracking-wider text-secondary font-display font-semibold whitespace-nowrap" style={{ textShadow: "0 0 8px hsl(var(--tt-orange) / 0.6)" }}>
-          {voiceHints[hintIndex]}
-        </span>
-      </div>
-      <button
-        onClick={onClick}
-        className="w-12 h-12 border border-secondary bg-secondary/10 flex items-center justify-center cursor-pointer transition-all hover:bg-secondary/20 active:bg-secondary/30 group flex-shrink-0 animate-mic-pulse-glow"
-        style={{ boxShadow: "0 0 16px hsl(var(--tt-orange) / 0.4), 0 0 6px hsl(var(--tt-orange) / 0.2)" }}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-secondary group-hover:text-secondary transition-colors" style={{ filter: "drop-shadow(0 0 4px hsl(var(--tt-orange) / 0.6))" }}>
-          <rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M5 10a7 7 0 0014 0" stroke="currentColor" strokeWidth="1.5" fill="none" />
-          <line x1="12" y1="17" x2="12" y2="22" stroke="currentColor" strokeWidth="1.5" />
-        </svg>
-      </button>
-    </div>
-  );
-};
+// Normalize item names for matching: lowercase, collapse dashes/en-dashes to space
+function normalizeName(name: string): string {
+  return name.toLowerCase().replace(/[-–—]/g, " ").replace(/\s+/g, " ").trim();
+}
 
 interface NudgeState {
   itemId: string;
@@ -87,12 +44,16 @@ const Index = () => {
     sessionTotal,
     previousOrders,
     setPreviousOrders,
-    voiceOverlayOpen,
-    setVoiceOverlayOpen,
   } = useDeviceNavigation();
+
+  // Menu items for voice → cart matching
+  const { items: menuItems } = useMenu();
 
   const [nudge, setNudge] = useState<NudgeState | null>(null);
   const [completionSuggestion, setCompletionSuggestion] = useState<MatchedSuggestion | null>(null);
+
+  // Track backend order snapshot to diff additions/removals per voice turn
+  const prevVoiceOrderRef = useRef<OrderSnapshot | null>(null);
 
   const handleAddToOrderWithNudge = useCallback(
     (item: MenuItem) => {
@@ -100,7 +61,71 @@ const Index = () => {
       addToOrder(item);
       setNudge({ itemId: item.id, itemName: item.name, cartValueAtShow });
     },
-    [order, addToOrder]
+    [order, addToOrder],
+  );
+
+  // Reconcile kiosk cart with backend voice order snapshot after each turn
+  const handleVoiceDone = useCallback(
+    (msg: DoneMessage) => {
+      const prev = prevVoiceOrderRef.current;
+      const next = msg.order;
+      prevVoiceOrderRef.current = next;
+
+      for (const nextItem of next.items) {
+        const prevQty = prev?.items.find((i) => i.item_id === nextItem.item_id)?.quantity ?? 0;
+        const delta = nextItem.quantity - prevQty;
+        if (delta === 0) continue;
+
+        // Find kiosk MenuItem by normalized name
+        const normalized = normalizeName(nextItem.item_name);
+        const kioskItem = menuItems.find((m) => normalizeName(m.name) === normalized);
+        if (!kioskItem) continue;
+
+        if (delta > 0) {
+          // Item added or quantity increased via voice
+          const cartValueAtShow = order.reduce((s, o) => s + o.price * o.quantity, 0);
+          addToOrder(kioskItem, delta);
+          setNudge({ itemId: kioskItem.id, itemName: kioskItem.name, cartValueAtShow });
+        } else {
+          // Item removed or quantity decreased via voice
+          const newQty = (order.find((o) => o.id === kioskItem.id)?.quantity ?? 0) + delta;
+          if (newQty <= 0) {
+            removeItem(kioskItem.id);
+          } else {
+            updateQuantity(kioskItem.id, delta);
+          }
+        }
+      }
+
+      // Items present in prev but absent from next → removed by voice
+      if (prev) {
+        for (const prevItem of prev.items) {
+          const stillExists = next.items.find((i) => i.item_id === prevItem.item_id);
+          if (!stillExists) {
+            const normalized = normalizeName(prevItem.item_name);
+            const kioskItem = menuItems.find((m) => normalizeName(m.name) === normalized);
+            if (kioskItem) removeItem(kioskItem.id);
+          }
+        }
+      }
+
+      // Navigate to order-summary if items were added and user is on menu/item-detail
+      if (
+        msg.resolver.some((r) => r.type === "match") &&
+        (currentScreen === "menu" || currentScreen === "item-detail")
+      ) {
+        setCurrentScreen("order-summary");
+      }
+    },
+    [
+      menuItems,
+      order,
+      addToOrder,
+      updateQuantity,
+      removeItem,
+      currentScreen,
+      setCurrentScreen,
+    ],
   );
 
   const handleSelectItem = useCallback(
@@ -108,7 +133,7 @@ const Index = () => {
       setSelectedItem(item);
       setCurrentScreen("item-detail");
     },
-    [setSelectedItem, setCurrentScreen]
+    [setSelectedItem, setCurrentScreen],
   );
 
   const handleAddToOrder = useCallback(() => {
@@ -137,25 +162,22 @@ const Index = () => {
     confirmOrder();
   }, [order, confirmOrder]);
 
-  const handleReset = useCallback(() => {
-    setCurrentScreen("idle");
-  }, [setCurrentScreen]);
+  const showVoiceButton = !["idle", "listening", "order-confirmation"].includes(currentScreen);
 
   const renderScreen = () => {
     switch (currentScreen) {
       case "idle":
-        return (
-          <IdleScreen onActivate={() => setCurrentScreen("menu")} />
-        );
+        return <IdleScreen onActivate={() => setCurrentScreen("menu")} />;
       case "listening":
-        return (
-          <ListeningScreen
-            onDone={() => setCurrentScreen("menu")}
-          />
-        );
+        return <ListeningScreen onDone={() => setCurrentScreen("menu")} />;
       case "menu":
         return (
-          <MenuScreen onSelect={handleSelectItem} onAddToCart={handleAddToOrderWithNudge} onUpdateQuantity={updateQuantity} order={order} />
+          <MenuScreen
+            onSelect={handleSelectItem}
+            onAddToCart={handleAddToOrderWithNudge}
+            onUpdateQuantity={updateQuantity}
+            order={order}
+          />
         );
       case "item-detail":
         return selectedItem ? (
@@ -213,14 +235,16 @@ const Index = () => {
           <span className="font-display text-[10px] tracking-[0.3em] uppercase text-muted-foreground">
             Table-Tot
           </span>
-          {order.length > 0 && currentScreen !== "order-summary" && currentScreen !== "order-confirmation" && (
-            <button
-              onClick={() => setCurrentScreen("order-summary")}
-              className="text-[10px] tracking-wider uppercase text-primary border border-primary px-3 py-1 cursor-pointer active:bg-primary/10"
-            >
-              Cart ({order.reduce((s, o) => s + o.quantity, 0)})
-            </button>
-          )}
+          {order.length > 0 &&
+            currentScreen !== "order-summary" &&
+            currentScreen !== "order-confirmation" && (
+              <button
+                onClick={() => setCurrentScreen("order-summary")}
+                className="text-[10px] tracking-wider uppercase text-primary border border-primary px-3 py-1 cursor-pointer active:bg-primary/10"
+              >
+                Cart ({order.reduce((s, o) => s + o.quantity, 0)})
+              </button>
+            )}
           <span className="text-[10px] font-mono text-muted-foreground">
             {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </span>
@@ -229,15 +253,15 @@ const Index = () => {
         {/* Screen content */}
         <div className="flex-1 overflow-hidden relative">
           {renderScreen()}
-          {/* Voice assistant overlay */}
-          {currentScreen === "menu" && voiceOverlayOpen && (
-            <VoiceAssistantOverlay onClose={() => setVoiceOverlayOpen(false)} />
+
+          {/* Voice PTT button — bottom-right, visible on all active screens */}
+          {showVoiceButton && (
+            <div className="absolute bottom-4 right-4 z-40">
+              <VoiceOrderButton onDone={handleVoiceDone} />
+            </div>
           )}
-          {/* Voice FAB on menu */}
-          {currentScreen === "menu" && !voiceOverlayOpen && (
-            <VoiceFab onClick={() => setVoiceOverlayOpen(true)} />
-          )}
-          {/* Pairing nudge — floats above screen content, below voice FAB */}
+
+          {/* Pairing nudge — floats above screen content, below voice button */}
           {nudge && (
             <div className="absolute bottom-0 left-0 right-0 z-30 pb-2">
               <PairingNudge
@@ -253,6 +277,7 @@ const Index = () => {
               />
             </div>
           )}
+
           {/* Completion nudge — modal overlay, shown before submit when a rule matches */}
           {completionSuggestion && (
             <CompletionNudge
@@ -262,7 +287,6 @@ const Index = () => {
               onAdd={(item) => {
                 handleAddToOrderWithNudge(item);
                 setCompletionSuggestion(null);
-                // Return user to order-summary to review before re-confirming
                 setCurrentScreen("order-summary");
               }}
               onSkip={() => {
@@ -273,7 +297,6 @@ const Index = () => {
           )}
         </div>
       </div>
-
     </div>
   );
 };
