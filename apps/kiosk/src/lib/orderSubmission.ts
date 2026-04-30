@@ -2,6 +2,8 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import type { OrderItem } from '@/data/menu';
 
+const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
+
 // Cached for the lifetime of the browser session. Single-table kiosk: always T1.
 let cachedTableId: string | null = null;
 
@@ -10,6 +12,7 @@ async function resolveTableId(): Promise<string> {
   const { data, error } = await supabase
     .from('restaurant_tables')
     .select('id')
+    .eq('restaurant_id', RESTAURANT_ID)
     .eq('table_number', 'T1')
     .single();
   if (error) throw new Error(`Could not resolve table T1: ${error.message}`);
@@ -46,6 +49,7 @@ export async function submitOrder(
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .insert({
+      restaurant_id: RESTAURANT_ID,
       table_no: 'T1',
       order_type: 'dine-in',
       source: 'Tabletot',
@@ -61,6 +65,7 @@ export async function submitOrder(
   const { data: kot, error: kotError } = await supabase
     .from('kot_tickets')
     .insert({
+      restaurant_id: RESTAURANT_ID,
       order_id: order.id,
       kot_number: `KOT-${Date.now()}`,
       table_number: 'T1',

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MenuItem, OrderItem } from "@/data/menu";
 
+const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
+
 interface ChefsPickRow {
   priority: number;
   id: string;
@@ -33,6 +35,7 @@ const ChefsPicks = ({ order, onAddToCart }: ChefsPicksProps) => {
     supabase
       .from("anchor_items")
       .select("priority, menu_items!inner(id, name, price)")
+      .eq("restaurant_id", RESTAURANT_ID)
       .eq("anchor_type", "chef_pick")
       .eq("active", true)
       .order("priority", { ascending: false })
@@ -49,6 +52,7 @@ const ChefsPicks = ({ order, onAddToCart }: ChefsPicksProps) => {
         const sessionId = getOrCreateSessionId();
         const cartValue = order.reduce((s, o) => s + o.price * o.quantity, 0);
         const inserts = rows.map((pick) => ({
+          restaurant_id: RESTAURANT_ID,
           session_id: sessionId,
           table_id: null as string | null,
           pattern_type: "anchor_on_empty",

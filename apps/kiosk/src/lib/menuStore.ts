@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { MenuItem } from '@/data/menu';
 
+const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
+
 export interface MenuState {
   items: MenuItem[];
   itemsByCategory: Record<string, MenuItem[]>;
@@ -19,6 +21,7 @@ export function useMenu(): MenuState {
     const { data, error: fetchError } = await supabase
       .from('menu_items')
       .select('id, name, category, price, tags')
+      .eq('restaurant_id', RESTAURANT_ID)
       .eq('active', true)
       .order('category', { ascending: true })
       .order('name', { ascending: true });

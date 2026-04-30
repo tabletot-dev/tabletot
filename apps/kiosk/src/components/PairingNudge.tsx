@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MenuItem } from "@/data/menu";
 
+const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
+
 interface PairedItem {
   id: string;
   name: string;
@@ -48,6 +50,7 @@ const PairingNudge = ({
     supabase
       .from("item_pairings")
       .select("priority, menu_items!item_pairings_paired_item_id_fkey(id, name, price)")
+      .eq("restaurant_id", RESTAURANT_ID)
       .eq("source_item_id", addedItemId)
       .eq("menu_items.active", true)
       .order("priority", { ascending: false })
@@ -73,6 +76,7 @@ const PairingNudge = ({
         const { data: inserted } = await supabase
           .from("recommendation_events")
           .insert({
+            restaurant_id: RESTAURANT_ID,
             session_id: getOrCreateSessionId(),
             table_id: null as string | null,
             pattern_type: "post_add_pairing",

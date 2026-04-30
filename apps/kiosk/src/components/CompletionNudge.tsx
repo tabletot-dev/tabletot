@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MenuItem } from "@/data/menu";
 
+const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
+
 interface CompletionNudgeProps {
   suggestionText: string;
   suggestedItemId: string;
@@ -36,6 +38,7 @@ const CompletionNudge = ({
       const { data: itemData } = await supabase
         .from("menu_items")
         .select("id, name, price")
+        .eq("restaurant_id", RESTAURANT_ID)
         .eq("id", suggestedItemId)
         .eq("active", true)
         .single();
@@ -51,6 +54,7 @@ const CompletionNudge = ({
       const { data: inserted } = await supabase
         .from("recommendation_events")
         .insert({
+          restaurant_id: RESTAURANT_ID,
           session_id: getOrCreateSessionId(),
           table_id: null as string | null,
           pattern_type: "completion_nudge",

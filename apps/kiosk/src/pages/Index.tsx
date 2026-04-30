@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 import { useDeviceNavigation } from "@/hooks/useDeviceNavigation";
 import IdleScreen from "@/components/screens/IdleScreen";
+
+const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
 import ListeningScreen from "@/components/screens/ListeningScreen";
 import MenuScreen from "@/components/screens/MenuScreen";
 import ItemDetailScreen from "@/components/screens/ItemDetailScreen";
@@ -148,6 +150,7 @@ const Index = () => {
       const { data: rules } = await supabase
         .from("meal_completion_rules")
         .select("rule_name, condition, suggestion")
+        .eq("restaurant_id", RESTAURANT_ID)
         .eq("active", true)
         .order("priority", { ascending: false });
 
