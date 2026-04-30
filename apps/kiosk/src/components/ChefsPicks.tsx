@@ -85,9 +85,8 @@ const ChefsPicks = ({ order, onAddToCart }: ChefsPicksProps) => {
       id: pick.id,
       name: pick.name,
       price: pick.price,
-      description: "",
-      image: "",
       category: "",
+      tags: [],
     });
   };
 
