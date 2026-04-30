@@ -10,6 +10,9 @@ import OrderConfirmationScreen from "@/components/screens/OrderConfirmationScree
 import VoiceAssistantOverlay from "@/components/VoiceAssistantOverlay";
 import SessionIdleScreen from "@/components/screens/SessionIdleScreen";
 import PairingNudge from "@/components/PairingNudge";
+import CompletionNudge from "@/components/CompletionNudge";
+import { supabase } from "@/integrations/supabase/client";
+import { findMatchingRule, type CompletionRule, type MatchedSuggestion } from "@/lib/completionRules";
 import { MenuItem } from "@/data/menu";
 
 const voiceHints = [
@@ -89,6 +92,7 @@ const Index = () => {
   } = useDeviceNavigation();
 
   const [nudge, setNudge] = useState<NudgeState | null>(null);
+  const [completionSuggestion, setCompletionSuggestion] = useState<MatchedSuggestion | null>(null);
 
   const handleAddToOrderWithNudge = useCallback(
     (item: MenuItem) => {
@@ -114,9 +118,24 @@ const Index = () => {
     }
   }, [selectedItem, handleAddToOrderWithNudge, setCurrentScreen]);
 
-  const handleConfirmOrder = useCallback(() => {
+  const handleConfirmOrder = useCallback(async () => {
+    try {
+      const { data: rules } = await supabase
+        .from("meal_completion_rules")
+        .select("rule_name, condition, suggestion")
+        .eq("active", true)
+        .order("priority", { ascending: false });
+
+      const match = findMatchingRule((rules ?? []) as CompletionRule[], order);
+      if (match) {
+        setCompletionSuggestion(match);
+        return;
+      }
+    } catch {
+      // DB error — fall through to submit
+    }
     confirmOrder();
-  }, [confirmOrder]);
+  }, [order, confirmOrder]);
 
   const handleReset = useCallback(() => {
     setCurrentScreen("idle");
@@ -233,6 +252,24 @@ const Index = () => {
                 onDismiss={() => setNudge(null)}
               />
             </div>
+          )}
+          {/* Completion nudge — modal overlay, shown before submit when a rule matches */}
+          {completionSuggestion && (
+            <CompletionNudge
+              suggestionText={completionSuggestion.text}
+              suggestedItemId={completionSuggestion.itemId}
+              cartValueAtShow={totalBill}
+              onAdd={(item) => {
+                handleAddToOrderWithNudge(item);
+                setCompletionSuggestion(null);
+                // Return user to order-summary to review before re-confirming
+                setCurrentScreen("order-summary");
+              }}
+              onSkip={() => {
+                setCompletionSuggestion(null);
+                confirmOrder();
+              }}
+            />
           )}
         </div>
       </div>
