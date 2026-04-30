@@ -44,6 +44,7 @@ export type Database = {
           id: string
           item_id: string | null
           priority: number | null
+          restaurant_id: string | null
         }
         Insert: {
           active?: boolean | null
@@ -53,6 +54,7 @@ export type Database = {
           id?: string
           item_id?: string | null
           priority?: number | null
+          restaurant_id?: string | null
         }
         Update: {
           active?: boolean | null
@@ -62,6 +64,7 @@ export type Database = {
           id?: string
           item_id?: string | null
           priority?: number | null
+          restaurant_id?: string | null
         }
         Relationships: [
           {
@@ -69,6 +72,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "anchor_items_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
         ]
@@ -207,6 +217,7 @@ export type Database = {
           id: string
           paired_item_id: string | null
           priority: number | null
+          restaurant_id: string | null
           source_item_id: string | null
         }
         Insert: {
@@ -215,6 +226,7 @@ export type Database = {
           id?: string
           paired_item_id?: string | null
           priority?: number | null
+          restaurant_id?: string | null
           source_item_id?: string | null
         }
         Update: {
@@ -223,6 +235,7 @@ export type Database = {
           id?: string
           paired_item_id?: string | null
           priority?: number | null
+          restaurant_id?: string | null
           source_item_id?: string | null
         }
         Relationships: [
@@ -231,6 +244,13 @@ export type Database = {
             columns: ["paired_item_id"]
             isOneToOne: false
             referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_pairings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
           {
@@ -289,6 +309,7 @@ export type Database = {
           kot_number: string | null
           order_id: string | null
           printed_at: string
+          restaurant_id: string | null
           special_notes: string | null
           status: string
           table_number: string | null
@@ -301,6 +322,7 @@ export type Database = {
           kot_number?: string | null
           order_id?: string | null
           printed_at?: string
+          restaurant_id?: string | null
           special_notes?: string | null
           status?: string
           table_number?: string | null
@@ -313,6 +335,7 @@ export type Database = {
           kot_number?: string | null
           order_id?: string | null
           printed_at?: string
+          restaurant_id?: string | null
           special_notes?: string | null
           status?: string
           table_number?: string | null
@@ -325,6 +348,13 @@ export type Database = {
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "kot_tickets_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       meal_completion_rules: {
@@ -334,6 +364,7 @@ export type Database = {
           created_at: string | null
           id: string
           priority: number | null
+          restaurant_id: string | null
           rule_name: string
           suggestion: Json | null
         }
@@ -343,6 +374,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           priority?: number | null
+          restaurant_id?: string | null
           rule_name: string
           suggestion?: Json | null
         }
@@ -352,10 +384,19 @@ export type Database = {
           created_at?: string | null
           id?: string
           priority?: number | null
+          restaurant_id?: string | null
           rule_name?: string
           suggestion?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "meal_completion_rules_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       menu_categories: {
         Row: {
@@ -392,6 +433,7 @@ export type Database = {
           id: string
           name: string
           price: number | null
+          restaurant_id: string | null
           tags: Json | null
         }
         Insert: {
@@ -401,6 +443,7 @@ export type Database = {
           id?: string
           name: string
           price?: number | null
+          restaurant_id?: string | null
           tags?: Json | null
         }
         Update: {
@@ -410,9 +453,18 @@ export type Database = {
           id?: string
           name?: string
           price?: number | null
+          restaurant_id?: string | null
           tags?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "menu_items_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       order_history: {
         Row: {
@@ -520,6 +572,7 @@ export type Database = {
           items_json: Json | null
           order_id: string | null
           order_type: string | null
+          restaurant_id: string | null
           source: string | null
           special_instructions: string | null
           status: string
@@ -538,6 +591,7 @@ export type Database = {
           items_json?: Json | null
           order_id?: string | null
           order_type?: string | null
+          restaurant_id?: string | null
           source?: string | null
           special_instructions?: string | null
           status?: string
@@ -556,6 +610,7 @@ export type Database = {
           items_json?: Json | null
           order_id?: string | null
           order_type?: string | null
+          restaurant_id?: string | null
           source?: string | null
           special_instructions?: string | null
           status?: string
@@ -565,7 +620,15 @@ export type Database = {
           total?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "orders_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payments: {
         Row: {
@@ -636,6 +699,7 @@ export type Database = {
           item_accepted: boolean | null
           item_shown: string | null
           pattern_type: string | null
+          restaurant_id: string | null
           session_id: string | null
           table_id: string | null
           timestamp: string | null
@@ -646,6 +710,7 @@ export type Database = {
           item_accepted?: boolean | null
           item_shown?: string | null
           pattern_type?: string | null
+          restaurant_id?: string | null
           session_id?: string | null
           table_id?: string | null
           timestamp?: string | null
@@ -656,6 +721,7 @@ export type Database = {
           item_accepted?: boolean | null
           item_shown?: string | null
           pattern_type?: string | null
+          restaurant_id?: string | null
           session_id?: string | null
           table_id?: string | null
           timestamp?: string | null
@@ -668,6 +734,13 @@ export type Database = {
             referencedRelation: "menu_items"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "recommendation_events_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       restaurant_tables: {
@@ -678,6 +751,7 @@ export type Database = {
           created_at: string
           current_order_id: string | null
           id: string
+          restaurant_id: string | null
           status: string
           table_number: string
           updated_at: string
@@ -689,6 +763,7 @@ export type Database = {
           created_at?: string
           current_order_id?: string | null
           id?: string
+          restaurant_id?: string | null
           status?: string
           table_number: string
           updated_at?: string
@@ -700,6 +775,7 @@ export type Database = {
           created_at?: string
           current_order_id?: string | null
           id?: string
+          restaurant_id?: string | null
           status?: string
           table_number?: string
           updated_at?: string
@@ -719,7 +795,35 @@ export type Database = {
             referencedRelation: "areas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "restaurant_tables_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      restaurants: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          pos_provider: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          pos_provider?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          pos_provider?: string | null
+        }
+        Relationships: []
       }
       staff: {
         Row: {
@@ -771,7 +875,18 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      recommendation_aov_lift: {
+        Row: {
+          acceptance_rate_pct: number | null
+          accepted: number | null
+          aov_lift_estimate: number | null
+          avg_cart_when_accepted: number | null
+          avg_cart_when_rejected: number | null
+          pattern_type: string | null
+          total_shown: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
