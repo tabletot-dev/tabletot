@@ -54,6 +54,7 @@ export interface DoneMessage {
   response: string;
   resolver: ResolverCall[];
   order: OrderSnapshot;
+  client_session_id: string | null;
 }
 
 export type SttMessage =

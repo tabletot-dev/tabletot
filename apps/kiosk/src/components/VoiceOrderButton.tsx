@@ -27,6 +27,7 @@ const VoiceOrderButton = ({ onDone, order, restaurantId, tableId }: VoiceOrderBu
   const [micBlocked, setMicBlocked] = useState(false);
 
   const sessionIdRef = useRef<string | null>(null);
+  const clientSessionIdRef = useRef<string | null>(null);
   const ttsRef = useRef<TtsClientHandle | null>(null);
   const sttRef = useRef<SttPressHandle | null>(null);
   // Ref mirrors to avoid stale closure captures in callbacks
@@ -42,10 +43,11 @@ const VoiceOrderButton = ({ onDone, order, restaurantId, tableId }: VoiceOrderBu
     (async () => {
       try {
         await unlockAudioContext();
-        const id = await startSession(tableId, restaurantId);
+        const { voiceSessionId, clientSessionId } = await startSession(tableId, restaurantId);
         if (!mounted) return;
-        sessionIdRef.current = id;
-        ttsRef.current = openTtsClient(id, (msg) => {
+        sessionIdRef.current = voiceSessionId;
+        clientSessionIdRef.current = clientSessionId;
+        ttsRef.current = openTtsClient(voiceSessionId, (msg) => {
           if (msg.type === "error") {
             console.warn("TTS error:", msg.message);
           }

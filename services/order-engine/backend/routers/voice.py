@@ -72,6 +72,7 @@ async def health(request: Request) -> dict:
 class SessionStartRequest(BaseModel):
     table_id: str
     restaurant_id: str
+    client_session_id: str | None = None
 
 
 class SessionEndRequest(BaseModel):
@@ -84,7 +85,7 @@ async def session_start(body: SessionStartRequest, request: Request) -> dict:
 
     mgr: SessionManager = request.app.state.session_manager
     try:
-        session = await mgr.create_session(body.table_id, body.restaurant_id)
+        session = await mgr.create_session(body.table_id, body.restaurant_id, body.client_session_id)
     except KeyError:
         raise HTTPException(
             status_code=404,
@@ -264,6 +265,7 @@ async def voice_stt(ws: WebSocket, session_id: str) -> None:
                 "response": response_text,
                 "resolver": _serialize_resolver_results(result.resolver_results),
                 "order": result.order_state_snapshot,
+                "client_session_id": session.client_session_id,
             }
         )
         logger.info(

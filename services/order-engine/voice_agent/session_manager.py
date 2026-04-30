@@ -31,6 +31,7 @@ class VoiceSession:
     restaurant_id: str
     tts_handler: SarvamTTSHandler
     orchestrator: Orchestrator
+    client_session_id: str | None = None
     tts_queue: asyncio.Queue = field(default_factory=asyncio.Queue)
     keepalive_task: asyncio.Task | None = None
 
@@ -56,7 +57,7 @@ class SessionManager:
         self._menus = menus
 
     async def create_session(
-        self, table_id: str, restaurant_id: str
+        self, table_id: str, restaurant_id: str, client_session_id: str | None = None
     ) -> VoiceSession:
         """Create a new voice session.
 
@@ -82,6 +83,7 @@ class SessionManager:
             restaurant_id=restaurant_id,
             tts_handler=tts_handler,
             orchestrator=orchestrator,
+            client_session_id=client_session_id,
         )
         self._sessions[session_id] = session
         logger.info(
