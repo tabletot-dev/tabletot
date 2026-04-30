@@ -9,6 +9,7 @@ import BillSummaryScreen from "@/components/screens/BillSummaryScreen";
 import OrderConfirmationScreen from "@/components/screens/OrderConfirmationScreen";
 import VoiceAssistantOverlay from "@/components/VoiceAssistantOverlay";
 import SessionIdleScreen from "@/components/screens/SessionIdleScreen";
+import PairingNudge from "@/components/PairingNudge";
 import { MenuItem } from "@/data/menu";
 
 const voiceHints = [
@@ -61,6 +62,12 @@ const VoiceFab = ({ onClick }: { onClick: () => void }) => {
   );
 };
 
+interface NudgeState {
+  itemId: string;
+  itemName: string;
+  cartValueAtShow: number;
+}
+
 const Index = () => {
   const {
     currentScreen,
@@ -81,6 +88,17 @@ const Index = () => {
     setVoiceOverlayOpen,
   } = useDeviceNavigation();
 
+  const [nudge, setNudge] = useState<NudgeState | null>(null);
+
+  const handleAddToOrderWithNudge = useCallback(
+    (item: MenuItem) => {
+      const cartValueAtShow = order.reduce((s, o) => s + o.price * o.quantity, 0);
+      addToOrder(item);
+      setNudge({ itemId: item.id, itemName: item.name, cartValueAtShow });
+    },
+    [order, addToOrder]
+  );
+
   const handleSelectItem = useCallback(
     (item: MenuItem) => {
       setSelectedItem(item);
@@ -91,10 +109,10 @@ const Index = () => {
 
   const handleAddToOrder = useCallback(() => {
     if (selectedItem) {
-      addToOrder(selectedItem);
+      handleAddToOrderWithNudge(selectedItem);
       setCurrentScreen("order-summary");
     }
-  }, [selectedItem, addToOrder, setCurrentScreen]);
+  }, [selectedItem, handleAddToOrderWithNudge, setCurrentScreen]);
 
   const handleConfirmOrder = useCallback(() => {
     confirmOrder();
@@ -118,7 +136,7 @@ const Index = () => {
         );
       case "menu":
         return (
-          <MenuScreen onSelect={handleSelectItem} onAddToCart={addToOrder} onUpdateQuantity={updateQuantity} order={order} />
+          <MenuScreen onSelect={handleSelectItem} onAddToCart={handleAddToOrderWithNudge} onUpdateQuantity={updateQuantity} order={order} />
         );
       case "item-detail":
         return selectedItem ? (
@@ -199,6 +217,22 @@ const Index = () => {
           {/* Voice FAB on menu */}
           {currentScreen === "menu" && !voiceOverlayOpen && (
             <VoiceFab onClick={() => setVoiceOverlayOpen(true)} />
+          )}
+          {/* Pairing nudge — floats above screen content, below voice FAB */}
+          {nudge && (
+            <div className="absolute bottom-0 left-0 right-0 z-30 pb-2">
+              <PairingNudge
+                key={nudge.itemId}
+                addedItemId={nudge.itemId}
+                addedItemName={nudge.itemName}
+                cartValueAtShow={nudge.cartValueAtShow}
+                onAddPairing={(item) => {
+                  handleAddToOrderWithNudge(item);
+                  setNudge(null);
+                }}
+                onDismiss={() => setNudge(null)}
+              />
+            </div>
           )}
         </div>
       </div>
