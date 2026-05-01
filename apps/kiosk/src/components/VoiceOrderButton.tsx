@@ -95,55 +95,57 @@ const VoiceOrderButton = ({ onDone, order, restaurantId, tableId }: VoiceOrderBu
     [onDone],
   );
 
-  const startPress = useCallback(async () => {
+  const handleToggle = useCallback(async () => {
     if (backendStatusRef.current !== "ready") return;
-    if (pressStatusRef.current !== "idle") return;
-    const id = sessionIdRef.current;
-    if (!id) return;
+    if (micBlocked) return;
 
-    // Barge-in: cut any TTS audio before opening the mic
-    ttsRef.current?.bargeIn();
-    setPressStatus("recording");
-
-    try {
-      const cartItems = order.map((item) => ({
-        id: item.id,
-        name: item.name,
-        qty: item.quantity,
-        price: item.price,
-      }));
-      const handle = await startSttPress(id, handleSttMessage, cartItems);
-      sttRef.current = handle;
-    } catch (err) {
-      if (err instanceof MicPermissionDeniedError) {
-        setMicBlocked(true);
-      } else {
-        console.warn("STT start failed:", err);
+    if (pressStatusRef.current === "recording") {
+      // Second click — stop recording, let backend process
+      setPressStatus("processing");
+      try {
+        await sttRef.current?.stop();
+      } catch {
+        setPressStatus("idle");
       }
-      setPressStatus("idle");
-    }
-  }, [handleSttMessage, order]);
+    } else if (pressStatusRef.current === "idle") {
+      // First click — start session and recording
+      const id = sessionIdRef.current;
+      if (!id) return;
 
-  const stopPress = useCallback(async () => {
-    if (pressStatusRef.current !== "recording") return;
-    setPressStatus("processing");
-    try {
-      await sttRef.current?.stop();
-    } catch {
-      setPressStatus("idle");
+      // Barge-in: cut any TTS audio before opening the mic
+      ttsRef.current?.bargeIn();
+      setPressStatus("recording");
+
+      try {
+        const cartItems = order.map((item) => ({
+          id: item.id,
+          name: item.name,
+          qty: item.quantity,
+          price: item.price,
+        }));
+        const handle = await startSttPress(id, handleSttMessage, cartItems);
+        sttRef.current = handle;
+      } catch (err) {
+        if (err instanceof MicPermissionDeniedError) {
+          setMicBlocked(true);
+        } else {
+          console.warn("STT start failed:", err);
+        }
+        setPressStatus("idle");
+      }
     }
-  }, []);
+  }, [handleSttMessage, order, micBlocked]);
 
   const disabled = backendStatus !== "ready" || pressStatus === "processing";
 
   const buttonLabel =
     pressStatus === "recording"
-      ? "Listening…"
+      ? "Tap to stop"
       : pressStatus === "processing"
         ? "Processing…"
         : backendStatus === "error"
           ? "Voice unavailable"
-          : "Hold to order";
+          : "Tap to speak";
 
   const ringColor =
     pressStatus === "recording"
@@ -193,17 +195,7 @@ const VoiceOrderButton = ({ onDone, order, restaurantId, tableId }: VoiceOrderBu
         )}
         <button
           disabled={disabled}
-          onPointerDown={(e) => {
-            e.preventDefault();
-            void startPress();
-          }}
-          onPointerUp={(e) => {
-            e.preventDefault();
-            void stopPress();
-          }}
-          onPointerLeave={() => {
-            void stopPress();
-          }}
+          onClick={() => void handleToggle()}
           className={`w-12 h-12 border flex items-center justify-center cursor-pointer transition-all active:scale-95 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${ringColor} ${
             pressStatus === "recording" ? "animate-mic-pulse-glow" : ""
           }`}

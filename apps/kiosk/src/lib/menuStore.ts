@@ -48,8 +48,9 @@ export function useMenu(): MenuState {
   useEffect(() => {
     fetchItems();
 
+    const channelName = `menu_items_realtime_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const channel = supabase
-      .channel('menu_items_realtime')
+      .channel(channelName)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'menu_items' },
@@ -58,7 +59,7 @@ export function useMenu(): MenuState {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
   // fetchItems is defined inside the effect scope; no stale-closure risk
   // eslint-disable-next-line react-hooks/exhaustive-deps

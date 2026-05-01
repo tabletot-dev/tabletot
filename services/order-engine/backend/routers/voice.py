@@ -258,16 +258,19 @@ async def voice_stt(ws: WebSocket, session_id: str) -> None:
         # Hand off to TTS endpoint via the session queue
         await session.tts_queue.put(response_text)
 
-        await ws.send_json(
-            {
-                "type": "done",
-                "transcript": final_transcript,
-                "response": response_text,
-                "resolver": _serialize_resolver_results(result.resolver_results),
-                "order": result.order_state_snapshot,
-                "client_session_id": session.client_session_id,
-            }
-        )
+        done_message = {
+            "type": "done",
+            "transcript": final_transcript,
+            "response": response_text,
+            "resolver": _serialize_resolver_results(result.resolver_results),
+            "order": result.order_state_snapshot,
+            "client_session_id": session.client_session_id,
+        }
+        try:
+            await ws.send_json(done_message)
+        except (WebSocketDisconnect, RuntimeError):
+            # Client disconnected before done — log and move on
+            logger.warning("STT done message lost — client disconnected session=%s", session_id)
         logger.info(
             "STT turn complete session=%s transcript=%r",
             session_id,
@@ -277,7 +280,10 @@ async def voice_stt(ws: WebSocket, session_id: str) -> None:
         # Sarvam returned no transcript (silence, timeout, or empty audio).
         # Signal the client so it can reset the PTT button.
         logger.info("STT no speech detected session=%s", session_id)
-        await ws.send_json({"type": "no_speech"})
+        try:
+            await ws.send_json({"type": "no_speech"})
+        except (WebSocketDisconnect, RuntimeError):
+            pass  # Client already gone, nothing to do
 
 
 # ---------------------------------------------------------------------------
@@ -300,7 +306,7 @@ async def voice_tts(ws: WebSocket, session_id: str) -> None:
 
     # Lazy TTS init — connect to Sarvam on first client WS connection
     if not session.tts_handler.is_configured:
-        config = mgr._configs[session.restaurant_id]
+        config = mgr.get_restaurant_config(session)
         try:
             await session.tts_handler.configure(config.language_code, config.speaker)
             session.tts_handler.start_keepalive()
@@ -321,12 +327,24 @@ async def voice_tts(ws: WebSocket, session_id: str) -> None:
 
             try:
                 async for audio_chunk in session.tts_handler.speak(text):
-                    await ws.send_bytes(audio_chunk)
-                await ws.send_json({"type": "speech_complete"})
-                logger.debug("TTS speech_complete for session %s", session_id)
+                    try:
+                        await ws.send_bytes(audio_chunk)
+                    except (WebSocketDisconnect, RuntimeError):
+                        logger.info("TTS client disconnected during audio stream session=%s", session_id)
+                        break
+                else:
+                    try:
+                        await ws.send_json({"type": "speech_complete"})
+                        logger.debug("TTS speech_complete for session %s", session_id)
+                    except (WebSocketDisconnect, RuntimeError):
+                        logger.info("TTS client disconnected before speech_complete session=%s", session_id)
+                        break
             except Exception as e:
                 logger.exception("TTS speak error session=%s", session_id)
-                await ws.send_json({"type": "error", "message": str(e)})
+                try:
+                    await ws.send_json({"type": "error", "message": str(e)})
+                except (WebSocketDisconnect, RuntimeError):
+                    logger.info("TTS client disconnected before error message session=%s", session_id)
 
     except WebSocketDisconnect:
         logger.info("TTS client disconnected: session=%s", session_id)

@@ -29,6 +29,7 @@ class VoiceSession:
     session_id: str
     table_id: str
     restaurant_id: str
+    restaurant_slug: str  # internal slug for config/menu lookups
     tts_handler: SarvamTTSHandler
     orchestrator: Orchestrator
     client_session_id: str | None = None
@@ -56,6 +57,19 @@ class SessionManager:
         self._anthropic_api_key = anthropic_api_key
         self._menus = menus
 
+    def _resolve_restaurant_slug(self, restaurant_id: str) -> str:
+        """Resolve restaurant_id (slug or UUID) to internal slug key.
+
+        First tries direct slug lookup, then searches by db_restaurant_id.
+        Raises KeyError if not found.
+        """
+        if restaurant_id in self._configs:
+            return restaurant_id
+        for slug, cfg in self._configs.items():
+            if cfg.db_restaurant_id == restaurant_id:
+                return slug
+        raise KeyError(restaurant_id)
+
     async def create_session(
         self, table_id: str, restaurant_id: str, client_session_id: str | None = None
     ) -> VoiceSession:
@@ -67,10 +81,10 @@ class SessionManager:
 
         Raises KeyError if restaurant_id is not in the config.
         """
-        _ = self._configs[restaurant_id]  # validate restaurant_id early
+        slug = self._resolve_restaurant_slug(restaurant_id)  # validate & resolve
         session_id = uuid.uuid4().hex
 
-        menu_data, menu_index = self._menus[restaurant_id]
+        menu_data, menu_index = self._menus[slug]
         provider = create_provider("claude", self._anthropic_api_key)
         orchestrator = Orchestrator(provider, menu_index, menu_data)
 
@@ -81,6 +95,7 @@ class SessionManager:
             session_id=session_id,
             table_id=table_id,
             restaurant_id=restaurant_id,
+            restaurant_slug=slug,
             tts_handler=tts_handler,
             orchestrator=orchestrator,
             client_session_id=client_session_id,
@@ -97,6 +112,10 @@ class SessionManager:
     def get_session(self, session_id: str) -> VoiceSession | None:
         """Return the session for session_id, or None if not found."""
         return self._sessions.get(session_id)
+
+    def get_restaurant_config(self, session: VoiceSession) -> RestaurantConfig:
+        """Return the RestaurantConfig for a session (using resolved slug)."""
+        return self._configs[session.restaurant_slug]
 
     async def end_session(self, session_id: str) -> None:
         """Close the TTS WebSocket, cancel keepalive, remove session."""
