@@ -1,8 +1,10 @@
 import { useMenu } from "@/lib/menuStore";
-import { getUpsellItem } from "@/data/upsell";
-import { useMemo, useState, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import ChefsPicks from "@/components/ChefsPicks";
 import { MenuItem, OrderItem } from "@/data/menu";
+
+const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
 
 type PageTab = "menu" | "about" | "info";
 
@@ -19,6 +21,43 @@ const MenuScreen = ({ onSelect, onAddToCart, onUpdateQuantity, order }: MenuScre
   const [upsells, setUpsells] = useState<Record<string, MenuItem>>({});
   const [pageTab, setPageTab] = useState<PageTab>("menu");
 
+  // Cache of item pairings from DB - fetched once when items load
+  const [pairingsCache, setPairingsCache] = useState<Record<string, MenuItem | null>>({});
+
+  useEffect(() => {
+    if (items.length === 0) return;
+    // Fetch all pairings for this restaurant in one query
+    supabase
+      .from("item_pairings")
+      .select("source_item_id, priority, menu_items!item_pairings_paired_item_id_fkey(id, name, price, category, tags)")
+      .eq("restaurant_id", RESTAURANT_ID)
+      .eq("menu_items.active", true)
+      .order("priority", { ascending: false })
+      .then(({ data }) => {
+        if (!data) return;
+        // Build cache: source_item_id -> best paired MenuItem (or null)
+        const cache: Record<string, MenuItem | null> = {};
+        for (const row of data) {
+          const sourceId = row.source_item_id as string;
+          if (!(sourceId in cache)) {
+            const mi = row.menu_items as { id: string; name: string; price: number; category: string; tags: string[] } | null;
+            if (mi) {
+              cache[sourceId] = {
+                id: mi.id,
+                name: mi.name,
+                price: mi.price,
+                category: mi.category ?? '',
+                tags: Array.isArray(mi.tags) ? (mi.tags as string[]) : [],
+              };
+            } else {
+              cache[sourceId] = null;
+            }
+          }
+        }
+        setPairingsCache(cache);
+      });
+  }, [items]);
+
   // Set initial category once items load
   const resolvedCategory = activeCategory || categories[0] || '';
 
@@ -32,11 +71,12 @@ const MenuScreen = ({ onSelect, onAddToCart, onUpdateQuantity, order }: MenuScre
 
   const handleAddToCart = useCallback((item: MenuItem) => {
     onAddToCart(item);
-    const suggested = getUpsellItem(item, items);
+    // Use DB pairing if exists, otherwise no upsell
+    const suggested = pairingsCache[item.id];
     if (suggested && !upsells[item.id]) {
       setUpsells((prev) => ({ ...prev, [item.id]: suggested }));
     }
-  }, [onAddToCart, upsells, items]);
+  }, [onAddToCart, upsells, pairingsCache]);
 
   const handleUpsellAdd = useCallback((parentId: string, item: MenuItem) => {
     onAddToCart(item);
@@ -180,7 +220,7 @@ const MenuScreen = ({ onSelect, onAddToCart, onUpdateQuantity, order }: MenuScre
                         )}
                       </div>
 
-                      {upsells[item.id] && (
+                      {upsells[item.id] && pairingsCache[item.id] && (
                         <div className="flex items-center gap-3 px-3 py-2.5 border border-t-0 border-primary/20 bg-primary/5">
                           <div className="w-1 h-8 bg-primary/30 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
