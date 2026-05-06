@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { MenuItem } from '@/data/menu';
 
+// TODO: set to Silver Specialty Coffee UUID — run: SELECT id FROM restaurants WHERE name = 'Silver Specialty Coffee';
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
 
 export interface MenuState {

@@ -17,6 +17,7 @@ import { useMenu } from "@/lib/menuStore";
 import type { DoneMessage, OrderSnapshot } from "@/lib/voice/types";
 import { MenuItem } from "@/data/menu";
 
+// TODO: set to Silver Specialty Coffee UUID — run: SELECT id FROM restaurants WHERE name = 'Silver Specialty Coffee';
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
 // One tablet = one table. Matches restaurant_tables.table_number used in order submission.
 const TABLE_ID = "T1";

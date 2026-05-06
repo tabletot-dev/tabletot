@@ -1,0 +1,1601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Tabletot Touch Ordering</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./tabletot-redesign.css">
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    const menuItems = [
+      {
+        id: "avocado-toast",
+        name: "Avocado Toast",
+        category: "All Day Breakfast",
+        type: "food",
+        isVeg: true,
+        price: 390,
+        image: "https://images.unsplash.com/photo-1603046891744-76e6300f0bf2?auto=format&fit=crop&w=1200&q=80",
+        short: "Sourdough, avocado mash, breakfast favorite",
+        description: "Silver Specialty Coffee all day breakfast favorite with avocado mash served on toast.",
+        tags: ["Chef's Pick", "Signature"],
+        pairings: ["cappuccino", "silver-cold-brew"]
+      },
+      {
+        id: "veggie-bagel",
+        name: "Veggie Bagel",
+        category: "All Day Breakfast",
+        type: "food",
+        isVeg: true,
+        price: 360,
+        image: "https://images.unsplash.com/photo-1550317138-10000687a72b?auto=format&fit=crop&w=1200&q=80",
+        short: "Toasted bagel with fresh veggie filling",
+        description: "Toasted veggie bagel from the all day breakfast menu.",
+        tags: ["Best Seller"],
+        pairings: ["flat-white"]
+      },
+      {
+        id: "egg-bagel",
+        name: "Egg Bagel",
+        category: "All Day Breakfast",
+        type: "food",
+        isVeg: false,
+        price: 370,
+        image: "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=1200&q=80",
+        short: "Bagel layered with egg and savory filling",
+        description: "All day breakfast bagel with egg and house filling.",
+        tags: ["New"],
+        pairings: ["cortado"]
+      },
+      {
+        id: "french-omelette",
+        name: "French Omelette",
+        category: "All Day Breakfast",
+        type: "food",
+        isVeg: true,
+        price: 350,
+        image: "https://images.unsplash.com/photo-1510693206972-df098062cb71?auto=format&fit=crop&w=1200&q=80",
+        short: "Classic omelette, plated breakfast style",
+        description: "Classic French omelette from the all day breakfast section.",
+        tags: [],
+        pairings: ["long-black"]
+      },
+      {
+        id: "turkish-eggs",
+        name: "Turkish Eggs",
+        category: "All Day Breakfast",
+        type: "food",
+        isVeg: true,
+        price: 380,
+        image: "https://images.unsplash.com/photo-1482049016688-2d3e1b311543?auto=format&fit=crop&w=1200&q=80",
+        short: "Creamy, savory, and breakfast ready",
+        description: "Turkish eggs served as part of the all day breakfast menu.",
+        tags: [],
+        pairings: ["flat-white"]
+      },
+      {
+        id: "french-toast",
+        name: "French Toast",
+        category: "All Day Breakfast",
+        type: "dessert",
+        isVeg: true,
+        price: 400,
+        image: "https://images.unsplash.com/photo-1484723091739-30a097e8f929?auto=format&fit=crop&w=1200&q=80",
+        short: "Sweet toast, plated for brunch",
+        description: "French toast from Silver's all day breakfast menu.",
+        tags: ["Signature"],
+        pairings: ["spanish-latte"]
+      },
+      {
+        id: "silver-breakfast-veg",
+        name: "Silver Breakfast Veg",
+        category: "Silver Breakfast",
+        type: "food",
+        isVeg: true,
+        price: 585,
+        image: "https://images.unsplash.com/photo-1533089860892-a9c1f30fb0e7?auto=format&fit=crop&w=1200&q=80",
+        short: "Signature breakfast platter, vegetarian",
+        description: "Silver breakfast platter in the vegetarian option.",
+        tags: [],
+        pairings: ["cappuccino"]
+      },
+      {
+        id: "silver-breakfast-non-veg",
+        name: "Silver Breakfast Non Veg",
+        category: "Silver Breakfast",
+        type: "food",
+        isVeg: false,
+        price: 600,
+        image: "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=1200&q=80",
+        short: "Signature breakfast platter, non vegetarian",
+        description: "Silver breakfast platter in the non vegetarian option.",
+        tags: ["Best Seller"],
+        pairings: ["cappuccino"]
+      },
+      {
+        id: "berry-bowl",
+        name: "Berry",
+        category: "Smoothie Bowls",
+        type: "dessert",
+        isVeg: true,
+        price: 400,
+        image: "https://images.unsplash.com/photo-1494597564530-871f2b93ac55?auto=format&fit=crop&w=1200&q=80",
+        short: "Berry smoothie bowl",
+        description: "Berry smoothie bowl from the Silver menu.",
+        tags: ["New"],
+        pairings: ["iced-latte"]
+      },
+      {
+        id: "cacao-bowl",
+        name: "Cacao",
+        category: "Smoothie Bowls",
+        type: "dessert",
+        isVeg: true,
+        price: 375,
+        image: "https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?auto=format&fit=crop&w=1200&q=80",
+        short: "Cacao smoothie bowl",
+        description: "Cacao smoothie bowl from the Silver menu.",
+        tags: [],
+        pairings: ["silver-espresso"]
+      },
+      {
+        id: "greek-yogurt-bowl",
+        name: "Greek Yogurt",
+        category: "Smoothie Bowls",
+        type: "dessert",
+        isVeg: true,
+        price: 375,
+        image: "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=1200&q=80",
+        short: "Greek yogurt smoothie bowl",
+        description: "Greek yogurt bowl from the Silver menu.",
+        tags: [],
+        pairings: ["hot-chocolate"]
+      },
+      {
+        id: "vanilla-mush",
+        name: "Vanilla Mush",
+        category: "Smoothie Bowls",
+        type: "dessert",
+        isVeg: true,
+        price: 370,
+        image: "https://images.unsplash.com/photo-1517673400267-0251440c45dc?auto=format&fit=crop&w=1200&q=80",
+        short: "Vanilla mush bowl",
+        description: "Vanilla mush smoothie bowl from the Silver menu.",
+        tags: [],
+        pairings: ["iced-long-black"]
+      },
+      {
+        id: "original-pancakes",
+        name: "Original",
+        category: "Pancakes",
+        type: "dessert",
+        isVeg: true,
+        price: 350,
+        image: "https://images.unsplash.com/photo-1528207776546-365bb710ee93?auto=format&fit=crop&w=1200&q=80",
+        short: "Classic pancakes",
+        description: "Original pancakes from Silver Specialty Coffee.",
+        tags: ["Signature"],
+        pairings: ["hot-chocolate"]
+      },
+      {
+        id: "banana-pancakes",
+        name: "Banana",
+        category: "Pancakes",
+        type: "dessert",
+        isVeg: true,
+        price: 340,
+        image: "https://images.unsplash.com/photo-1506084868230-bb9d95c24759?auto=format&fit=crop&w=1200&q=80",
+        short: "Banana pancakes",
+        description: "Banana pancakes from Silver Specialty Coffee.",
+        tags: [],
+        pairings: ["mocha"]
+      },
+      {
+        id: "pbj-pancakes",
+        name: "PB & J",
+        category: "Pancakes",
+        type: "dessert",
+        isVeg: true,
+        price: 360,
+        image: "https://images.unsplash.com/photo-1528207776546-365bb710ee93?auto=format&fit=crop&w=1200&q=80",
+        short: "Peanut butter and jelly pancakes",
+        description: "PB & J pancakes from Silver Specialty Coffee.",
+        tags: [],
+        pairings: ["mocha"]
+      },
+      {
+        id: "classic-fries",
+        name: "Classic Fries",
+        category: "Fries",
+        type: "food",
+        isVeg: true,
+        price: 215,
+        image: "https://images.unsplash.com/photo-1576107232684-1279f390859f?auto=format&fit=crop&w=1200&q=80",
+        short: "Crisp classic fries",
+        description: "Classic fries from the Silver menu.",
+        tags: ["Quick Add"],
+        pairings: ["espresso-tonic"]
+      },
+      {
+        id: "chilli-lime-fries",
+        name: "Chilli Lime Fries",
+        category: "Fries",
+        type: "food",
+        isVeg: true,
+        price: 245,
+        image: "https://images.unsplash.com/photo-1576107232684-1279f390859f?auto=format&fit=crop&w=1200&q=80",
+        short: "Fries with chilli lime seasoning",
+        description: "Chilli lime fries from the Silver menu.",
+        tags: [],
+        pairings: ["iced-long-black"]
+      },
+      {
+        id: "peri-peri-fries",
+        name: "Peri Peri Fries",
+        category: "Fries",
+        type: "food",
+        isVeg: true,
+        price: 245,
+        image: "https://images.unsplash.com/photo-1576107232684-1279f390859f?auto=format&fit=crop&w=1200&q=80",
+        short: "Fries with peri peri seasoning",
+        description: "Peri peri fries from the Silver menu.",
+        tags: [],
+        pairings: ["iced-mocha"]
+      },
+      {
+        id: "veggie-sandwich",
+        name: "Veggie",
+        category: "Sandwiches",
+        type: "food",
+        isVeg: true,
+        price: 375,
+        image: "https://images.unsplash.com/photo-1528736235302-52922df5c122?auto=format&fit=crop&w=1200&q=80",
+        short: "Grilled veggie sandwich",
+        description: "Veggie sandwich from the Silver menu.",
+        tags: [],
+        pairings: ["cold-brew"]
+      },
+      {
+        id: "corn-spinach-sandwich",
+        name: "Corn & Spinach",
+        category: "Sandwiches",
+        type: "food",
+        isVeg: true,
+        price: 375,
+        image: "https://images.unsplash.com/photo-1553909489-cd47e0907980?auto=format&fit=crop&w=1200&q=80",
+        short: "Corn and spinach sandwich",
+        description: "Corn & spinach sandwich from the Silver menu.",
+        tags: [],
+        pairings: ["flat-white"]
+      },
+      {
+        id: "peri-peri-chicken-sandwich",
+        name: "Peri Peri Chicken",
+        category: "Sandwiches",
+        type: "food",
+        isVeg: false,
+        price: 390,
+        image: "https://images.unsplash.com/photo-1509722747041-616f39b57569?auto=format&fit=crop&w=1200&q=80",
+        short: "Grilled chicken sandwich with peri peri kick",
+        description: "Peri peri chicken sandwich from the Silver menu.",
+        tags: ["Best Seller"],
+        pairings: ["espresso-lime"]
+      },
+      {
+        id: "chicken-focaccia",
+        name: "Chicken",
+        category: "Focaccia",
+        type: "food",
+        isVeg: false,
+        price: 375,
+        image: "https://images.unsplash.com/photo-1606755962773-d324e0a13086?auto=format&fit=crop&w=1200&q=80",
+        short: "Chicken focaccia",
+        description: "Chicken focaccia from the Silver menu.",
+        tags: [],
+        pairings: ["iced-long-black"]
+      },
+      {
+        id: "mushroom-focaccia",
+        name: "Mushroom",
+        category: "Focaccia",
+        type: "food",
+        isVeg: true,
+        price: 380,
+        image: "https://images.unsplash.com/photo-1541519227354-08fa5d50c44d?auto=format&fit=crop&w=1200&q=80",
+        short: "Mushroom focaccia",
+        description: "Mushroom focaccia from the Silver menu.",
+        tags: [],
+        pairings: ["cortado"]
+      },
+      {
+        id: "nashville-chicken-burger",
+        name: "Nashville Chicken",
+        category: "Burgers",
+        type: "food",
+        isVeg: false,
+        price: 390,
+        image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=1200&q=80",
+        short: "Chicken burger with house fries",
+        description: "Nashville chicken burger from the Silver menu.",
+        tags: ["Best Seller"],
+        pairings: ["espresso-cranberry"]
+      },
+      {
+        id: "veggie-patty-burger",
+        name: "Veggie Patty",
+        category: "Burgers",
+        type: "food",
+        isVeg: true,
+        price: 430,
+        image: "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1200&q=80",
+        short: "Veggie burger with fries",
+        description: "Veggie patty burger from the Silver menu.",
+        tags: [],
+        pairings: ["iced-latte"]
+      },
+      {
+        id: "aglio-e-olio",
+        name: "Aglio e Olio",
+        category: "Pastas",
+        type: "food",
+        isVeg: true,
+        price: 380,
+        image: "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?auto=format&fit=crop&w=1200&q=80",
+        short: "Classic garlic and olive oil pasta",
+        description: "Aglio e olio pasta from the Silver menu.",
+        tags: [],
+        pairings: ["long-black"]
+      },
+      {
+        id: "arrabiata",
+        name: "Arrabiata",
+        category: "Pastas",
+        type: "food",
+        isVeg: true,
+        price: 380,
+        priceLabel: "₹380 / ₹410",
+        image: "https://images.unsplash.com/photo-1622973536968-3ead9e780960?auto=format&fit=crop&w=1200&q=80",
+        short: "Red sauce pasta",
+        description: "Arrabiata pasta from the Silver menu. Add on veggies ₹40 or chicken ₹60.",
+        tags: [],
+        pairings: ["cappuccino"]
+      },
+      {
+        id: "alfredo",
+        name: "Alfredo",
+        category: "Pastas",
+        type: "food",
+        isVeg: true,
+        price: 380,
+        priceLabel: "₹380 / ₹410",
+        image: "https://images.unsplash.com/photo-1645112411341-6c4fd023714a?auto=format&fit=crop&w=1200&q=80",
+        short: "Creamy white sauce pasta",
+        description: "Alfredo pasta from the Silver menu. Add on veggies ₹40 or chicken ₹60.",
+        tags: [],
+        pairings: ["hot-chocolate"]
+      },
+      {
+        id: "pesto",
+        name: "Pesto",
+        category: "Pastas",
+        type: "food",
+        isVeg: true,
+        price: 380,
+        priceLabel: "₹380 / ₹410",
+        image: "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&w=1200&q=80",
+        short: "Green pesto pasta",
+        description: "Pesto pasta from the Silver menu. Add on veggies ₹40 or chicken ₹60.",
+        tags: [],
+        pairings: ["flat-white"]
+      },
+      {
+        id: "cappuccino",
+        name: "Cappuccino",
+        category: "Hot Coffee",
+        type: "beverage",
+        isVeg: true,
+        price: 240,
+        image: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=1200&q=80",
+        short: "Classic hot coffee",
+        description: "Cappuccino from the Silver Specialty Coffee menu.",
+        tags: []
+      },
+      {
+        id: "latte",
+        name: "Latte",
+        category: "Hot Coffee",
+        type: "beverage",
+        isVeg: true,
+        price: 250,
+        image: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1200&q=80",
+        short: "Smooth milk coffee",
+        description: "Latte from the Silver Specialty Coffee menu.",
+        tags: []
+      },
+      {
+        id: "mocha",
+        name: "Mocha",
+        category: "Hot Coffee",
+        type: "beverage",
+        isVeg: true,
+        price: 310,
+        image: "https://images.unsplash.com/photo-1572442388796-11668a67e53d?auto=format&fit=crop&w=1200&q=80",
+        short: "Chocolate coffee blend",
+        description: "Mocha from the Silver Specialty Coffee menu.",
+        tags: []
+      },
+      {
+        id: "long-black",
+        name: "Long Black",
+        category: "Hot Coffee",
+        type: "beverage",
+        isVeg: true,
+        price: 230,
+        image: "https://images.unsplash.com/photo-1517701604599-bb29b565090c?auto=format&fit=crop&w=1200&q=80",
+        short: "Long black coffee",
+        description: "Long black from the Silver Specialty Coffee menu.",
+        tags: []
+      },
+      {
+        id: "cortado",
+        name: "Cortado",
+        category: "Hot Coffee",
+        type: "beverage",
+        isVeg: true,
+        price: 220,
+        image: "https://images.unsplash.com/photo-1515442261605-65987783cb6a?auto=format&fit=crop&w=1200&q=80",
+        short: "Short milk coffee",
+        description: "Cortado from the Silver Specialty Coffee menu.",
+        tags: []
+      },
+      {
+        id: "flat-white",
+        name: "Flat White",
+        category: "Hot Coffee",
+        type: "beverage",
+        isVeg: true,
+        price: 250,
+        image: "https://images.unsplash.com/photo-1523942839745-7848d0b9fdce?auto=format&fit=crop&w=1200&q=80",
+        short: "Silky espresso milk coffee",
+        description: "Flat white from the Silver Specialty Coffee menu.",
+        tags: []
+      },
+      {
+        id: "silver-espresso",
+        name: "Silver Espresso",
+        category: "Signature Coffee",
+        type: "beverage",
+        isVeg: true,
+        price: 185,
+        image: "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?auto=format&fit=crop&w=1200&q=80",
+        short: "House espresso shot",
+        description: "Silver espresso from the signature coffee lineup.",
+        tags: []
+      },
+      {
+        id: "silver-cold-brew",
+        name: "Silver Cold Brew",
+        category: "Signature Coffee",
+        type: "beverage",
+        isVeg: true,
+        price: 290,
+        image: "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?auto=format&fit=crop&w=1200&q=80",
+        short: "House cold brew",
+        description: "Silver cold brew from the signature coffee lineup.",
+        tags: []
+      },
+      {
+        id: "espresso-lime",
+        name: "Espresso Lime",
+        category: "Signature Coffee",
+        type: "beverage",
+        isVeg: true,
+        price: 290,
+        image: "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=1200&q=80",
+        short: "Espresso with citrus lift",
+        description: "Espresso lime from the signature coffee lineup.",
+        tags: []
+      },
+      {
+        id: "espresso-tonic",
+        name: "Espresso Tonic",
+        category: "Signature Coffee",
+        type: "beverage",
+        isVeg: true,
+        price: 290,
+        image: "https://images.unsplash.com/photo-1470337458703-46ad1756a187?auto=format&fit=crop&w=1200&q=80",
+        short: "Espresso over tonic",
+        description: "Espresso tonic from the signature coffee lineup.",
+        tags: []
+      },
+      {
+        id: "spanish-latte",
+        name: "Spanish Latte",
+        category: "Signature Coffee",
+        type: "beverage",
+        isVeg: true,
+        price: 290,
+        image: "https://images.unsplash.com/photo-1517701604599-bb29b565090c?auto=format&fit=crop&w=1200&q=80",
+        short: "Sweet signature latte",
+        description: "Spanish latte from the signature coffee lineup.",
+        tags: ["Best Seller", "Signature"],
+        pairings: ["original-pancakes", "avocado-toast"]
+      },
+      {
+        id: "silver-cold-coffee",
+        name: "Silver Cold Coffee",
+        category: "Signature Coffee",
+        type: "beverage",
+        isVeg: true,
+        price: 330,
+        image: "https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=1200&q=80",
+        short: "Blended cold coffee",
+        description: "Silver cold coffee from the signature coffee lineup.",
+        tags: []
+      },
+      {
+        id: "iced-long-black",
+        name: "Iced Long Black",
+        category: "Iced Coffee",
+        type: "beverage",
+        isVeg: true,
+        price: 230,
+        image: "https://images.unsplash.com/photo-1517701604599-bb29b565090c?auto=format&fit=crop&w=1200&q=80",
+        short: "Chilled long black",
+        description: "Iced long black from the Silver menu.",
+        tags: []
+      },
+      {
+        id: "espresso-orange",
+        name: "Espresso Orange",
+        category: "Iced Coffee",
+        type: "beverage",
+        isVeg: true,
+        price: 290,
+        image: "https://images.unsplash.com/photo-1621263764928-df1444c5e859?auto=format&fit=crop&w=1200&q=80",
+        short: "Espresso over orange",
+        description: "Espresso orange from the Silver menu.",
+        tags: []
+      },
+      {
+        id: "affogato",
+        name: "Affogato",
+        category: "Desserts",
+        type: "dessert",
+        isVeg: true,
+        price: 270,
+        image: "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=1200&q=80",
+        short: "Espresso poured over ice cream",
+        description: "Affogato from the Silver Specialty Coffee menu.",
+        tags: ["Chef's Pick"],
+        pairings: ["silver-espresso"]
+      },
+      {
+        id: "espresso-cranberry",
+        name: "Espresso Cranberry",
+        category: "Iced Coffee",
+        type: "beverage",
+        isVeg: true,
+        price: 290,
+        image: "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=1200&q=80",
+        short: "Espresso with cranberry",
+        description: "Espresso cranberry from the Silver menu.",
+        tags: []
+      },
+      {
+        id: "hot-chocolate",
+        name: "Hot Chocolate",
+        category: "Tea & Chocolate",
+        type: "beverage",
+        isVeg: true,
+        price: 320,
+        image: "https://images.unsplash.com/photo-1517578239113-b03992dcdd25?auto=format&fit=crop&w=1200&q=80",
+        short: "Rich hot chocolate",
+        description: "Hot chocolate from the Silver menu.",
+        tags: []
+      },
+      {
+        id: "iced-latte",
+        name: "Iced Latte",
+        category: "Iced Coffee",
+        type: "beverage",
+        isVeg: true,
+        price: 270,
+        image: "https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=1200&q=80",
+        short: "Chilled latte",
+        description: "Iced latte from the Silver menu.",
+        tags: []
+      },
+      {
+        id: "iced-mocha",
+        name: "Iced Mocha",
+        category: "Iced Coffee",
+        type: "beverage",
+        isVeg: true,
+        price: 330,
+        image: "https://images.unsplash.com/photo-1517701604599-bb29b565090c?auto=format&fit=crop&w=1200&q=80",
+        short: "Chilled mocha",
+        description: "Iced mocha from the Silver menu.",
+        tags: []
+      },
+      {
+        id: "teas",
+        name: "Teas",
+        category: "Tea & Chocolate",
+        type: "beverage",
+        isVeg: true,
+        price: 225,
+        image: "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=1200&q=80",
+        short: "Spearmint, green tea, chamomile, blue pea",
+        description: "Tea selection: spearmint, green tea, chamomile, and blue pea.",
+        tags: []
+      }
+    ];
+
+    const categories = [
+      "All",
+      "All Day Breakfast",
+      "Silver Breakfast",
+      "Smoothie Bowls",
+      "Pancakes",
+      "Fries",
+      "Sandwiches",
+      "Focaccia",
+      "Burgers",
+      "Pastas",
+      "Hot Coffee",
+      "Signature Coffee",
+      "Iced Coffee",
+      "Tea & Chocolate",
+      "Desserts"
+    ];
+
+    const voicePrompts = [
+      "How can I help you?",
+      "Vegan options?",
+      "Best iced coffee?",
+      "Something sweet?",
+      "Breakfast recommendations?"
+    ];
+
+    const state = {
+      view: "home",
+      category: "All",
+      diet: "all",
+      selectedItemId: "avocado-toast",
+      heroIndex: 0,
+      idlePromoIndex: 0,
+      voicePromptIndex: 0,
+      voiceSheetOpen: false,
+      cart: { "spanish-latte": 1, "avocado-toast": 1 },
+      upsellItemId: "",
+      search: "",
+      toast: "",
+      orderPlaced: false,
+      orderSentAt: null,
+      serviceRequested: false,
+      billRequested: false,
+      waterRequested: false
+    };
+
+    const app = document.getElementById("app");
+    let toastTimer = null;
+    let idleTransitionTimer = null;
+    let lastScrollTop = 0;
+
+    function money(value) {
+      return `₹${value.toFixed(0)}`;
+    }
+
+    function displayPrice(itemOrValue) {
+      if (typeof itemOrValue === "number") return money(itemOrValue);
+      return itemOrValue.priceLabel || money(itemOrValue.price);
+    }
+
+    function getItem(id) {
+      return menuItems.find((item) => item.id === id);
+    }
+
+    function cartItems() {
+      return Object.entries(state.cart)
+        .filter(([, qty]) => qty > 0)
+        .map(([id, qty]) => ({ ...getItem(id), qty }));
+    }
+
+    function cartCount() {
+      return cartItems().reduce((sum, item) => sum + item.qty, 0);
+    }
+
+    function subtotal() {
+      return cartItems().reduce((sum, item) => sum + item.price * item.qty, 0);
+    }
+
+    function tax() {
+      return subtotal() * 0.08;
+    }
+
+    function total() {
+      return subtotal() + tax();
+    }
+
+    function filteredItems() {
+      const query = state.search.trim().toLowerCase();
+      return menuItems.filter((item) => {
+        const matchesCategory = state.category === "All" || item.category === state.category;
+        const matchesSearch = !query || `${item.name} ${item.short} ${item.category}`.toLowerCase().includes(query);
+        const matchesDiet =
+          state.diet === "all" ||
+          (state.diet === "veg" && item.isVeg) ||
+          (state.diet === "nonveg" && !item.isVeg);
+        return matchesCategory && matchesSearch && matchesDiet;
+      });
+    }
+
+    function heroItems() {
+      return ["avocado-toast", "spanish-latte", "affogato"].map(getItem).filter(Boolean);
+    }
+
+    function dessertItems() {
+      return menuItems.filter((item) => item.type === "dessert");
+    }
+
+    function beverageItems() {
+      return menuItems.filter((item) => item.type === "beverage");
+    }
+
+    function pairingsFor(item) {
+      return (item.pairings || []).map(getItem).filter(Boolean);
+    }
+
+    function idlePromoItems() {
+      return [
+        {
+          id: "ad-travel",
+          title: "Weekend Escape",
+          copy: "Discover limited-time city breaks, spa stays, and last-minute travel offers.",
+          image: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1600&q=80"
+        },
+        {
+          id: "ad-audio",
+          title: "Studio Sound",
+          copy: "Wireless headphones, deep bass, and everyday listening made beautifully simple.",
+          image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1600&q=80"
+        },
+        {
+          id: "ad-fashion",
+          title: "New Season Edit",
+          copy: "Lightweight essentials, clean tailoring, and fresh arrivals for the week ahead.",
+          image: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1600&q=80"
+        },
+        {
+          id: "ad-wellness",
+          title: "Reset & Recharge",
+          copy: "Wellness offers, fitness plans, and recovery treatments curated for busy days.",
+          image: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1600&q=80"
+        }
+      ];
+    }
+
+    function recommendationsFor(item) {
+      const paired = pairingsFor(item);
+      if (paired.length) return paired.slice(0, 2);
+
+      const preferredType = item.type === "beverage" ? "food" : "beverage";
+      return menuItems
+        .filter((candidate) => candidate.id !== item.id && candidate.type === preferredType)
+        .slice(0, 2);
+    }
+
+    function showToast(message) {
+      state.toast = message;
+      render();
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        state.toast = "";
+        render();
+      }, 2200);
+    }
+
+    function setView(view) {
+      state.view = view;
+      render();
+    }
+
+    function scrollToMenuContinuation() {
+      requestAnimationFrame(() => {
+        const menu = document.getElementById("menu-continuation");
+        if (menu) menu.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+
+    function openItem(id) {
+      state.selectedItemId = id;
+      state.view = "detail";
+      render();
+    }
+
+    function addToCart(id, qty = 1) {
+      state.cart[id] = (state.cart[id] || 0) + qty;
+      state.upsellItemId = id;
+      showToast(`${getItem(id).name} added to order`);
+    }
+
+    function updateQty(id, delta) {
+      const next = (state.cart[id] || 0) + delta;
+      if (next <= 0) {
+        delete state.cart[id];
+        if (state.upsellItemId === id) state.upsellItemId = "";
+      } else {
+        state.cart[id] = next;
+        state.upsellItemId = id;
+      }
+      render();
+    }
+
+    function confirmOrder() {
+      if (!cartCount()) {
+        showToast("Add something before sending the order");
+        return;
+      }
+      state.orderPlaced = true;
+      state.orderSentAt = Date.now();
+      state.billRequested = false;
+      state.serviceRequested = false;
+      state.waterRequested = false;
+      state.idlePromoIndex = 0;
+      state.view = "confirmation";
+      clearTimeout(idleTransitionTimer);
+      const sentAt = state.orderSentAt;
+      idleTransitionTimer = setTimeout(() => {
+        if (state.view === "confirmation" && state.orderSentAt === sentAt) {
+          state.view = "idle";
+          render();
+        }
+      }, 5000);
+      render();
+    }
+
+    function requestService() {
+      state.serviceRequested = true;
+      showToast("A server has been notified");
+    }
+
+    function requestBill() {
+      state.billRequested = true;
+      showToast("Bill requested for Table 14");
+    }
+
+    function requestWater() {
+      state.waterRequested = true;
+      showToast("Water requested for Table 14");
+    }
+
+    function simulateVoice() {
+      state.voiceSheetOpen = true;
+      state.voicePromptIndex = 0;
+      render();
+    }
+
+    function closeVoiceSheet() {
+      state.voiceSheetOpen = false;
+      render();
+    }
+
+    function orderProgress() {
+      if (!state.orderPlaced || !state.orderSentAt) return 0;
+      const minutes = (Date.now() - state.orderSentAt) / 1000;
+      return Math.min(92, Math.round(28 + minutes * 3));
+    }
+
+    function stageLabel() {
+      const progress = orderProgress();
+      if (progress < 45) return "Queued";
+      if (progress < 80) return "Cooking";
+      return "Plating";
+    }
+
+    function tagMarkup(tag) {
+      const map = {
+        "Chef's Pick": "tag-dark",
+        "Best Seller": "tag-accent",
+        "Signature": "tag-light",
+        "New": "tag-green",
+        "Pairs Well": "tag-light",
+        "Quick Add": "tag-light"
+      };
+      return `<span class="tag ${map[tag] || "tag-light"}">${tag}</span>`;
+    }
+
+    function dishCard(item) {
+      const qty = state.cart[item.id] || 0;
+      const recommendations = recommendationsFor(item);
+      return `
+        <article class="dish-card" data-action="open-item" data-id="${item.id}" role="button" tabindex="0">
+          <div class="dish-media" style="background-image:url('${item.image}')">
+            <div class="dish-tags">${item.tags.slice(0, 2).map(tagMarkup).join("")}</div>
+          </div>
+          <div class="dish-body">
+            <div class="dish-text">
+              <h3>${item.name}</h3>
+              <p>${item.short}</p>
+            </div>
+            <div class="dish-meta">
+              <strong>${displayPrice(item)}</strong>
+              ${qty ? `
+                <div class="card-stepper" aria-label="${item.name} quantity">
+                  <button data-action="decrease-item" data-id="${item.id}" aria-label="Decrease ${item.name}">-</button>
+                  <span>${qty}</span>
+                  <button data-action="increase-item" data-id="${item.id}" aria-label="Increase ${item.name}">+</button>
+                </div>
+              ` : `<button class="chip-action" data-action="add-item" data-id="${item.id}">Add</button>`}
+            </div>
+            ${state.upsellItemId === item.id && recommendations.length ? `
+              <div class="card-pairing-panel">
+                <div>
+                  <p class="eyebrow">Pairs well with</p>
+                  <strong>Complete it with</strong>
+                </div>
+                <div class="card-pairing-list">
+                  ${recommendations.map((pairedItem) => `
+                    <button class="pairing-chip" data-action="add-item" data-id="${pairedItem.id}">
+                      <span class="pairing-thumb" style="background-image:url('${pairedItem.image}')"></span>
+                      <span class="pairing-info">
+                        <span class="pairing-topline">
+                          <span class="pairing-name">${pairedItem.name}</span>
+                          <small>${displayPrice(pairedItem)}</small>
+                        </span>
+                        <span class="pairing-add">Add</span>
+                      </span>
+                    </button>
+                  `).join("")}
+                </div>
+              </div>
+            ` : ""}
+          </div>
+        </article>
+      `;
+    }
+
+    function compactCard(item) {
+      return `
+        <article class="compact-card" data-action="open-item" data-id="${item.id}" role="button" tabindex="0">
+          <div class="compact-thumb" style="background-image:url('${item.image}')"></div>
+          <div class="compact-copy">
+            <strong>${item.name}</strong>
+            <span>${displayPrice(item)}</span>
+          </div>
+          <button class="mini-plus" data-action="add-item" data-id="${item.id}">+</button>
+        </article>
+      `;
+    }
+
+    function cartIcon() {
+      return `
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="cart-icon">
+          <path d="M3 5h2l2.3 9.2a2 2 0 0 0 1.9 1.5h7.8a2 2 0 0 0 1.9-1.4L21 8H7.2"/>
+          <circle cx="10" cy="19" r="1.5"/>
+          <circle cx="18" cy="19" r="1.5"/>
+        </svg>
+      `;
+    }
+
+    function micIcon() {
+      return `
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="mic-icon">
+          <rect x="9" y="3" width="6" height="11" rx="3"></rect>
+          <path d="M6 11a6 6 0 0 0 12 0"></path>
+          <path d="M12 17v4"></path>
+          <path d="M9 21h6"></path>
+        </svg>
+      `;
+    }
+
+    function waterIcon() {
+      return `
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="water-icon">
+          <path d="M12 3.5c2.4 3 5 6 5 9a5 5 0 1 1-10 0c0-3 2.6-6 5-9Z"></path>
+        </svg>
+      `;
+    }
+
+    function categoryIcon(category) {
+      const icons = {
+        "All": `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"></rect><rect x="13" y="4" width="7" height="7" rx="1.5"></rect><rect x="4" y="13" width="7" height="7" rx="1.5"></rect><rect x="13" y="13" width="7" height="7" rx="1.5"></rect></svg>`,
+        "All Day Breakfast": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15h16"></path><path d="M6 15a6 6 0 1 1 12 0"></path><path d="M8 19h8"></path></svg>`,
+        "Silver Breakfast": `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="4.5"></circle><path d="M15 7h5v10h-5"></path></svg>`,
+        "Smoothie Bowls": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9h14"></path><path d="M6 9a6 6 0 0 0 12 0"></path><path d="M9 4v3"></path><path d="M12 3v4"></path><path d="M15 4v3"></path></svg>`,
+        "Pancakes": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16h12"></path><path d="M5 12h14"></path><path d="M7 8h10"></path></svg>`,
+        "Fries": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h10l-1 14H8L7 5Z"></path><path d="M9 5V3"></path><path d="M12 5V2.5"></path><path d="M15 5V3"></path></svg>`,
+        "Sandwiches": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4"></path><path d="M5 9h14v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9Z"></path></svg>`,
+        "Focaccia": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15 12 5l8 10Z"></path><path d="M8 12h.01"></path><path d="M12 10h.01"></path><path d="M15 13h.01"></path></svg>`,
+        "Burgers": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a7 7 0 0 1 14 0"></path><path d="M4 12h16"></path><path d="M6 16h12"></path></svg>`,
+        "Pastas": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14"></path><path d="M6 8a6 6 0 0 0 12 0"></path><path d="M9 4c0 1 0 2-1 3"></path><path d="M12 4c0 1 0 2-1 3"></path><path d="M15 4c0 1 0 2-1 3"></path></svg>`,
+        "Hot Coffee": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8h9a0 0 0 0 1 0 0v4a4 4 0 0 1-4 4H10a4 4 0 0 1-4-4V8a0 0 0 0 1 0 0Z"></path><path d="M15 9h1.5a2.5 2.5 0 0 1 0 5H15"></path><path d="M8 4c0 1-.5 1.5-.5 2.5"></path><path d="M11 4c0 1-.5 1.5-.5 2.5"></path></svg>`,
+        "Signature Coffee": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10"></path><path d="M8 7v8a4 4 0 0 0 8 0V7"></path><path d="M12 3v2"></path><path d="M9 19h6"></path></svg>`,
+        "Iced Coffee": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h8"></path><path d="M7 8h10l-1 10a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2L7 8Z"></path><path d="M10 10l1 2"></path><path d="M14 10l-1 2"></path></svg>`,
+        "Tea & Chocolate": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8h8v5a4 4 0 0 1-4 4 4 4 0 0 1-4-4V8Z"></path><path d="M14 9h2a2 2 0 0 1 0 4h-2"></path><path d="M9 4c0 1-.5 1.5-.5 2.5"></path></svg>`,
+        "Desserts": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18h12"></path><path d="M8 18v-4a4 4 0 0 1 8 0v4"></path><path d="M12 6a2.5 2.5 0 0 1 2.5 2.5c0 1.6-2.5 3.5-2.5 3.5S9.5 10.1 9.5 8.5A2.5 2.5 0 0 1 12 6Z"></path></svg>`
+      };
+      return icons[category] || icons.All;
+    }
+
+    function homeView() {
+      const heroItem = heroItems()[state.heroIndex % heroItems().length];
+      return `
+        <section class="view home-view">
+          <div class="hero-panel">
+            <div class="hero-copy">
+              <p class="eyebrow">Good evening, Table 14</p>
+              <h1>Order beautifully. Without waiting.</h1>
+              <div class="hero-actions">
+                <button class="primary-btn" data-action="go-menu">Start Ordering</button>
+                <button class="waiter-btn" data-action="voice">
+                  <span class="waiter-bubble">How can I help?</span>
+                  <span class="waiter-dot">${micIcon()}</span>
+                  <span>Ask Waiter</span>
+                </button>
+              </div>
+            </div>
+            <button class="hero-feature" data-action="open-item" data-id="${heroItem.id}" style="background-image:url('${heroItem.image}')">
+              <div class="feature-overlay">
+                <div class="hero-tags">${heroItem.tags.slice(0, 2).map(tagMarkup).join("")}</div>
+                <p class="feature-kicker">Tonight's highlight</p>
+                <h2>${heroItem.name}</h2>
+                <div class="feature-footer">
+                  <strong>${money(heroItem.price)}</strong>
+                  <span class="ghost-pill">View Dish</span>
+                </div>
+                <div class="hero-dots">
+                  ${heroItems().map((_, index) => `<span class="hero-dot ${index === state.heroIndex ? "active" : ""}"></span>`).join("")}
+                </div>
+              </div>
+            </button>
+          </div>
+          ${utilitySectionMarkup()}
+        </section>
+      `;
+    }
+
+    function menuView() {
+      const products = filteredItems();
+      return `
+        <section class="view menu-view">
+          <div class="menu-workspace">
+            <aside class="menu-sidebar">
+              <div class="menu-sidebar-title">
+                <p class="eyebrow">Sections</p>
+                <h2>Browse menu</h2>
+              </div>
+              <div class="menu-sidebar-list">
+                ${categories.map((category) => `
+                  <button class="menu-category-item ${state.category === category ? "active" : ""}" data-action="set-category" data-category="${category}">
+                    <span class="menu-category-icon">${categoryIcon(category)}</span>
+                    <span class="menu-category-label">${category}</span>
+                  </button>
+                `).join("")}
+              </div>
+            </aside>
+
+            <section class="menu-canvas">
+              <div class="menu-canvas-header">
+                <div>
+                  <p class="eyebrow">Now browsing</p>
+                  <h1>${state.category}</h1>
+                </div>
+                <button class="waiter-btn menu-waiter-btn" data-action="voice">
+                  <span class="waiter-bubble">Need a suggestion?</span>
+                  <span class="waiter-dot">${micIcon()}</span>
+                  <span>Ask Waiter</span>
+                </button>
+              </div>
+
+              <div class="menu-toolbar">
+                <div class="diet-row menu-diet-row">
+                  <button class="diet-pill ${state.diet === "all" ? "active" : ""}" data-action="set-diet" data-diet="all">All</button>
+                  <button class="diet-pill ${state.diet === "veg" ? "active" : ""}" data-action="set-diet" data-diet="veg">Veg</button>
+                  <button class="diet-pill ${state.diet === "nonveg" ? "active" : ""}" data-action="set-diet" data-diet="nonveg">Non-Veg</button>
+                </div>
+                <div class="menu-summary">
+                  <span>${products.length} items</span>
+                </div>
+              </div>
+
+              <div class="menu-product-scaffold">
+                <div class="menu-product-grid">
+                  ${products.map(dishCard).join("") || `<div class="empty-state">No dishes match that filter.</div>`}
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+      `;
+    }
+
+    function detailView() {
+      const item = getItem(state.selectedItemId);
+      return `
+        <section class="view detail-view">
+          <div class="detail-layout">
+            <div class="detail-photo" style="background-image:url('${item.image}')"></div>
+            <div class="detail-panel">
+              <div>
+                <p class="eyebrow">${item.category}</p>
+                <h1>${item.name}</h1>
+                <p class="detail-copy">${item.description}</p>
+              </div>
+
+              <div class="detail-facts">
+                <div>
+                  <span>Category</span>
+                  <strong>${item.category}</strong>
+                </div>
+                <div>
+                  <span>Diet</span>
+                  <strong>${item.isVeg ? "Vegetarian" : "Non-Veg"}</strong>
+                </div>
+                <div>
+                  <span>Type</span>
+                  <strong>${item.type === "beverage" ? "Beverage" : item.type === "dessert" ? "Dessert" : "Food"}</strong>
+                </div>
+                <div>
+                  <span>Price</span>
+                  <strong>${displayPrice(item)}</strong>
+                </div>
+              </div>
+
+              <div class="pairing-block">
+                <div class="section-title inline">
+                  <div>
+                    <p class="eyebrow">Pairs well with</p>
+                    <h2>Complete the order elegantly</h2>
+                  </div>
+                </div>
+                <div class="compact-grid">
+                  ${pairingsFor(item).map(compactCard).join("")}
+                </div>
+              </div>
+
+              <div class="detail-footer">
+                <div>
+                  <p class="eyebrow">Price</p>
+                  <strong class="price">${displayPrice(item)}</strong>
+                </div>
+                <button class="primary-btn wide" data-action="add-item" data-id="${item.id}">Add to Order</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function cartView() {
+      const items = cartItems();
+      return `
+        <section class="view cart-view">
+          <div class="split-layout">
+            <div class="panel scroll-panel">
+              <div class="section-title">
+                <div>
+                  <p class="eyebrow">Current order</p>
+                  <h2>Review and adjust before sending</h2>
+                </div>
+              </div>
+              <div class="order-list">
+                ${items.map((item) => `
+                  <div class="order-row">
+                    <div class="order-thumb" style="background-image:url('${item.image}')"></div>
+                    <div class="order-copy">
+                      <strong>${item.name}</strong>
+                      <span>${displayPrice(item)} each</span>
+                    </div>
+                    <div class="stepper">
+                      <button data-action="decrease-item" data-id="${item.id}">-</button>
+                      <span>${item.qty}</span>
+                      <button data-action="increase-item" data-id="${item.id}">+</button>
+                    </div>
+                    <strong class="row-total">${money(item.price * item.qty)}</strong>
+                  </div>
+                `).join("") || `<div class="empty-state">Your order is empty. Tap dishes to add them.</div>`}
+              </div>
+            </div>
+
+            <aside class="panel summary-panel">
+              <p class="eyebrow">Order summary</p>
+              <h2>${cartCount()} item${cartCount() === 1 ? "" : "s"}</h2>
+              <div class="summary-line"><span>Subtotal</span><strong>${money(subtotal())}</strong></div>
+              <div class="summary-line"><span>Tax</span><strong>${money(tax())}</strong></div>
+              <div class="summary-line total-line"><span>Total</span><strong>${money(total())}</strong></div>
+              <div class="summary-note">Breakfast plates, coffees, and desserts can all be added together for a smooth cafe order flow.</div>
+              <button class="primary-btn wide" data-action="confirm-order">Confirm Order</button>
+              <button class="secondary-btn wide" data-action="go-menu">Continue Browsing</button>
+            </aside>
+          </div>
+        </section>
+      `;
+    }
+
+    function confirmationView() {
+      return `
+        <section class="view confirmation-view">
+          <div class="confirmation-panel">
+            <div class="success-mark">✓</div>
+            <p class="eyebrow">Order confirmed</p>
+            <h1>Order sent to the kitchen.</h1>
+            <p class="hero-sub">Your order has been placed successfully. This screen will switch to your table display in 5 seconds.</p>
+            <div class="confirmation-actions">
+              <button class="primary-btn" data-action="go-idle">Go to Table Screen</button>
+              <button class="secondary-btn" data-action="go-menu">Order More</button>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function idleView() {
+      const promos = idlePromoItems();
+      const lead = promos[state.idlePromoIndex % promos.length];
+      const progress = orderProgress();
+      const itemsLabel = `${cartCount()} item${cartCount() === 1 ? "" : "s"} in progress`;
+      return `
+        <section class="view idle-view">
+          <div class="idle-slideshow panel">
+            <div class="idle-slideshow-media" style="background-image:url('${lead.image}')"></div>
+            <div class="idle-slideshow-copy">
+              <p class="eyebrow">Now showing</p>
+              <strong>${lead.title}</strong>
+              <span>${lead.copy}</span>
+              <div class="idle-dots">
+                ${promos.map((_, index) => `<span class="idle-dot ${index === state.idlePromoIndex % promos.length ? "active" : ""}"></span>`).join("")}
+              </div>
+            </div>
+          </div>
+
+          <div class="idle-status panel">
+            <div class="idle-status-copy">
+              <p class="eyebrow">Order Status</p>
+              <h2>Your order is being prepared</h2>
+              <p class="hero-sub">${itemsLabel}. The kitchen is currently at the <strong>${stageLabel().toLowerCase()}</strong> stage for Table 14.</p>
+            </div>
+            <div class="idle-progress-box">
+              <div class="progress-meta"><span>${stageLabel()}</span><strong>${progress}%</strong></div>
+              <div class="progress-track"><div class="progress-fill" style="width:${progress}%"></div></div>
+            </div>
+          </div>
+
+          <div class="idle-cta-row">
+            <button class="primary-btn" data-action="go-menu">Order More</button>
+            <button class="secondary-btn" data-action="request-bill">${state.billRequested ? "Bill Requested" : "Request Bill"}</button>
+            <button class="water-cta ${state.waterRequested ? "active" : ""}" data-action="request-water" aria-label="Request water">
+              ${waterIcon()}
+            </button>
+          </div>
+        </section>
+      `;
+    }
+
+    function waitingView() {
+      const progress = orderProgress();
+      const desserts = dessertItems().slice(0, 3);
+      const drinks = beverageItems().slice(0, 3);
+      return `
+        <section class="view waiting-view">
+          <div class="status-hero">
+            <div class="status-copy">
+              <p class="eyebrow light-text">Order in progress</p>
+              <h1>Your meal is on the way.</h1>
+              <p class="hero-sub light-text">Use the table screen for desserts, drinks, or a quick service request while you wait.</p>
+            </div>
+            <div class="progress-box">
+              <div class="progress-meta"><span>${stageLabel()}</span><strong>${progress}%</strong></div>
+              <div class="progress-track"><div class="progress-fill" style="width:${progress}%"></div></div>
+            </div>
+          </div>
+
+          <div class="waiting-grid">
+            <div class="panel">
+              <div class="section-title inline">
+                <div>
+                  <p class="eyebrow">Need anything else?</p>
+                  <h2>Service and support</h2>
+                </div>
+              </div>
+              <div class="action-stack">
+                <button class="secondary-btn wide" data-action="request-service">${state.serviceRequested ? "Server Requested" : "Request Server"}</button>
+                <button class="secondary-btn wide" data-action="go-bill">View Bill</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="section-title inline">
+                <div>
+                  <p class="eyebrow">Dessert suggestions</p>
+                  <h2>Save room for one more thing</h2>
+                </div>
+              </div>
+              <div class="compact-grid">${desserts.map(compactCard).join("")}</div>
+            </div>
+
+            <div class="panel">
+              <div class="section-title inline">
+                <div>
+                  <p class="eyebrow">Another round?</p>
+                  <h2>Coffee and something chilled</h2>
+                </div>
+              </div>
+              <div class="compact-grid">${drinks.map(compactCard).join("")}</div>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function billView() {
+      return `
+        <section class="view bill-view">
+          <div class="split-layout">
+            <div class="panel scroll-panel">
+              <div class="section-title">
+                <div>
+                  <p class="eyebrow">Itemized bill</p>
+                  <h2>Review before asking to settle</h2>
+                </div>
+              </div>
+              <div class="bill-list">
+                ${cartItems().map((item) => `
+                  <div class="bill-row">
+                    <span>${item.qty} × ${item.name}</span>
+                    <strong>${money(item.qty * item.price)}</strong>
+                  </div>
+                `).join("")}
+                <div class="summary-line"><span>Subtotal</span><strong>${money(subtotal())}</strong></div>
+                <div class="summary-line"><span>Tax</span><strong>${money(tax())}</strong></div>
+                <div class="summary-line total-line"><span>Total</span><strong>${money(total())}</strong></div>
+              </div>
+            </div>
+
+            <aside class="panel summary-panel">
+              <p class="eyebrow">Settle up</p>
+              <h2>Choose the next step</h2>
+              <button class="primary-btn wide" data-action="request-bill">${state.billRequested ? "Bill Requested" : "Request Bill at Table"}</button>
+              <button class="secondary-btn wide" data-action="request-service">Request Server</button>
+              <button class="secondary-btn wide" data-action="go-menu">Continue Ordering</button>
+              <div class="summary-note">Once requested, a server brings the card reader directly to your table.</div>
+            </aside>
+          </div>
+        </section>
+      `;
+    }
+
+    function utilitySectionMarkup() {
+      return `
+        <div class="utility-layout">
+          <div class="utility-row utility-row-two">
+            <button class="utility-card" data-action="info-toast" data-message="Please ask the Silver team for allergen guidance, vegetarian recommendations, and ingredient details before confirming your order.">
+              <p class="eyebrow">Dietary Information</p>
+              <strong>Prepared for every preference</strong>
+              <span>Vegetarian-friendly dishes, egg-based breakfast options, and support for allergen questions are available on request.</span>
+            </button>
+            <button class="utility-card" data-action="info-toast" data-message="Please ask the Silver team for the current Wi-Fi network name and password.">
+              <p class="eyebrow">Wi-Fi</p>
+              <strong>Stay connected at the table</strong>
+              <span>Ask the team for today’s network and password if you’d like to work, browse, or stay online while you dine.</span>
+            </button>
+          </div>
+
+          <div class="panel utility-about-panel">
+            <p class="eyebrow">About Us</p>
+            <h2>Silver Specialty Coffee</h2>
+            <p class="hero-sub">Silver Specialty Coffee is a bright all-day cafe built around carefully brewed coffee, generous breakfast plates, sweet comforts, and a relaxed table-side experience. The space is designed for slow mornings, casual meetings, and easy catch-ups, with a menu that balances comfort classics and signature house favorites.</p>
+          </div>
+
+          <div class="utility-row utility-row-two">
+            <div class="utility-card utility-card-static">
+              <p class="eyebrow">Chef's Note</p>
+              <strong>Fresh, simple, and made to linger over</strong>
+              <span>Our kitchen focuses on approachable breakfast and brunch plates with clean flavors, seasonal touches, and dishes that pair naturally with specialty coffee.</span>
+            </div>
+            <div class="utility-card utility-card-static">
+              <p class="eyebrow">Hours</p>
+              <strong>Open daily</strong>
+              <span>Monday to Thursday: 8:00 AM - 10:00 PM</span>
+              <span>Friday to Sunday: 8:00 AM - 11:00 PM</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function utilityView() {
+      return `
+        <section class="view utility-view">
+          ${utilitySectionMarkup()}
+        </section>
+      `;
+    }
+
+    function voiceSheet() {
+      return `
+        <div class="voice-sheet-backdrop" data-action="close-voice"></div>
+        <section class="voice-sheet" aria-label="Voice assistant mockup">
+          <div class="voice-sheet-handle"></div>
+          <div class="voice-sheet-top">
+            <div class="voice-active-mark">
+              <div class="voice-orb">
+                ${micIcon()}
+                <span class="voice-ring voice-ring-a"></span>
+                <span class="voice-ring voice-ring-b"></span>
+              </div>
+            </div>
+            <button class="voice-close" data-action="close-voice" aria-label="Close voice assistant">Close</button>
+          </div>
+          <div class="voice-sheet-copy">
+            <p class="eyebrow">Listening</p>
+            <h2>Waiter assistant is active</h2>
+          </div>
+          <div class="voice-wave" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="voice-prompt-list">
+            ${voicePrompts.map((prompt, index) => `
+              <div class="voice-prompt ${index === state.voicePromptIndex ? "active" : ""}">
+                ${prompt}
+              </div>
+            `).join("")}
+          </div>
+        </section>
+      `;
+    }
+
+    function renderView() {
+      if (state.view === "home") return homeView();
+      if (state.view === "menu") return menuView();
+      if (state.view === "detail") return detailView();
+      if (state.view === "cart") return cartView();
+      if (state.view === "confirmation") return confirmationView();
+      if (state.view === "idle") return idleView();
+      if (state.view === "waiting") return waitingView();
+      if (state.view === "bill") return billView();
+      return utilityView();
+    }
+
+    function render() {
+      const existingContent = app.querySelector(".app-content");
+      if (existingContent) {
+        lastScrollTop = existingContent.scrollTop;
+      }
+      const chromeHidden = state.view === "idle";
+
+      app.innerHTML = `
+        <div class="app-shell">
+          <div class="tablet-frame ${chromeHidden ? "idle-frame" : ""}">
+            ${chromeHidden ? "" : `
+            <header class="app-header">
+              <div class="brand-block" data-action="go-home">
+                <div class="brand-mark">T</div>
+                <div class="brand-copy">
+                  <strong>Tabletot</strong>
+                  <span>Table 14</span>
+                </div>
+              </div>
+              <div class="header-tools">
+                <button class="tool-btn voice-button" data-action="voice" aria-label="Speak to order">
+                  ${micIcon()}
+                </button>
+                <nav class="top-nav" aria-label="Primary navigation">
+                  <button class="nav-btn ${state.view === "home" ? "active" : ""}" data-action="go-home">Home</button>
+                  <button class="nav-btn ${state.view === "menu" ? "active" : ""}" data-action="go-menu">Menu</button>
+                  <button class="nav-btn ${state.view === "waiting" || state.view === "confirmation" || state.view === "idle" ? "active" : ""}" data-action="go-waiting">Status</button>
+                  <button class="nav-btn ${state.view === "bill" ? "active" : ""}" data-action="go-bill">Bill</button>
+                </nav>
+                <button class="tool-btn dark cart-button" data-action="go-cart" aria-label="Open cart">
+                  ${cartIcon()}
+                  ${cartCount() ? `<span class="cart-count">${cartCount()}</span>` : ""}
+                </button>
+              </div>
+            </header>
+            `}
+
+            <main class="app-content ${chromeHidden ? "idle-content" : ""}">
+              ${renderView()}
+            </main>
+          </div>
+          ${state.voiceSheetOpen ? voiceSheet() : ""}
+          ${state.toast ? `<div class="toast">${state.toast}</div>` : ""}
+        </div>
+      `;
+
+      const nextContent = app.querySelector(".app-content");
+      if (nextContent) {
+        nextContent.scrollTop = lastScrollTop;
+        nextContent.addEventListener("scroll", () => {
+          lastScrollTop = nextContent.scrollTop;
+        }, { passive: true });
+      }
+
+    }
+
+    app.addEventListener("click", (event) => {
+      const target = event.target.closest("[data-action]");
+      if (!target) return;
+
+      const { action, id, category, message } = target.dataset;
+      if (target.classList.contains("chip-action") || target.classList.contains("mini-plus")) {
+        event.stopPropagation();
+      }
+
+      if (action === "go-home") setView("home");
+      if (action === "go-menu") {
+        state.view = "menu";
+        render();
+        scrollToMenuContinuation();
+      }
+      if (action === "go-cart") setView("cart");
+      if (action === "go-waiting") setView(state.orderPlaced ? "idle" : "confirmation");
+      if (action === "go-idle") setView("idle");
+      if (action === "go-bill") setView("bill");
+      if (action === "go-utility") setView("utility");
+      if (action === "voice") simulateVoice();
+      if (action === "close-voice") closeVoiceSheet();
+      if (action === "set-category") {
+        state.category = category;
+        state.view = "menu";
+        render();
+      }
+      if (action === "set-diet") {
+        state.diet = target.dataset.diet;
+        state.view = "menu";
+        render();
+      }
+      if (action === "open-item") openItem(id);
+      if (action === "add-item") addToCart(id);
+      if (action === "increase-item") updateQty(id, 1);
+      if (action === "decrease-item") updateQty(id, -1);
+      if (action === "confirm-order") confirmOrder();
+      if (action === "request-service") requestService();
+      if (action === "request-bill") requestBill();
+      if (action === "request-water") requestWater();
+      if (action === "info-toast") showToast(message);
+    });
+
+    setInterval(() => {
+      let needsRender = false;
+
+      if (state.voiceSheetOpen) {
+        state.voicePromptIndex = (state.voicePromptIndex + 1) % voicePrompts.length;
+        needsRender = true;
+      }
+
+      if (state.view === "home") {
+        const content = app.querySelector(".app-content");
+        if (content && content.scrollTop > 40) {
+          if (needsRender) render();
+          return;
+        }
+        state.heroIndex = (state.heroIndex + 1) % heroItems().length;
+        render();
+        return;
+      }
+      if (state.view === "idle") {
+        state.idlePromoIndex = (state.idlePromoIndex + 1) % idlePromoItems().length;
+        render();
+        return;
+      }
+      if (state.orderPlaced && (state.view === "waiting" || state.view === "confirmation")) {
+        render();
+        return;
+      }
+      if (needsRender) {
+        render();
+      }
+    }, 2000);
+
+    render();
+  </script>
+</body>
+</html>

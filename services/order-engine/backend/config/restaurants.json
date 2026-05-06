@@ -15,5 +15,13 @@
     "menu_path": "menus/sozo-cakery-banjara.json",
     "fallback_language_code": "hi-IN",
     "fallback_speaker": "ishita"
+  },
+  "silver-ssc-hyd": {
+    "name": "Silver Specialty Coffee Hyderabad",
+    "language_code": "en-IN",
+    "speaker": "arjun",
+    "menu_path": "menus/silver-ssc-hyd.json",
+    "fallback_language_code": "hi-IN",
+    "fallback_speaker": "meera"
   }
 }

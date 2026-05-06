@@ -4,6 +4,7 @@ import { useMemo, useState, useCallback, useEffect } from "react";
 import ChefsPicks from "@/components/ChefsPicks";
 import { MenuItem, OrderItem } from "@/data/menu";
 
+// TODO: set to Silver Specialty Coffee UUID — run: SELECT id FROM restaurants WHERE name = 'Silver Specialty Coffee';
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
 
 type PageTab = "menu" | "about" | "info";

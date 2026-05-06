@@ -10,6 +10,7 @@ import { Loader2, Trash2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { FeatureGate } from '@/components/FeatureGate';
 
+// TODO: set to Silver Specialty Coffee UUID — run: SELECT id FROM restaurants WHERE name = 'Silver Specialty Coffee';
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
 
 interface MenuItemOption { id: string; name: string; }
