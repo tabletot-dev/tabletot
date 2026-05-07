@@ -111,3 +111,30 @@ WHERE  source_item_id NOT IN (SELECT id FROM menu_items)
 SELECT *
 FROM   anchor_items
 WHERE  item_id NOT IN (SELECT id FROM menu_items);
+
+-- ============================================================
+-- 8. A/B migration validation (run after 0012_ab_measurement)
+-- ============================================================
+
+-- 8a. restaurants.config seeded for Silver
+SELECT id, name, config->>'voice_enabled' AS voice_enabled
+FROM   restaurants
+WHERE  name = 'Silver Specialty Coffee';
+-- Expected: voice_enabled = 'true'
+
+-- 8b. Silver tables have is_treatment column (all default false until assigned)
+SELECT table_number, is_treatment
+FROM   restaurant_tables
+WHERE  restaurant_id = (SELECT id FROM restaurants WHERE name = 'Silver Specialty Coffee')
+ORDER  BY table_number;
+
+-- 8c. Post-migration regression: no new orders (created after migration) should have
+--     table_id IS NULL when table_no maps to a known table.
+--     Run this after the first service shift post-migration.
+SELECT COUNT(*) AS orders_missing_table_id
+FROM   orders o
+WHERE  o.restaurant_id = (SELECT id FROM restaurants WHERE name = 'Silver Specialty Coffee')
+  AND  o.table_id      IS NULL
+  AND  o.table_no      IN (SELECT table_number FROM restaurant_tables)
+  AND  o.created_at    > now() - interval '7 days';
+-- Expected: 0

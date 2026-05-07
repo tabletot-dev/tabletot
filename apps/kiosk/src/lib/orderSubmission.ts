@@ -2,10 +2,10 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import type { OrderItem } from '@/data/menu';
 
-// TODO: set to Silver Specialty Coffee UUID — run: SELECT id FROM restaurants WHERE name = 'Silver Specialty Coffee';
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
+const TABLE_NUMBER = (import.meta.env.VITE_TABLE_ID as string) || 'T1';
 
-// Cached for the lifetime of the browser session. Single-table kiosk: always T1.
+// Cached for the lifetime of the browser session.
 let cachedTableId: string | null = null;
 
 async function resolveTableId(): Promise<string> {
@@ -14,9 +14,9 @@ async function resolveTableId(): Promise<string> {
     .from('restaurant_tables')
     .select('id')
     .eq('restaurant_id', RESTAURANT_ID)
-    .eq('table_number', 'T1')
+    .eq('table_number', TABLE_NUMBER)
     .single();
-  if (error) throw new Error(`Could not resolve table T1: ${error.message}`);
+  if (error) throw new Error(`Could not resolve table ${TABLE_NUMBER}: ${error.message}`);
   cachedTableId = data.id;
   return data.id;
 }
@@ -34,9 +34,7 @@ export class OrderSubmissionError extends Error {
 export async function submitOrder(
   cart: OrderItem[],
 ): Promise<{ orderId: string; kotId: string }> {
-  // Warm the table-id cache; the uuid is not needed for the order insert
-  // (orders uses table_no text, not a uuid FK) but may be needed by callers.
-  await resolveTableId();
+  const tableUuid = await resolveTableId();
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
@@ -51,7 +49,8 @@ export async function submitOrder(
     .from('orders')
     .insert({
       restaurant_id: RESTAURANT_ID,
-      table_no: 'T1',
+      table_no: TABLE_NUMBER,
+      table_id: tableUuid,
       order_type: 'dine-in',
       source: 'Tabletot',
       status: 'pending',
@@ -69,7 +68,7 @@ export async function submitOrder(
       restaurant_id: RESTAURANT_ID,
       order_id: order.id,
       kot_number: `KOT-${Date.now()}`,
-      table_number: 'T1',
+      table_number: TABLE_NUMBER,
       items: itemsJson,
       status: 'pending',
     })

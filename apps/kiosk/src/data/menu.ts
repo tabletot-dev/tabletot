@@ -7,6 +7,7 @@ export interface MenuItem {
   price: number;
   category: string;
   tags: string[];
+  is_veg: boolean;
 }
 
 export interface OrderItem extends MenuItem {

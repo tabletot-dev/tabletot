@@ -1,26 +1,26 @@
 import { useCallback, useRef, useState } from "react";
 import { useDeviceNavigation } from "@/hooks/useDeviceNavigation";
-import IdleScreen from "@/components/screens/IdleScreen";
+import HomeView from "@/components/screens/HomeView";
 import ListeningScreen from "@/components/screens/ListeningScreen";
-import MenuScreen from "@/components/screens/MenuScreen";
-import ItemDetailScreen from "@/components/screens/ItemDetailScreen";
-import OrderSummaryScreen from "@/components/screens/OrderSummaryScreen";
-import BillSummaryScreen from "@/components/screens/BillSummaryScreen";
-import OrderConfirmationScreen from "@/components/screens/OrderConfirmationScreen";
-import SessionIdleScreen from "@/components/screens/SessionIdleScreen";
+import MenuView from "@/components/screens/MenuView";
+import DetailView from "@/components/screens/DetailView";
+import CartView from "@/components/screens/CartView";
+import BillView from "@/components/screens/BillView";
+import ConfirmationView from "@/components/screens/ConfirmationView";
+import WaitingView from "@/components/screens/WaitingView";
 import PairingNudge from "@/components/PairingNudge";
 import CompletionNudge from "@/components/CompletionNudge";
 import VoiceOrderButton from "@/components/VoiceOrderButton";
+import AppShell from "@/components/AppShell";
+import { RestaurantProvider, useRestaurant } from "@/lib/restaurantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { findMatchingRule, type CompletionRule, type MatchedSuggestion } from "@/lib/completionRules";
 import { useMenu } from "@/lib/menuStore";
 import type { DoneMessage, OrderSnapshot } from "@/lib/voice/types";
 import { MenuItem } from "@/data/menu";
 
-// TODO: set to Silver Specialty Coffee UUID — run: SELECT id FROM restaurants WHERE name = 'Silver Specialty Coffee';
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
-// One tablet = one table. Matches restaurant_tables.table_number used in order submission.
-const TABLE_ID = "T1";
+const TABLE_ID = (import.meta.env.VITE_TABLE_ID as string) || "T1";
 
 // Normalize item names for matching: lowercase, collapse dashes/en-dashes to space
 function normalizeName(name: string): string {
@@ -33,7 +33,8 @@ interface NudgeState {
   cartValueAtShow: number;
 }
 
-const Index = () => {
+const IndexInner = () => {
+  const { voiceEnabled } = useRestaurant();
   const {
     currentScreen,
     setCurrentScreen,
@@ -168,34 +169,47 @@ const Index = () => {
     confirmOrder();
   }, [order, confirmOrder]);
 
-  const showVoiceButton = !["idle", "listening", "order-confirmation"].includes(currentScreen);
+  const showVoiceButton =
+    voiceEnabled && !["idle", "listening", "order-confirmation"].includes(currentScreen);
 
   const renderScreen = () => {
     switch (currentScreen) {
       case "idle":
-        return <IdleScreen onActivate={() => setCurrentScreen("menu")} />;
+        return (
+          <HomeView
+            onStartOrdering={() => setCurrentScreen("menu")}
+            onSelectItem={(item) => {
+              setSelectedItem(item);
+              setCurrentScreen("item-detail");
+            }}
+          />
+        );
       case "listening":
-        return <ListeningScreen onDone={() => setCurrentScreen("menu")} />;
+        return voiceEnabled ? (
+          <ListeningScreen onDone={() => setCurrentScreen("menu")} />
+        ) : null;
       case "menu":
         return (
-          <MenuScreen
+          <MenuView
             onSelect={handleSelectItem}
             onAddToCart={handleAddToOrderWithNudge}
             onUpdateQuantity={updateQuantity}
+            onGoToCart={() => setCurrentScreen("order-summary")}
             order={order}
           />
         );
       case "item-detail":
         return selectedItem ? (
-          <ItemDetailScreen
+          <DetailView
             item={selectedItem}
             onAdd={handleAddToOrder}
             onBack={() => setCurrentScreen("menu")}
+            onSelectPairing={handleSelectItem}
           />
         ) : null;
       case "order-summary":
         return (
-          <OrderSummaryScreen
+          <CartView
             order={order}
             totalBill={totalBill}
             previousOrders={previousOrders}
@@ -207,17 +221,19 @@ const Index = () => {
           />
         );
       case "order-confirmation":
-        return <OrderConfirmationScreen onReset={() => setCurrentScreen("session-idle")} />;
+        return <ConfirmationView onReset={() => setCurrentScreen("session-idle")} />;
       case "session-idle":
         return (
-          <SessionIdleScreen
+          <WaitingView
+            previousOrders={previousOrders}
             onOrderMore={() => setCurrentScreen("menu")}
             onRequestBill={() => setCurrentScreen("bill-summary")}
+            onAddToCart={handleAddToOrderWithNudge}
           />
         );
       case "bill-summary":
         return (
-          <BillSummaryScreen
+          <BillView
             previousOrders={previousOrders}
             sessionTotal={sessionTotal}
             onClose={() => {
@@ -232,37 +248,21 @@ const Index = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      {/* Device frame - 7" portrait display simulation */}
-      <div className="relative w-[360px] h-[640px] bg-background border border-border overflow-hidden flex flex-col">
-        {/* Status bar */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-background">
-          <span className="font-display text-[10px] tracking-[0.3em] uppercase text-muted-foreground">
-            Table-Tot
-          </span>
-          {order.length > 0 &&
-            currentScreen !== "order-summary" &&
-            currentScreen !== "order-confirmation" && (
-              <button
-                onClick={() => setCurrentScreen("order-summary")}
-                className="text-[10px] tracking-wider uppercase text-primary border border-primary px-3 py-1 cursor-pointer active:bg-primary/10"
-              >
-                Cart ({order.reduce((s, o) => s + o.quantity, 0)})
-              </button>
-            )}
-          <span className="text-[10px] font-mono text-muted-foreground">
-            {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          </span>
-        </div>
+  const cartCount = order.reduce((s, o) => s + o.quantity, 0);
 
-        {/* Screen content */}
-        <div className="flex-1 overflow-hidden relative">
+  return (
+    <AppShell
+        currentScreen={currentScreen}
+        onNavigate={setCurrentScreen}
+        cartCount={cartCount}
+        tableId={TABLE_ID}
+      >
+        <div style={{ position: "relative", height: "100%" }}>
           {renderScreen()}
 
-          {/* Voice PTT button — bottom-right, visible on all active screens */}
+          {/* Voice PTT button — bottom-right corner */}
           {showVoiceButton && (
-            <div className="absolute bottom-4 right-4 z-40">
+            <div style={{ position: "absolute", bottom: 16, right: 16, zIndex: 40 }}>
               <VoiceOrderButton
                 onDone={handleVoiceDone}
                 order={order}
@@ -272,9 +272,9 @@ const Index = () => {
             </div>
           )}
 
-          {/* Pairing nudge — floats above screen content, below voice button */}
+          {/* Pairing nudge */}
           {nudge && (
-            <div className="absolute bottom-0 left-0 right-0 z-30 pb-2">
+            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 30, paddingBottom: 8 }}>
               <PairingNudge
                 key={nudge.itemId}
                 addedItemId={nudge.itemId}
@@ -289,7 +289,7 @@ const Index = () => {
             </div>
           )}
 
-          {/* Completion nudge — modal overlay, shown before submit when a rule matches */}
+          {/* Completion nudge — modal overlay before submit */}
           {completionSuggestion && (
             <CompletionNudge
               suggestionText={completionSuggestion.text}
@@ -307,9 +307,14 @@ const Index = () => {
             />
           )}
         </div>
-      </div>
-    </div>
+      </AppShell>
   );
 };
+
+const Index = () => (
+  <RestaurantProvider>
+    <IndexInner />
+  </RestaurantProvider>
+);
 
 export default Index;
