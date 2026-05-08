@@ -1,106 +1,151 @@
-import { useMenu } from "@/lib/menuStore";
-import type { MenuItem } from "@/data/menu";
+import { useEffect, useMemo, useState } from "react";
 import type { OrderRound } from "@/hooks/useDeviceNavigation";
-import CompactCard from "@/components/CompactCard";
-
-const DESSERT_CATEGORIES = ["Desserts", "Tea & Chocolate", "Smoothie Bowls"];
-const DRINK_CATEGORIES = ["Hot Coffee", "Signature Coffee", "Iced Coffee"];
 
 interface WaitingViewProps {
   previousOrders: OrderRound[];
   onOrderMore: () => void;
   onRequestBill: () => void;
-  onAddToCart: (item: MenuItem) => void;
+  onRequestWater?: () => void;
+}
+
+const PROMOS = [
+  {
+    id: "ad-travel",
+    title: "Weekend Escape",
+    copy: "Discover limited-time city breaks, spa stays, and last-minute travel offers.",
+    image:
+      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1600&q=80",
+  },
+  {
+    id: "ad-audio",
+    title: "Studio Sound",
+    copy: "Wireless headphones, deep bass, and everyday listening made beautifully simple.",
+    image:
+      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1600&q=80",
+  },
+  {
+    id: "ad-fashion",
+    title: "New Season Edit",
+    copy: "Lightweight essentials, clean tailoring, and fresh arrivals for the week ahead.",
+    image:
+      "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1600&q=80",
+  },
+  {
+    id: "ad-wellness",
+    title: "Reset & Recharge",
+    copy: "Wellness offers, fitness plans, and recovery treatments curated for busy days.",
+    image:
+      "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1600&q=80",
+  },
+];
+
+function WaterIcon() {
+  return (
+    <svg className="water-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3.5c2.4 3 5 6 5 9a5 5 0 1 1-10 0c0-3 2.6-6 5-9Z" />
+    </svg>
+  );
 }
 
 export default function WaitingView({
   previousOrders,
   onOrderMore,
   onRequestBill,
-  onAddToCart,
+  onRequestWater,
 }: WaitingViewProps) {
-  const { items } = useMenu();
+  const [promoIndex, setPromoIndex] = useState(0);
+  const [billRequested, setBillRequested] = useState(false);
+  const [waterRequested, setWaterRequested] = useState(false);
+  const [orderSentAt] = useState(() => Date.now());
+  const [now, setNow] = useState(Date.now());
 
-  const desserts = items.filter((i) => DESSERT_CATEGORIES.includes(i.category)).slice(0, 3);
-  const drinks = items.filter((i) => DRINK_CATEGORIES.includes(i.category)).slice(0, 3);
+  useEffect(() => {
+    const id = setInterval(() => setPromoIndex((i) => (i + 1) % PROMOS.length), 4500);
+    return () => clearInterval(id);
+  }, []);
 
-  const lastOrder = previousOrders[previousOrders.length - 1];
-  const itemCount = lastOrder
-    ? lastOrder.items.reduce((s, i) => s + i.quantity, 0)
-    : 0;
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const promo = PROMOS[promoIndex];
+
+  const itemCount = useMemo(() => {
+    const last = previousOrders[previousOrders.length - 1];
+    return last ? last.items.reduce((s, i) => s + i.quantity, 0) : 0;
+  }, [previousOrders]);
+
+  const { progress, stage } = useMemo(() => {
+    const seconds = (now - orderSentAt) / 1000;
+    const pct = Math.min(92, Math.round(28 + seconds / 20));
+    const stageLabel = pct < 45 ? "Queued" : pct < 80 ? "Cooking" : "Plating";
+    return { progress: pct, stage: stageLabel };
+  }, [now, orderSentAt]);
 
   return (
-    <section className="view waiting-view">
-      {/* Dark status hero */}
-      <div className="status-hero">
-        <div className="status-copy">
-          <p className="eyebrow light-text">Order in progress</p>
-          <h1>Your meal is on the way.</h1>
-          <p className="hero-sub light-text">
-            {itemCount > 0 ? `${itemCount} item${itemCount !== 1 ? "s" : ""} sent.` : ""} Use the
-            table screen for desserts, drinks, or a service request while you wait.
-          </p>
-        </div>
-        <div className="progress-box">
-          <div className="progress-meta">
-            <span>Preparing</span>
-            <strong>40%</strong>
-          </div>
-          <div className="progress-track">
-            <div className="progress-fill" style={{ width: "40%" }} />
+    <section className="view idle-view">
+      <div className="idle-slideshow panel">
+        <div className="idle-slideshow-media" style={{ backgroundImage: `url('${promo.image}')` }} />
+        <div className="idle-slideshow-copy">
+          <p className="eyebrow">Now showing</p>
+          <strong>{promo.title}</strong>
+          <span>{promo.copy}</span>
+          <div className="idle-dots">
+            {PROMOS.map((p, i) => (
+              <span key={p.id} className={`idle-dot${i === promoIndex ? " active" : ""}`} />
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Waiting grid: service | desserts | drinks */}
-      <div className="waiting-grid">
-        {/* Service actions */}
-        <div className="panel">
-          <div className="section-title inline">
-            <div>
-              <p className="eyebrow">Need anything else?</p>
-              <h2>Service</h2>
-            </div>
+      <div className="idle-status panel">
+        <div className="idle-status-copy">
+          <p className="eyebrow">Order Status</p>
+          <h2>Your order is being prepared</h2>
+          <p className="hero-sub">
+            {itemCount > 0
+              ? `${itemCount} item${itemCount === 1 ? "" : "s"} in progress. `
+              : ""}
+            The kitchen is currently at the <strong>{stage.toLowerCase()}</strong> stage.
+          </p>
+        </div>
+        <div className="idle-progress-box">
+          <div className="progress-meta">
+            <span>{stage}</span>
+            <strong>{progress}%</strong>
           </div>
-          <div className="action-stack" style={{ marginTop: 16 }}>
-            <button className="secondary-btn wide" onClick={onOrderMore}>
-              Order More
-            </button>
-            <button className="secondary-btn wide" onClick={onRequestBill}>
-              View Bill
-            </button>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${progress}%` }} />
           </div>
         </div>
+      </div>
 
-        {/* Dessert suggestions */}
-        <div className="panel">
-          <div className="section-title inline">
-            <div>
-              <p className="eyebrow">Dessert suggestions</p>
-              <h2>Save room</h2>
-            </div>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
-            {desserts.map((item) => (
-              <CompactCard key={item.id} item={item} onAdd={onAddToCart} />
-            ))}
-          </div>
-        </div>
-
-        {/* Drink suggestions */}
-        <div className="panel">
-          <div className="section-title inline">
-            <div>
-              <p className="eyebrow">Drink suggestions</p>
-              <h2>Something to sip</h2>
-            </div>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
-            {drinks.map((item) => (
-              <CompactCard key={item.id} item={item} onAdd={onAddToCart} />
-            ))}
-          </div>
-        </div>
+      <div className="idle-cta-row">
+        <button className="primary-btn" onClick={onOrderMore}>
+          Order More
+        </button>
+        <button
+          className="secondary-btn"
+          onClick={() => {
+            setBillRequested(true);
+            onRequestBill();
+          }}
+        >
+          {billRequested ? "Bill Requested" : "Request Bill"}
+        </button>
+        {onRequestWater && (
+          <button
+            className={`water-cta${waterRequested ? " active" : ""}`}
+            onClick={() => {
+              setWaterRequested(true);
+              onRequestWater();
+            }}
+            aria-label="Request water"
+          >
+            <WaterIcon />
+          </button>
+        )}
       </div>
     </section>
   );

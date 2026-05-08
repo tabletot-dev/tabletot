@@ -7,8 +7,19 @@ interface MenuViewProps {
   onSelect: (item: MenuItem) => void;
   onAddToCart: (item: MenuItem) => void;
   onUpdateQuantity: (itemId: string, delta: number) => void;
-  onGoToCart: () => void;
+  onAskWaiter?: () => void;
   order: OrderItem[];
+}
+
+function MicIcon() {
+  return (
+    <svg className="mic-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M6 11a6 6 0 0 0 12 0" />
+      <path d="M12 17v4" />
+      <path d="M9 21h6" />
+    </svg>
+  );
 }
 
 type DietFilter = "all" | "veg" | "nonveg";
@@ -98,7 +109,7 @@ function CategoryIcon({ category }: { category: string }) {
   return icons[category] ?? fallback;
 }
 
-export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onGoToCart, order }: MenuViewProps) {
+export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onAskWaiter, order }: MenuViewProps) {
   const { categories, itemsByCategory, pairingsByItemId, loading, error, retry } = useMenu();
   const [activeCategory, setActiveCategory] = useState("");
   const [diet, setDiet] = useState<DietFilter>("all");
@@ -121,7 +132,6 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onGo
   const getQty = useCallback((itemId: string) => qtyMap.get(itemId) ?? 0, [qtyMap]);
 
   const cartTotal = useMemo(() => order.reduce((s, o) => s + o.price * o.quantity, 0), [order]);
-  const cartItemCount = useMemo(() => order.reduce((s, o) => s + o.quantity, 0), [order]);
 
   if (loading) {
     return (
@@ -178,6 +188,15 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onGo
               <p className="eyebrow">Now browsing</p>
               <h1>{resolvedCategory}</h1>
             </div>
+            {onAskWaiter && (
+              <button className="waiter-btn menu-waiter-btn" onClick={onAskWaiter}>
+                <span className="waiter-bubble">Need a suggestion?</span>
+                <span className="waiter-dot">
+                  <MicIcon />
+                </span>
+                <span>Ask Waiter</span>
+              </button>
+            )}
           </div>
 
           <div className="menu-toolbar">
@@ -223,15 +242,6 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onGo
         </section>
       </div>
 
-      {cartItemCount > 0 && (
-        <div className="cart-float">
-          <span className="cart-float-count">{cartItemCount} {cartItemCount === 1 ? "item" : "items"} in cart</span>
-          <strong className="cart-float-total">₹{cartTotal.toFixed(0)}</strong>
-          <button className="primary-btn cart-float-cta" onClick={onGoToCart}>
-            View Cart
-          </button>
-        </div>
-      )}
     </section>
   );
 }

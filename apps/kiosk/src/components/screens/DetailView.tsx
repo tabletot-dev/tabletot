@@ -10,28 +10,55 @@ interface DetailViewProps {
   onSelectPairing?: (item: MenuItem) => void;
 }
 
+const TAG_CLASS: Record<string, string> = {
+  "Chef's Pick": "tag-dark",
+  "Best Seller": "tag-accent",
+  "Signature": "tag-light",
+  "New": "tag-green",
+};
+
+function dishType(category: string): string {
+  if (/coffee|tea|chocolate/i.test(category)) return "Beverage";
+  if (/dessert|pancake|smoothie/i.test(category)) return "Dessert";
+  return "Food";
+}
+
 export default function DetailView({ item, pairings, onAdd, onBack, onSelectPairing }: DetailViewProps) {
   const bg = categoryGradient(item.category);
+  const visiblePairings = pairings.slice(0, 4);
 
   return (
     <section className="view detail-view">
       <div className="detail-layout">
-        {/* Left: photo panel — gradient placeholder */}
-        {/* TODO: replace with background-image once image_url column is added to menu_items */}
         <div className="detail-photo" style={{ background: bg }} />
 
-        {/* Right: detail panel */}
-        <div className="detail-panel" style={{ padding: 28, gap: 20, display: "flex", flexDirection: "column" }}>
+        <div className="detail-panel">
           <div>
             <p className="eyebrow">{item.category}</p>
-            <h1 style={{ marginTop: 8 }}>{item.name}</h1>
+            <h1>{item.name}</h1>
+            {item.tags.length > 0 && (
+              <div className="hero-tags" style={{ marginTop: 14 }}>
+                {item.tags.map((tag) => (
+                  <span key={tag} className={`tag ${TAG_CLASS[tag] ?? "tag-light"}`}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Facts grid */}
           <div className="detail-facts">
+            <div>
+              <span>Category</span>
+              <strong>{item.category}</strong>
+            </div>
             <div>
               <span>Diet</span>
               <strong>{item.is_veg ? "Vegetarian" : "Non-Veg"}</strong>
+            </div>
+            <div>
+              <span>Type</span>
+              <strong>{dishType(item.category)}</strong>
             </div>
             <div>
               <span>Price</span>
@@ -39,62 +66,73 @@ export default function DetailView({ item, pairings, onAdd, onBack, onSelectPair
             </div>
           </div>
 
-          {/* Tags */}
-          {item.tags.length > 0 && (
-            <div className="detail-chips">
-              {item.tags.map((tag) => (
-                <span key={tag} className="tag tag-light">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Pairings */}
-          {pairings.length > 0 && (
-            <div>
-              <p className="eyebrow" style={{ marginBottom: 12 }}>Pairs well with</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {pairings.slice(0, 2).map((p) => (
+          {visiblePairings.length > 0 && (
+            <div className="pairing-block">
+              <div className="section-title inline">
+                <div>
+                  <p className="eyebrow">Pairs well with</p>
+                  <h2>Complete the order elegantly</h2>
+                </div>
+              </div>
+              <div className="compact-grid">
+                {visiblePairings.map((p) => (
                   <button
                     key={p.id}
-                    className="compact-card pairing-nav-card"
+                    className="compact-card"
                     onClick={() => onSelectPairing?.(p)}
                     aria-label={`View ${p.name}`}
                   >
                     <div
                       className="compact-thumb"
-                      style={{
-                        background: categoryGradient(p.category),
-                        height: 64,
-                        borderRadius: 12,
-                      }}
+                      style={{ background: categoryGradient(p.category) }}
                     />
                     <div className="compact-copy">
                       <strong>{p.name}</strong>
-                      <span style={{ color: "var(--muted)", fontSize: 14 }}>₹{p.price}</span>
+                      <span>₹{p.price}</span>
                     </div>
-                    <svg viewBox="0 0 20 20" width="18" height="18" fill="none" aria-hidden="true" stroke="var(--soft)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M7 4l6 6-6 6" />
-                    </svg>
+                    <button
+                      className="mini-plus"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectPairing?.(p);
+                      }}
+                      aria-label={`Open ${p.name}`}
+                    >
+                      +
+                    </button>
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          <div style={{ marginTop: "auto" }}>
-            <button className="primary-btn" style={{ width: "100%" }} onClick={onAdd}>
+          <div className="detail-footer">
+            <div>
+              <p className="eyebrow">Price</p>
+              <strong className="price">₹{item.price}</strong>
+            </div>
+            <button className="primary-btn wide" onClick={onAdd}>
               Add to Order
             </button>
-            <button
-              className="back-link"
-              onClick={onBack}
-              aria-label="Go back to menu"
-            >
-              ← Back to menu
-            </button>
           </div>
+
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Go back to menu"
+            style={{
+              alignSelf: "center",
+              marginTop: 4,
+              minHeight: 40,
+              padding: "0 16px",
+              fontSize: 14,
+              fontWeight: 600,
+              color: "var(--muted)",
+              background: "transparent",
+            }}
+          >
+            ← Back to menu
+          </button>
         </div>
       </div>
     </section>

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDeviceNavigation } from "@/hooks/useDeviceNavigation";
 import HomeView from "@/components/screens/HomeView";
 import ListeningScreen from "@/components/screens/ListeningScreen";
@@ -180,6 +180,15 @@ const IndexInner = () => {
   const showVoiceButton =
     voiceEnabled && !["idle", "listening", "order-confirmation"].includes(currentScreen);
 
+  const askWaiter = voiceEnabled ? () => setCurrentScreen("listening") : undefined;
+
+  const [toast, setToast] = useState<string>("");
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(""), 2200);
+    return () => clearTimeout(id);
+  }, [toast]);
+
   const renderScreen = () => {
     switch (currentScreen) {
       case "idle":
@@ -190,6 +199,9 @@ const IndexInner = () => {
               setSelectedItem(item);
               setCurrentScreen("item-detail");
             }}
+            onAskWaiter={askWaiter}
+            onInfoToast={(msg) => setToast(msg)}
+            tableId={TABLE_ID}
           />
         );
       case "listening":
@@ -202,7 +214,7 @@ const IndexInner = () => {
             onSelect={handleSelectItem}
             onAddToCart={handleAddToOrderWithNudge}
             onUpdateQuantity={updateQuantity}
-            onGoToCart={() => setCurrentScreen("order-summary")}
+            onAskWaiter={askWaiter}
             order={order}
           />
         );
@@ -229,14 +241,19 @@ const IndexInner = () => {
           />
         );
       case "order-confirmation":
-        return <ConfirmationView onReset={() => setCurrentScreen("session-idle")} />;
+        return (
+          <ConfirmationView
+            onReset={() => setCurrentScreen("session-idle")}
+            onOrderMore={() => setCurrentScreen("menu")}
+          />
+        );
       case "session-idle":
         return (
           <WaitingView
             previousOrders={previousOrders}
             onOrderMore={() => setCurrentScreen("menu")}
             onRequestBill={() => setCurrentScreen("bill-summary")}
-            onAddToCart={handleAddToOrderWithNudge}
+            onRequestWater={() => setToast("Water requested")}
           />
         );
       case "bill-summary":
@@ -249,6 +266,7 @@ const IndexInner = () => {
               setPreviousOrders([]);
               setCurrentScreen("idle");
             }}
+            onContinueOrdering={() => setCurrentScreen("menu")}
           />
         );
       default:
@@ -262,6 +280,7 @@ const IndexInner = () => {
     <AppShell
         currentScreen={currentScreen}
         onNavigate={setCurrentScreen}
+        onAskWaiter={askWaiter}
         cartCount={cartCount}
         tableId={TABLE_ID}
       >
@@ -314,6 +333,8 @@ const IndexInner = () => {
               }}
             />
           )}
+
+          {toast && <div className="toast">{toast}</div>}
         </div>
       </AppShell>
   );

@@ -17,9 +17,29 @@ const TAG_CLASS: Record<string, string> = {
 interface HomeViewProps {
   onStartOrdering: () => void;
   onSelectItem?: (item: AnchorItem) => void;
+  onAskWaiter?: () => void;
+  onInfoToast?: (message: string) => void;
+  tableId?: string;
 }
 
-export default function HomeView({ onStartOrdering, onSelectItem }: HomeViewProps) {
+function MicIcon() {
+  return (
+    <svg className="mic-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M6 11a6 6 0 0 0 12 0" />
+      <path d="M12 17v4" />
+      <path d="M9 21h6" />
+    </svg>
+  );
+}
+
+export default function HomeView({
+  onStartOrdering,
+  onSelectItem,
+  onAskWaiter,
+  onInfoToast,
+  tableId,
+}: HomeViewProps) {
   const { anchors, loading } = useMenu();
   const [heroIndex, setHeroIndex] = useState(0);
 
@@ -30,40 +50,41 @@ export default function HomeView({ onStartOrdering, onSelectItem }: HomeViewProp
     if (chefPicks.length <= 1) return;
     const id = setInterval(() => {
       setHeroIndex((i) => (i + 1) % chefPicks.length);
-    }, 2000);
+    }, 4000);
     return () => clearInterval(id);
   }, [chefPicks.length]);
 
   return (
     <section className="view home-view">
       <div className="hero-panel">
-        {/* Left: copy + CTA */}
         <div className="hero-copy">
-          <p className="eyebrow">Welcome</p>
+          <p className="eyebrow">Good evening{tableId ? `, Table ${tableId}` : ""}</p>
           <h1>Order beautifully. Without waiting.</h1>
-          <p className="hero-sub">
-            Browse our full menu, add items to your cart, and we'll bring it to you.
-          </p>
           <div className="hero-actions">
             <button className="primary-btn" onClick={onStartOrdering}>
               Start Ordering
             </button>
+            {onAskWaiter && (
+              <button className="waiter-btn" onClick={onAskWaiter}>
+                <span className="waiter-bubble">How can I help?</span>
+                <span className="waiter-dot">
+                  <MicIcon />
+                </span>
+                <span>Ask Waiter</span>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Right: rotating hero feature card */}
         {loading || !heroItem ? (
           <div
-            style={{
-              borderRadius: "var(--radius-xl)",
-              background: "linear-gradient(135deg, #f5e6d8, #e8c9a8)",
-              minHeight: 320,
-            }}
+            className="hero-feature"
+            style={{ background: "linear-gradient(135deg, #f5e6d8, #e8c9a8)" }}
           />
         ) : (
           <button
             className="hero-feature"
-            style={{ background: heroGradient(heroItem), minHeight: 320 }}
+            style={{ background: heroGradient(heroItem) }}
             onClick={() => onSelectItem?.(heroItem)}
             aria-label={`View ${heroItem.name}`}
           >
@@ -100,31 +121,44 @@ export default function HomeView({ onStartOrdering, onSelectItem }: HomeViewProp
         )}
       </div>
 
-      {/* Utility section */}
       <div className="utility-layout">
         <div className="utility-row utility-row-two">
-          <div className="utility-card utility-card-static">
+          <button
+            className="utility-card"
+            onClick={() =>
+              onInfoToast?.(
+                "Please ask the team for allergen guidance, vegetarian recommendations, and ingredient details before confirming your order.",
+              )
+            }
+          >
             <p className="eyebrow">Dietary Information</p>
             <strong>Prepared for every preference</strong>
             <span>
               Vegetarian-friendly dishes, egg-based breakfast options, and support for allergen
               questions are available on request.
             </span>
-          </div>
-          <div className="utility-card utility-card-static">
+          </button>
+          <button
+            className="utility-card"
+            onClick={() => onInfoToast?.("Please ask the team for the current Wi-Fi network name and password.")}
+          >
             <p className="eyebrow">Wi-Fi</p>
             <strong>Stay connected at the table</strong>
-            <span>Ask the team for today's network and password.</span>
-          </div>
+            <span>
+              Ask the team for today's network and password if you'd like to work, browse, or stay
+              online while you dine.
+            </span>
+          </button>
         </div>
 
-        <div className="panel utility-about-panel" style={{ padding: 28 }}>
+        <div className="panel utility-about-panel">
           <p className="eyebrow">About Us</p>
-          <h2 style={{ marginTop: 8, marginBottom: 12 }}>Silver Specialty Coffee</h2>
-          <p style={{ color: "var(--muted)", lineHeight: 1.7, fontSize: 16 }}>
-            Silver Specialty Coffee is a bright all-day café built around carefully brewed coffee,
+          <h2>Silver Specialty Coffee</h2>
+          <p className="hero-sub">
+            Silver Specialty Coffee is a bright all-day cafe built around carefully brewed coffee,
             generous breakfast plates, sweet comforts, and a relaxed table-side experience. The
-            space is designed for slow mornings, casual meetings, and easy catch-ups.
+            space is designed for slow mornings, casual meetings, and easy catch-ups, with a menu
+            that balances comfort classics and signature house favorites.
           </p>
         </div>
 
@@ -133,8 +167,8 @@ export default function HomeView({ onStartOrdering, onSelectItem }: HomeViewProp
             <p className="eyebrow">Chef's Note</p>
             <strong>Fresh, simple, and made to linger over</strong>
             <span>
-              Our kitchen focuses on approachable breakfast and brunch plates with clean flavors and
-              seasonal touches.
+              Our kitchen focuses on approachable breakfast and brunch plates with clean flavors,
+              seasonal touches, and dishes that pair naturally with specialty coffee.
             </span>
           </div>
           <div className="utility-card utility-card-static">

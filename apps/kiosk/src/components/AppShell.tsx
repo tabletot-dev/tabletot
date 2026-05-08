@@ -5,36 +5,40 @@ interface AppShellProps {
   children: React.ReactNode;
   currentScreen: ScreenType;
   onNavigate: (screen: ScreenType) => void;
+  onAskWaiter?: () => void;
   cartCount: number;
   restaurantName?: string;
   tableId: string;
 }
 
-const HEADERLESS_SCREENS: ScreenType[] = ["idle", "order-confirmation"];
+const HEADERLESS_SCREENS: ScreenType[] = ["session-idle"];
 
 export default function AppShell({
   children,
   currentScreen,
   onNavigate,
+  onAskWaiter,
   cartCount,
   restaurantName = "Tabletot",
   tableId,
 }: AppShellProps) {
-  const isIdle = HEADERLESS_SCREENS.includes(currentScreen);
+  const isChromeless = HEADERLESS_SCREENS.includes(currentScreen);
+  const isIdleFrame = currentScreen === "session-idle";
 
   return (
     <div className="app-shell">
-      <div className={`tablet-frame${isIdle ? " idle-frame" : ""}`}>
-        {!isIdle && (
+      <div className={`tablet-frame${isIdleFrame ? " idle-frame" : ""}`}>
+        {!isChromeless && (
           <AppHeader
             currentScreen={currentScreen}
             onNavigate={onNavigate}
+            onAskWaiter={onAskWaiter}
             cartCount={cartCount}
             restaurantName={restaurantName}
             tableId={tableId}
           />
         )}
-        <main className={`app-content${isIdle ? " idle-content" : ""}`}>
+        <main className={`app-content${isIdleFrame ? " idle-content" : ""}`}>
           {children}
         </main>
       </div>

@@ -6,9 +6,15 @@ interface BillViewProps {
   previousOrders: OrderRound[];
   sessionTotal: number;
   onClose: () => void;
+  onContinueOrdering?: () => void;
 }
 
-export default function BillView({ previousOrders, sessionTotal, onClose }: BillViewProps) {
+export default function BillView({
+  previousOrders,
+  sessionTotal,
+  onClose,
+  onContinueOrdering,
+}: BillViewProps) {
   const subtotal = sessionTotal;
   const tax = subtotal * TAX_RATE;
   const total = subtotal + tax;
@@ -16,8 +22,7 @@ export default function BillView({ previousOrders, sessionTotal, onClose }: Bill
   return (
     <section className="view bill-view">
       <div className="split-layout">
-        {/* Left: itemized bill */}
-        <div className="panel scroll-panel" style={{ padding: 24 }}>
+        <div className="panel scroll-panel">
           <div className="section-title">
             <div>
               <p className="eyebrow">Itemized bill</p>
@@ -27,7 +32,7 @@ export default function BillView({ previousOrders, sessionTotal, onClose }: Bill
 
           <div className="bill-list">
             {previousOrders.length === 0 ? (
-              <div className="empty-state" style={{ padding: "24px 0", textAlign: "center" }}>
+              <div className="empty-state" style={{ textAlign: "center" }}>
                 No orders yet this session.
               </div>
             ) : (
@@ -62,8 +67,7 @@ export default function BillView({ previousOrders, sessionTotal, onClose }: Bill
           </div>
         </div>
 
-        {/* Right: settle actions */}
-        <aside className="panel summary-panel" style={{ padding: 24 }}>
+        <aside className="panel summary-panel">
           <p className="eyebrow">Settle up</p>
           <h2>Choose the next step</h2>
           <button className="primary-btn wide" onClick={onClose}>
@@ -72,6 +76,11 @@ export default function BillView({ previousOrders, sessionTotal, onClose }: Bill
           <button className="secondary-btn wide" onClick={onClose}>
             Request Server
           </button>
+          {onContinueOrdering && (
+            <button className="secondary-btn wide" onClick={onContinueOrdering}>
+              Continue Ordering
+            </button>
+          )}
           <p className="summary-note">
             Once requested, a server brings the card reader directly to your table.
           </p>

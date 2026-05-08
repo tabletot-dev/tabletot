@@ -141,11 +141,6 @@ export default function DishCard({
           onKeyDown={(e) => e.key === "Enter" && onSelect(item)}
         >
           <h3>{item.name}</h3>
-          {item.is_veg !== undefined && (
-            <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
-              {item.is_veg ? "🟢 Veg" : "🔴 Non-Veg"}
-            </p>
-          )}
         </div>
 
         <div className="dish-meta">

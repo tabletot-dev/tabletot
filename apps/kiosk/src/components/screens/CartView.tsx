@@ -29,7 +29,7 @@ export default function CartView({
     <section className="view cart-view">
       <div className="split-layout">
         {/* Left: order list */}
-        <div className="panel scroll-panel" style={{ padding: 24 }}>
+        <div className="panel scroll-panel">
           <div className="section-title">
             <div>
               <p className="eyebrow">Current order</p>
@@ -47,10 +47,7 @@ export default function CartView({
                 <div key={item.id} className="order-row">
                   <div
                     className="order-thumb"
-                    style={{
-                      background: categoryGradient(item.category),
-                      flexShrink: 0,
-                    }}
+                    style={{ background: categoryGradient(item.category) }}
                   />
                   <div className="order-copy">
                     <strong>{item.name}</strong>
@@ -93,8 +90,7 @@ export default function CartView({
           </div>
         </div>
 
-        {/* Right: summary panel */}
-        <aside className="panel summary-panel" style={{ padding: 24 }}>
+        <aside className="panel summary-panel">
           <p className="eyebrow">Order summary</p>
           <h2>
             {itemCount} item{itemCount !== 1 ? "s" : ""}
@@ -111,11 +107,15 @@ export default function CartView({
             <span>Total</span>
             <strong>₹{total.toFixed(0)}</strong>
           </div>
+          <p className="summary-note">
+            Breakfast plates, coffees, and desserts can all be added together for a smooth cafe
+            order flow.
+          </p>
           <button
             className="primary-btn wide"
             onClick={onConfirm}
             disabled={order.length === 0 || isSubmitting}
-            style={{ opacity: order.length === 0 || isSubmitting ? 0.45 : 1, marginTop: "auto" }}
+            style={{ opacity: order.length === 0 || isSubmitting ? 0.45 : 1 }}
           >
             {isSubmitting ? "Sending…" : "Confirm Order"}
           </button>
