@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import type { OrderItem } from '@/data/menu';
+import { computeTotals } from '@/lib/pricing';
 
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
 const TABLE_NUMBER = (import.meta.env.VITE_TABLE_ID as string) || 'T1';
@@ -36,7 +37,9 @@ export async function submitOrder(
 ): Promise<{ orderId: string; kotId: string }> {
   const tableUuid = await resolveTableId();
 
-  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const { subtotal, total } = computeTotals(
+    cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+  );
 
   const itemsJson = cart.map((item) => ({
     name: item.name,
@@ -56,7 +59,7 @@ export async function submitOrder(
       status: 'pending',
       items_json: itemsJson,
       subtotal,
-      total: subtotal,
+      total,
     })
     .select('id')
     .single();

@@ -10,12 +10,12 @@ import { toast } from '@/hooks/use-toast';
 interface MenuItem {
   id: string;
   item_id: string;
-  item_name: string;
+  name: string;
   category: string;
   price: number;
   description: string;
   image_url: string;
-  is_available: boolean;
+  active: boolean;
 }
 
 interface MenuGridProps {
@@ -37,8 +37,8 @@ export function MenuGrid({ onAddToCart }: MenuGridProps) {
     const { data, error } = await supabase
       .from('menu_items')
       .select('*')
-      .eq('is_available', true)
-      .order('item_name', { ascending: true });
+      .eq('active', true)
+      .order('name', { ascending: true });
 
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -92,14 +92,14 @@ export function MenuGrid({ onAddToCart }: MenuGridProps) {
                 <div className="aspect-video bg-muted overflow-hidden">
                   <img
                     src={item.image_url}
-                    alt={item.item_name}
+                    alt={item.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                   />
                 </div>
               )}
               <div className="p-4">
                 <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-semibold text-lg">{item.item_name}</h3>
+                  <h3 className="font-semibold text-lg">{item.name}</h3>
                   <Badge className="ml-2">₹{item.price}</Badge>
                 </div>
                 {item.description && (

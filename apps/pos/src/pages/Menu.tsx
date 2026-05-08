@@ -22,11 +22,11 @@ import { Textarea } from '@/components/ui/textarea';
 interface MenuItem {
   id: string;
   item_id: string;
-  item_name: string;
+  name: string;
   price: number;
   category: string;
   description: string | null;
-  is_available: boolean;
+  active: boolean;
 }
 
 export default function Menu() {
@@ -35,11 +35,11 @@ export default function Menu() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [formData, setFormData] = useState({
-    item_name: '',
+    name: '',
     price: '',
     category: '',
     description: '',
-    is_available: true,
+    active: true,
   });
 
   useEffect(() => {
@@ -72,11 +72,11 @@ export default function Menu() {
     try {
       const itemData = {
         item_id: editingItem?.item_id || `ITEM-${Date.now()}`,
-        item_name: formData.item_name,
+        name: formData.name,
         price: parseFloat(formData.price),
         category: formData.category,
         description: formData.description || null,
-        is_available: formData.is_available,
+        active: formData.active,
       };
 
       if (editingItem) {
@@ -109,11 +109,11 @@ export default function Menu() {
   const handleEdit = (item: MenuItem) => {
     setEditingItem(item);
     setFormData({
-      item_name: item.item_name,
+      name: item.name,
       price: item.price.toString(),
       category: item.category,
       description: item.description || '',
-      is_available: item.is_available,
+      active: item.active,
     });
     setDialogOpen(true);
   };
@@ -139,11 +139,11 @@ export default function Menu() {
   const resetForm = () => {
     setEditingItem(null);
     setFormData({
-      item_name: '',
+      name: '',
       price: '',
       category: '',
       description: '',
-      is_available: true,
+      active: true,
     });
   };
 
@@ -177,11 +177,11 @@ export default function Menu() {
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="item_name">Item Name</Label>
+                <Label htmlFor="name">Item Name</Label>
                 <Input
-                  id="item_name"
-                  value={formData.item_name}
-                  onChange={e => setFormData({ ...formData, item_name: e.target.value })}
+                  id="name"
+                  value={formData.name}
+                  onChange={e => setFormData({ ...formData, name: e.target.value })}
                   required
                 />
               </div>
@@ -217,11 +217,11 @@ export default function Menu() {
                 />
               </div>
               <div className="flex items-center justify-between">
-                <Label htmlFor="is_available">Available</Label>
+                <Label htmlFor="active">Available</Label>
                 <Switch
-                  id="is_available"
-                  checked={formData.is_available}
-                  onCheckedChange={checked => setFormData({ ...formData, is_available: checked })}
+                  id="active"
+                  checked={formData.active}
+                  onCheckedChange={checked => setFormData({ ...formData, active: checked })}
                 />
               </div>
               <DialogFooter>
@@ -248,8 +248,8 @@ export default function Menu() {
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">{item.item_name}</h3>
-                        {!item.is_available && (
+                        <h3 className="font-semibold">{item.name}</h3>
+                        {!item.active && (
                           <Badge variant="secondary">Unavailable</Badge>
                         )}
                       </div>

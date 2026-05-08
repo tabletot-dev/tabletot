@@ -789,8 +789,8 @@ button {
 }
 
 .card-stepper button {
-  width: 36px;
-  height: 36px;
+  width: 48px;
+  height: 48px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.14);
   color: #fff;
@@ -1254,7 +1254,7 @@ button {
 
 .detail-facts {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1396,8 +1396,8 @@ button {
 }
 
 .stepper button {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border-radius: 14px;
   background: var(--panel-dark);
   color: #fff;
@@ -1913,8 +1913,11 @@ button {
 
 /* Back link — DetailView */
 .back-link {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
+  min-height: 48px;
   margin-top: 12px;
   color: var(--muted);
   font-size: 15px;
@@ -1961,6 +1964,13 @@ button {
   border: 1px solid var(--line);
   font-size: 14px;
   color: var(--muted);
+}
+
+.previous-round-items {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .previous-round-label {
@@ -2063,6 +2073,7 @@ button {
   .status-hero,
   .waiting-grid {
     grid-template-columns: 1fr;
+    align-content: start;
   }
 
   .header-tools {
@@ -2230,13 +2241,13 @@ button {
   }
 
   .menu-category-icon {
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
   }
 
   .menu-category-icon svg {
-    width: 18px;
-    height: 18px;
+    width: 22px;
+    height: 22px;
   }
 
   .menu-category-label {

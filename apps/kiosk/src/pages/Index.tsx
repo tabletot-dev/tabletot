@@ -15,7 +15,7 @@ import AppShell from "@/components/AppShell";
 import { RestaurantProvider, useRestaurant } from "@/lib/restaurantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { findMatchingRule, type CompletionRule, type MatchedSuggestion } from "@/lib/completionRules";
-import { useMenu } from "@/lib/menuStore";
+import { useMenu, MenuProvider } from "@/lib/menuStore";
 import type { DoneMessage, OrderSnapshot } from "@/lib/voice/types";
 import { MenuItem } from "@/data/menu";
 
@@ -52,8 +52,10 @@ const IndexInner = () => {
     setPreviousOrders,
   } = useDeviceNavigation();
 
-  // Menu items for voice → cart matching
-  const { items: menuItems } = useMenu();
+  // Shared menu context — one fetch for the whole app.
+  const { items: menuItems, pairingsByItemId } = useMenu();
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [nudge, setNudge] = useState<NudgeState | null>(null);
   const [completionSuggestion, setCompletionSuggestion] = useState<MatchedSuggestion | null>(null);
@@ -150,24 +152,30 @@ const IndexInner = () => {
   }, [selectedItem, handleAddToOrderWithNudge, setCurrentScreen]);
 
   const handleConfirmOrder = useCallback(async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
-      const { data: rules } = await supabase
-        .from("meal_completion_rules")
-        .select("rule_name, condition, suggestion")
-        .eq("restaurant_id", RESTAURANT_ID)
-        .eq("active", true)
-        .order("priority", { ascending: false });
+      try {
+        const { data: rules } = await supabase
+          .from("meal_completion_rules")
+          .select("rule_name, condition, suggestion")
+          .eq("restaurant_id", RESTAURANT_ID)
+          .eq("active", true)
+          .order("priority", { ascending: false });
 
-      const match = findMatchingRule((rules ?? []) as CompletionRule[], order);
-      if (match) {
-        setCompletionSuggestion(match);
-        return;
+        const match = findMatchingRule((rules ?? []) as CompletionRule[], order);
+        if (match) {
+          setCompletionSuggestion(match);
+          return; // finally clears isSubmitting
+        }
+      } catch {
+        // DB error — fall through to submit
       }
-    } catch {
-      // DB error — fall through to submit
+      await confirmOrder();
+    } finally {
+      setIsSubmitting(false);
     }
-    confirmOrder();
-  }, [order, confirmOrder]);
+  }, [isSubmitting, order, confirmOrder]);
 
   const showVoiceButton =
     voiceEnabled && !["idle", "listening", "order-confirmation"].includes(currentScreen);
@@ -202,6 +210,7 @@ const IndexInner = () => {
         return selectedItem ? (
           <DetailView
             item={selectedItem}
+            pairings={pairingsByItemId[selectedItem.id] ?? []}
             onAdd={handleAddToOrder}
             onBack={() => setCurrentScreen("menu")}
             onSelectPairing={handleSelectItem}
@@ -213,11 +222,10 @@ const IndexInner = () => {
             order={order}
             totalBill={totalBill}
             previousOrders={previousOrders}
-            sessionTotal={sessionTotal}
+            isSubmitting={isSubmitting}
             onContinue={() => setCurrentScreen("menu")}
             onConfirm={handleConfirmOrder}
             onUpdateQuantity={updateQuantity}
-            onRemoveItem={removeItem}
           />
         );
       case "order-confirmation":
@@ -313,7 +321,9 @@ const IndexInner = () => {
 
 const Index = () => (
   <RestaurantProvider>
-    <IndexInner />
+    <MenuProvider>
+      <IndexInner />
+    </MenuProvider>
   </RestaurantProvider>
 );
 

@@ -99,11 +99,15 @@ function CategoryIcon({ category }: { category: string }) {
 }
 
 export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onGoToCart, order }: MenuViewProps) {
-  const { items, categories, itemsByCategory, pairingsByItemId, loading, error } = useMenu();
+  const { categories, itemsByCategory, pairingsByItemId, loading, error, retry } = useMenu();
   const [activeCategory, setActiveCategory] = useState("");
   const [diet, setDiet] = useState<DietFilter>("all");
 
-  const resolvedCategory = activeCategory || categories[0] || "";
+  // If activeCategory is stale after a menu refresh, fall back to the first valid category.
+  const resolvedCategory = useMemo(
+    () => (activeCategory && categories.includes(activeCategory) ? activeCategory : categories[0] ?? ""),
+    [activeCategory, categories],
+  );
 
   const filteredItems = useMemo(() => {
     const base = itemsByCategory[resolvedCategory] ?? [];
@@ -112,12 +116,12 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onGo
     return base;
   }, [itemsByCategory, resolvedCategory, diet]);
 
-  const getQty = useCallback(
-    (itemId: string) => order.find((o) => o.id === itemId)?.quantity ?? 0,
-    [order],
-  );
+  // O(1) quantity lookup instead of O(n) find per card render.
+  const qtyMap = useMemo(() => new Map(order.map((o) => [o.id, o.quantity])), [order]);
+  const getQty = useCallback((itemId: string) => qtyMap.get(itemId) ?? 0, [qtyMap]);
 
-  const cartTotal = order.reduce((s, o) => s + o.price * o.quantity, 0);
+  const cartTotal = useMemo(() => order.reduce((s, o) => s + o.price * o.quantity, 0), [order]);
+  const cartItemCount = useMemo(() => order.reduce((s, o) => s + o.quantity, 0), [order]);
 
   if (loading) {
     return (
@@ -135,7 +139,8 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onGo
       <div className="view menu-view" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ padding: 32, textAlign: "center", color: "var(--muted)" }}>
           <p style={{ color: "var(--text)", fontWeight: 700, marginBottom: 8 }}>Menu unavailable</p>
-          <p>Please ask staff for assistance</p>
+          <p style={{ marginBottom: 20 }}>Please ask staff for assistance</p>
+          <button className="secondary-btn" onClick={retry}>Retry</button>
         </div>
       </div>
     );
@@ -218,9 +223,9 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onGo
         </section>
       </div>
 
-      {order.length > 0 && (
+      {cartItemCount > 0 && (
         <div className="cart-float">
-          <span className="cart-float-count">{order.reduce((s, o) => s + o.quantity, 0)} items in cart</span>
+          <span className="cart-float-count">{cartItemCount} {cartItemCount === 1 ? "item" : "items"} in cart</span>
           <strong className="cart-float-total">₹{cartTotal.toFixed(0)}</strong>
           <button className="primary-btn cart-float-cta" onClick={onGoToCart}>
             View Cart

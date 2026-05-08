@@ -14,10 +14,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 interface MenuItem {
   id: string;
   item_id: string;
-  item_name: string;
+  name: string;
   price: number;
   category: string;
-  is_available: boolean;
+  active: boolean;
 }
 
 interface CartItem extends MenuItem {
@@ -44,7 +44,7 @@ export default function POS() {
       const { data, error } = await supabase
         .from('menu_items')
         .select('*')
-        .eq('is_available', true)
+        .eq('active', true)
         .order('category', { ascending: true });
 
       if (error) throw error;
@@ -118,7 +118,7 @@ export default function POS() {
 
       const orderItems = cart.map(item => ({
         item_id: item.item_id,
-        item_name: item.item_name,
+        name: item.name,
         qty: item.quantity,
         price: item.price,
         line_total: item.price * item.quantity,
@@ -144,7 +144,7 @@ export default function POS() {
       const orderItemsInsert = orderItems.map(item => ({
         order_id: orderId,
         item_id: item.item_id,
-        item_name: item.item_name,
+        name: item.name,
         qty: item.qty,
         line_total: item.line_total,
       }));
@@ -209,7 +209,7 @@ export default function POS() {
                           onClick={() => addToCart(item)}
                         >
                           <CardContent className="p-4">
-                            <h3 className="font-semibold truncate">{item.item_name}</h3>
+                            <h3 className="font-semibold truncate">{item.name}</h3>
                             <p className="text-sm text-muted-foreground mt-1">
                               ${item.price.toFixed(2)}
                             </p>
@@ -276,7 +276,7 @@ export default function POS() {
                     {cart.map(item => (
                       <div key={item.id} className="flex items-center gap-2">
                         <div className="flex-1">
-                          <p className="font-medium text-sm">{item.item_name}</p>
+                          <p className="font-medium text-sm">{item.name}</p>
                           <p className="text-xs text-muted-foreground">
                             ${item.price.toFixed(2)} each
                           </p>

@@ -86,11 +86,11 @@ export default function Billing() {
           // Fetch menu items to get prices if not available in order
           const { data: menuItems } = await supabase
             .from('menu_items')
-            .select('item_name, price');
+            .select('name, price');
           
           const menuPriceMap = new Map<string, number>();
           (menuItems || []).forEach((mi) => {
-            menuPriceMap.set(mi.item_name.toLowerCase(), Number(mi.price));
+            if (mi.name) menuPriceMap.set(mi.name.toLowerCase(), Number(mi.price));
           });
 
           // Filter out metadata items and reconstruct cart

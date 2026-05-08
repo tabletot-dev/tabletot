@@ -1,17 +1,16 @@
-import { useMenu } from "@/lib/menuStore";
 import type { MenuItem } from "@/data/menu";
+import type { PairedItem } from "@/lib/menuStore";
 import { categoryGradient } from "@/lib/categoryGradients";
 
 interface DetailViewProps {
   item: MenuItem;
+  pairings: PairedItem[];
   onAdd: () => void;
   onBack: () => void;
   onSelectPairing?: (item: MenuItem) => void;
 }
 
-export default function DetailView({ item, onAdd, onBack, onSelectPairing }: DetailViewProps) {
-  const { pairingsByItemId } = useMenu();
-  const pairings = pairingsByItemId[item.id] ?? [];
+export default function DetailView({ item, pairings, onAdd, onBack, onSelectPairing }: DetailViewProps) {
   const bg = categoryGradient(item.category);
 
   return (
@@ -30,10 +29,6 @@ export default function DetailView({ item, onAdd, onBack, onSelectPairing }: Det
 
           {/* Facts grid */}
           <div className="detail-facts">
-            <div>
-              <span>Category</span>
-              <strong>{item.category}</strong>
-            </div>
             <div>
               <span>Diet</span>
               <strong>{item.is_veg ? "Vegetarian" : "Non-Veg"}</strong>

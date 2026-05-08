@@ -119,7 +119,7 @@ export function ItemVariantModal({ item, onClose, onAdd }: ItemVariantModalProps
 
     onAdd({
       menu_item_id: item.id,
-      name: item.item_name,
+      name: item.name,
       price: item.price,
       quantity,
       variants: selectedVariantsList,
@@ -128,7 +128,7 @@ export function ItemVariantModal({ item, onClose, onAdd }: ItemVariantModalProps
       total: calculateTotal(),
     });
 
-    toast({ title: 'Added to cart', description: `${item.item_name} added successfully` });
+    toast({ title: 'Added to cart', description: `${item.name} added successfully` });
     onClose();
   };
 
@@ -136,7 +136,7 @@ export function ItemVariantModal({ item, onClose, onAdd }: ItemVariantModalProps
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{item.item_name}</DialogTitle>
+          <DialogTitle>{item.name}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">

@@ -1,31 +1,28 @@
 import type { OrderItem } from "@/data/menu";
 import type { OrderRound } from "@/hooks/useDeviceNavigation";
 import { categoryGradient } from "@/lib/categoryGradients";
-
-const TAX_RATE = 0.05; // 5% GST
+import { computeTotals } from "@/lib/pricing";
 
 interface CartViewProps {
   order: OrderItem[];
   totalBill: number;
   previousOrders: OrderRound[];
-  sessionTotal: number;
+  isSubmitting: boolean;
   onContinue: () => void;
   onConfirm: () => void;
   onUpdateQuantity: (itemId: string, delta: number) => void;
-  onRemoveItem: (itemId: string) => void;
 }
 
 export default function CartView({
   order,
   totalBill,
   previousOrders,
+  isSubmitting,
   onContinue,
   onConfirm,
   onUpdateQuantity,
 }: CartViewProps) {
-  const subtotal = totalBill;
-  const tax = subtotal * TAX_RATE;
-  const total = subtotal + tax;
+  const { subtotal, tax, total } = computeTotals(totalBill);
   const itemCount = order.reduce((s, o) => s + o.quantity, 0);
 
   return (
@@ -48,8 +45,6 @@ export default function CartView({
             ) : (
               order.map((item) => (
                 <div key={item.id} className="order-row">
-                  {/* Thumbnail — gradient placeholder */}
-                  {/* TODO: replace with image_url when schema column is added */}
                   <div
                     className="order-thumb"
                     style={{
@@ -87,7 +82,9 @@ export default function CartView({
                 {previousOrders.map((round, idx) => (
                   <div key={idx} className="previous-round">
                     <span className="previous-round-label">Round {idx + 1}</span>
-                    <span>{round.items.map((i) => i.name).join(", ")}</span>
+                    <span className="previous-round-items">
+                      {round.items.map((i) => i.name).join(", ")}
+                    </span>
                     <strong>₹{round.total.toFixed(0)}</strong>
                   </div>
                 ))}
@@ -114,19 +111,15 @@ export default function CartView({
             <span>Total</span>
             <strong>₹{total.toFixed(0)}</strong>
           </div>
-          <p className="summary-note">
-            Breakfast plates, coffees, and desserts can all be added together for a smooth café
-            order.
-          </p>
           <button
             className="primary-btn wide"
             onClick={onConfirm}
-            disabled={order.length === 0}
-            style={{ opacity: order.length === 0 ? 0.45 : 1, marginTop: "auto" }}
+            disabled={order.length === 0 || isSubmitting}
+            style={{ opacity: order.length === 0 || isSubmitting ? 0.45 : 1, marginTop: "auto" }}
           >
-            Confirm Order
+            {isSubmitting ? "Sending…" : "Confirm Order"}
           </button>
-          <button className="secondary-btn wide" onClick={onContinue}>
+          <button className="secondary-btn wide" onClick={onContinue} disabled={isSubmitting}>
             Continue Browsing
           </button>
         </aside>
