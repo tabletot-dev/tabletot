@@ -1572,6 +1572,33 @@ button {
   box-shadow: 0 14px 24px rgba(237, 56, 42, 0.24);
 }
 
+.end-session-btn {
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: var(--text-muted, #888);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.end-session-btn:active {
+  opacity: 0.7;
+}
+.end-session-fill {
+  position: absolute;
+  inset: 0;
+  background: rgba(239, 68, 68, 0.18);
+  height: 100%;
+  transition: width 0.05s linear;
+  border-radius: inherit;
+}
+
 .status-hero {
   display: grid;
   grid-template-columns: 1fr 340px;

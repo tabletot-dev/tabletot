@@ -310,6 +310,7 @@ export type Database = {
           order_id: string | null
           printed_at: string
           restaurant_id: string | null
+          session_id: string | null
           special_notes: string | null
           status: string
           table_number: string | null
@@ -323,6 +324,7 @@ export type Database = {
           order_id?: string | null
           printed_at?: string
           restaurant_id?: string | null
+          session_id?: string | null
           special_notes?: string | null
           status?: string
           table_number?: string | null
@@ -336,6 +338,7 @@ export type Database = {
           order_id?: string | null
           printed_at?: string
           restaurant_id?: string | null
+          session_id?: string | null
           special_notes?: string | null
           status?: string
           table_number?: string | null
@@ -470,6 +473,8 @@ export type Database = {
           category: string | null
           created_at: string
           id: string
+          image_url: string | null
+          is_veg: boolean
           name: string
           price: number | null
           restaurant_id: string | null
@@ -480,6 +485,8 @@ export type Database = {
           category?: string | null
           created_at?: string
           id?: string
+          image_url?: string | null
+          is_veg?: boolean
           name: string
           price?: number | null
           restaurant_id?: string | null
@@ -490,6 +497,8 @@ export type Database = {
           category?: string | null
           created_at?: string
           id?: string
+          image_url?: string | null
+          is_veg?: boolean
           name?: string
           price?: number | null
           restaurant_id?: string | null
@@ -612,10 +621,12 @@ export type Database = {
           order_id: string | null
           order_type: string | null
           restaurant_id: string | null
+          session_id: string | null
           source: string | null
           special_instructions: string | null
           status: string
           subtotal: number
+          table_id: string | null
           table_no: string | null
           tax: number
           total: number
@@ -631,10 +642,12 @@ export type Database = {
           order_id?: string | null
           order_type?: string | null
           restaurant_id?: string | null
+          session_id?: string | null
           source?: string | null
           special_instructions?: string | null
           status?: string
           subtotal?: number
+          table_id?: string | null
           table_no?: string | null
           tax?: number
           total?: number
@@ -650,10 +663,12 @@ export type Database = {
           order_id?: string | null
           order_type?: string | null
           restaurant_id?: string | null
+          session_id?: string | null
           source?: string | null
           special_instructions?: string | null
           status?: string
           subtotal?: number
+          table_id?: string | null
           table_no?: string | null
           tax?: number
           total?: number
@@ -665,6 +680,13 @@ export type Database = {
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_tables"
             referencedColumns: ["id"]
           },
         ]
@@ -790,6 +812,7 @@ export type Database = {
           created_at: string
           current_order_id: string | null
           id: string
+          is_treatment: boolean
           restaurant_id: string | null
           status: string
           table_number: string
@@ -802,6 +825,7 @@ export type Database = {
           created_at?: string
           current_order_id?: string | null
           id?: string
+          is_treatment?: boolean
           restaurant_id?: string | null
           status?: string
           table_number: string
@@ -814,6 +838,7 @@ export type Database = {
           created_at?: string
           current_order_id?: string | null
           id?: string
+          is_treatment?: boolean
           restaurant_id?: string | null
           status?: string
           table_number?: string
@@ -845,18 +870,21 @@ export type Database = {
       }
       restaurants: {
         Row: {
+          config: Json
           created_at: string | null
           id: string
           name: string
           pos_provider: string | null
         }
         Insert: {
+          config?: Json
           created_at?: string | null
           id?: string
           name: string
           pos_provider?: string | null
         }
         Update: {
+          config?: Json
           created_at?: string | null
           id?: string
           name?: string
@@ -914,21 +942,23 @@ export type Database = {
       }
     }
     Views: {
-      recommendation_aov_lift: {
-        Row: {
-          acceptance_rate_pct: number | null
-          accepted: number | null
-          aov_lift_estimate: number | null
-          avg_cart_when_accepted: number | null
-          avg_cart_when_rejected: number | null
-          pattern_type: string | null
-          total_shown: number | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      recommendation_aov_lift_cohort: {
+        Args: { p_end_at: string; p_restaurant_id: string; p_start_at: string }
+        Returns: {
+          control_avg_total: number
+          control_n: number
+          control_stddev: number
+          delta: number
+          p_value: number
+          t_stat: number
+          treatment_avg_total: number
+          treatment_n: number
+          treatment_stddev: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
@@ -1065,3 +1095,5 @@ export const Constants = {
   },
 } as const
 
+A new version of Supabase CLI is available: v2.98.2 (currently installed v2.95.4)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

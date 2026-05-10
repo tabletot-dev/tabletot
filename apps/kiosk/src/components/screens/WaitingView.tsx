@@ -1,43 +1,54 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import type { OrderRound } from "@/hooks/useDeviceNavigation";
 
 interface WaitingViewProps {
   previousOrders: OrderRound[];
+  currentRoundOrderId: string | null;
   onOrderMore: () => void;
   onRequestBill: () => void;
+  onEndSession: () => void;
   onRequestWater?: () => void;
 }
+
+type KitchenStatus = "pending" | "preparing" | "ready" | "served" | "unknown";
+
+const STATUS_STAGE: Record<KitchenStatus, { label: string; pct: number }> = {
+  pending:   { label: "Queued",    pct: 28 },
+  preparing: { label: "Cooking",   pct: 60 },
+  ready:     { label: "Plating",   pct: 85 },
+  served:    { label: "Done",      pct: 100 },
+  unknown:   { label: "Queued",    pct: 28 },
+};
 
 const PROMOS = [
   {
     id: "ad-travel",
     title: "Weekend Escape",
     copy: "Discover limited-time city breaks, spa stays, and last-minute travel offers.",
-    image:
-      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1600&q=80",
+    image: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1600&q=80",
   },
   {
     id: "ad-audio",
     title: "Studio Sound",
     copy: "Wireless headphones, deep bass, and everyday listening made beautifully simple.",
-    image:
-      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1600&q=80",
+    image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1600&q=80",
   },
   {
     id: "ad-fashion",
     title: "New Season Edit",
     copy: "Lightweight essentials, clean tailoring, and fresh arrivals for the week ahead.",
-    image:
-      "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1600&q=80",
+    image: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1600&q=80",
   },
   {
     id: "ad-wellness",
     title: "Reset & Recharge",
     copy: "Wellness offers, fitness plans, and recovery treatments curated for busy days.",
-    image:
-      "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1600&q=80",
+    image: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1600&q=80",
   },
 ];
+
+const END_SESSION_HOLD_MS = 2000;
 
 function WaterIcon() {
   return (
@@ -49,39 +60,105 @@ function WaterIcon() {
 
 export default function WaitingView({
   previousOrders,
+  currentRoundOrderId,
   onOrderMore,
   onRequestBill,
+  onEndSession,
   onRequestWater,
 }: WaitingViewProps) {
   const [promoIndex, setPromoIndex] = useState(0);
   const [billRequested, setBillRequested] = useState(false);
   const [waterRequested, setWaterRequested] = useState(false);
-  const [orderSentAt] = useState(() => Date.now());
-  const [now, setNow] = useState(Date.now());
+  const [kitchenStatus, setKitchenStatus] = useState<KitchenStatus>("unknown");
 
+  // Long-press state for End Session
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [holdProgress, setHoldProgress] = useState(0);
+  const holdRafRef = useRef<number | null>(null);
+  const holdStartRef = useRef<number>(0);
+
+  // Slideshow rotation
   useEffect(() => {
     const id = setInterval(() => setPromoIndex((i) => (i + 1) % PROMOS.length), 4500);
     return () => clearInterval(id);
   }, []);
 
+  // Supabase Realtime — subscribe to this round's order status
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
+    if (!currentRoundOrderId) return;
 
-  const promo = PROMOS[promoIndex];
+    const channel = supabase
+      .channel(`order-status-${currentRoundOrderId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "orders",
+          filter: `id=eq.${currentRoundOrderId}`,
+        },
+        (payload) => {
+          const status = (payload.new as { status?: string }).status;
+          if (status && status in STATUS_STAGE) {
+            setKitchenStatus(status as KitchenStatus);
+          }
+        },
+      )
+      .subscribe();
+
+    // Fetch current status immediately (Realtime only fires on updates)
+    supabase
+      .from("orders")
+      .select("status")
+      .eq("id", currentRoundOrderId)
+      .single()
+      .then(({ data }) => {
+        if (data?.status && data.status in STATUS_STAGE) {
+          setKitchenStatus(data.status as KitchenStatus);
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentRoundOrderId]);
+
+  const { label: stage, pct: progress } = STATUS_STAGE[kitchenStatus];
 
   const itemCount = useMemo(() => {
     const last = previousOrders[previousOrders.length - 1];
     return last ? last.items.reduce((s, i) => s + i.quantity, 0) : 0;
   }, [previousOrders]);
 
-  const { progress, stage } = useMemo(() => {
-    const seconds = (now - orderSentAt) / 1000;
-    const pct = Math.min(92, Math.round(28 + seconds / 20));
-    const stageLabel = pct < 45 ? "Queued" : pct < 80 ? "Cooking" : "Plating";
-    return { progress: pct, stage: stageLabel };
-  }, [now, orderSentAt]);
+  const promo = PROMOS[promoIndex];
+
+  // Long-press handlers for End Session
+  const startHold = useCallback(() => {
+    holdStartRef.current = Date.now();
+    const animate = () => {
+      const elapsed = Date.now() - holdStartRef.current;
+      const pct = Math.min(100, (elapsed / END_SESSION_HOLD_MS) * 100);
+      setHoldProgress(pct);
+      if (pct < 100) {
+        holdRafRef.current = requestAnimationFrame(animate);
+      } else {
+        onEndSession();
+      }
+    };
+    holdRafRef.current = requestAnimationFrame(animate);
+  }, [onEndSession]);
+
+  const cancelHold = useCallback(() => {
+    if (holdRafRef.current !== null) {
+      cancelAnimationFrame(holdRafRef.current);
+      holdRafRef.current = null;
+    }
+    if (holdTimerRef.current !== null) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    setHoldProgress(0);
+  }, []);
 
   return (
     <section className="view idle-view">
@@ -102,12 +179,18 @@ export default function WaitingView({
       <div className="idle-status panel">
         <div className="idle-status-copy">
           <p className="eyebrow">Order Status</p>
-          <h2>Your order is being prepared</h2>
+          <h2>
+            {kitchenStatus === "served"
+              ? "Your order has arrived!"
+              : "Your order is being prepared"}
+          </h2>
           <p className="hero-sub">
-            {itemCount > 0
-              ? `${itemCount} item${itemCount === 1 ? "" : "s"} in progress. `
-              : ""}
-            The kitchen is currently at the <strong>{stage.toLowerCase()}</strong> stage.
+            {itemCount > 0 ? `${itemCount} item${itemCount === 1 ? "" : "s"} in progress. ` : ""}
+            {kitchenStatus === "served"
+              ? "Enjoy your meal!"
+              : `The kitchen is currently at the `}
+            {kitchenStatus !== "served" && <strong>{stage.toLowerCase()}</strong>}
+            {kitchenStatus !== "served" && " stage."}
           </p>
         </div>
         <div className="idle-progress-box">
@@ -146,6 +229,26 @@ export default function WaitingView({
             <WaterIcon />
           </button>
         )}
+
+        {/* Long-press End Session — server-initiated session close */}
+        <button
+          className="end-session-btn"
+          onPointerDown={startHold}
+          onPointerUp={cancelHold}
+          onPointerLeave={cancelHold}
+          aria-label="Hold to end session"
+          style={{ position: "relative", overflow: "hidden" }}
+        >
+          {holdProgress > 0 ? (
+            <span
+              className="end-session-fill"
+              style={{ width: `${holdProgress}%` }}
+            />
+          ) : null}
+          <span style={{ position: "relative", zIndex: 1 }}>
+            {holdProgress > 0 ? "Hold…" : "End Session"}
+          </span>
+        </button>
       </div>
     </section>
   );

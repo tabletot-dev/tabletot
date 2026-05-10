@@ -32,10 +32,21 @@ export class OrderSubmissionError extends Error {
   }
 }
 
+function getSessionId(): string {
+  const key = "tt_session_id";
+  let id = sessionStorage.getItem(key);
+  if (!id) {
+    id = crypto.randomUUID();
+    sessionStorage.setItem(key, id);
+  }
+  return id;
+}
+
 export async function submitOrder(
   cart: OrderItem[],
 ): Promise<{ orderId: string; kotId: string }> {
   const tableUuid = await resolveTableId();
+  const sessionId = getSessionId();
 
   const { subtotal, total } = computeTotals(
     cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
@@ -60,6 +71,7 @@ export async function submitOrder(
       items_json: itemsJson,
       subtotal,
       total,
+      session_id: sessionId,
     })
     .select('id')
     .single();
@@ -74,6 +86,7 @@ export async function submitOrder(
       table_number: TABLE_NUMBER,
       items: itemsJson,
       status: 'pending',
+      session_id: sessionId,
     })
     .select('id')
     .single();

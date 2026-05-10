@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from datetime import datetime
 
 import ssl
@@ -85,6 +86,7 @@ async def session_start(body: SessionStartRequest, request: Request) -> dict:
 
     mgr: SessionManager = request.app.state.session_manager
     try:
+        # create_session accepts slug or db_restaurant_id UUID — resolved internally
         session = await mgr.create_session(body.table_id, body.restaurant_id, body.client_session_id)
     except KeyError:
         raise HTTPException(
@@ -235,14 +237,18 @@ async def voice_stt(ws: WebSocket, session_id: str) -> None:
 
     stt_handler = SarvamSTTHandler(mgr._sarvam_api_key)
 
+    t_stt_start = time.perf_counter()
     try:
         final_transcript = await stt_handler.transcribe_session(ws)
     except Exception as e:
         logger.exception("STT proxy error for session %s", session_id)
         await ws.send_json({"type": "error", "message": str(e)})
         return
+    t_stt_done = time.perf_counter()
+    logger.info("[TIMING] STT session=%s %.3fs transcript=%r", session_id, t_stt_done - t_stt_start, (final_transcript or "")[:60])
 
     if final_transcript:
+        t_llm_start = time.perf_counter()
         try:
             result = await asyncio.to_thread(
                 session.orchestrator.process_turn,
@@ -254,9 +260,12 @@ async def voice_stt(ws: WebSocket, session_id: str) -> None:
             logger.exception("Orchestrator error for session %s", session_id)
             await ws.send_json({"type": "error", "message": str(e)})
             return
+        t_llm_done = time.perf_counter()
+        logger.info("[TIMING] LLM session=%s %.3fs", session_id, t_llm_done - t_llm_start)
 
         # Hand off to TTS endpoint via the session queue
         await session.tts_queue.put(response_text)
+        logger.info("[TIMING] TTS queued session=%s total_to_tts=%.3fs", session_id, time.perf_counter() - t_stt_start)
 
         done_message = {
             "type": "done",

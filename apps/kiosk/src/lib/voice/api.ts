@@ -1,5 +1,5 @@
-export const BACKEND_HTTP = "http://localhost:8000";
-export const BACKEND_WS = "ws://localhost:8000";
+export const BACKEND_HTTP = import.meta.env.VITE_ORDER_ENGINE_HTTP ?? "http://localhost:8000";
+export const BACKEND_WS = import.meta.env.VITE_ORDER_ENGINE_WS ?? "ws://localhost:8000";
 
 export interface SessionIds {
   voiceSessionId: string;

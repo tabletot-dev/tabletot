@@ -19,9 +19,10 @@
   "silver-ssc-hyd": {
     "name": "Silver Specialty Coffee Hyderabad",
     "language_code": "en-IN",
-    "speaker": "arjun",
+    "speaker": "rohan",
     "menu_path": "menus/silver-ssc-hyd.json",
     "fallback_language_code": "hi-IN",
-    "fallback_speaker": "meera"
+    "fallback_speaker": "ishita",
+    "db_restaurant_id": "73a32fde-0cb1-4346-a006-430495edad95"
   }
 }

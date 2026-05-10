@@ -6,6 +6,16 @@ All notable changes to the Menu Resolver project.
 
 ## [Unreleased]
 
+### Added
+
+- **Silver Specialty Coffee restaurant** (`backend/config/restaurants.json`) — added `silver-ssc-hyd` entry with `language_code: en-IN`, `speaker: rohan`, and `db_restaurant_id: b22b5d53-6dd8-4f5b-8276-2e828cd1ab91`. The `db_restaurant_id` field lets `SessionManager._resolve_restaurant_slug` accept the Supabase UUID sent by the kiosk (`VITE_RESTAURANT_ID`) in addition to the slug key, fixing a 404 on `POST /voice/session/start`.
+- **DB alias loading** (`src/loader.py`) — `MenuIndex` now loads item aliases from the `menu_item_aliases` Supabase table (scoped by `restaurant_id`) in addition to aliases defined in the menu JSON. Refreshes every 5 minutes; falls back to JSON-only aliases on DB error.
+- **Menu from Supabase DB** (`src/loader.py`) — menu items are loaded from the `menu_items` Supabase table with a 5-minute cache and `menu.json` fallback for offline/dev use.
+
+### Fixed
+
+- **Voice 404 on session start** — `POST /voice/session/start` returned 404 when the kiosk sent a Supabase UUID as `restaurant_id` (instead of the slug key). Root cause: `restaurants.json` had no `db_restaurant_id` field for Silver, so `_resolve_restaurant_slug` found no match. Fixed by adding the field; no code changes required.
+
 ### Changed
 
 - **Two-pass LLM flow in Orchestrator** (`src/orchestrator.py`, `src/llm/`) — the customer-facing reply is now generated AFTER the resolver runs, eliminating hallucinated confirmations.

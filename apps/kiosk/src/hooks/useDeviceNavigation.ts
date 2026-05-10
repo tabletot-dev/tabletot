@@ -13,6 +13,7 @@ export type ScreenType =
   | "bill-summary";
 
 export interface OrderRound {
+  orderId: string;
   items: OrderItem[];
   total: number;
   timestamp: Date;
@@ -53,16 +54,20 @@ export function useDeviceNavigation() {
 
   const confirmOrder = useCallback(async () => {
     if (order.length > 0) {
+      let orderId: string;
       try {
-        await submitOrder(order);
+        const result = await submitOrder(order);
+        orderId = result.orderId;
       } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
         console.error("Order submission failed:", err);
-        alert("Order could not be sent. Please try again.");
+        alert(`Order could not be sent: ${msg}`);
         return;
       }
       setPreviousOrders((prev) => [
         ...prev,
         {
+          orderId,
           items: [...order],
           total: order.reduce((sum, o) => sum + o.price * o.quantity, 0),
           timestamp: new Date(),
@@ -73,8 +78,19 @@ export function useDeviceNavigation() {
     setCurrentScreen("order-confirmation");
   }, [order]);
 
+  const endSession = useCallback(() => {
+    setOrder([]);
+    setPreviousOrders([]);
+    setCurrentScreen("idle");
+    // Clear the kiosk session ID so the next session gets a fresh grouping key
+    sessionStorage.removeItem("tt_session_id");
+  }, []);
+
   const totalBill = order.reduce((sum, o) => sum + o.price * o.quantity, 0);
   const sessionTotal = previousOrders.reduce((sum, r) => sum + r.total, 0) + totalBill;
+  const currentRoundOrderId = previousOrders.length > 0
+    ? previousOrders[previousOrders.length - 1].orderId
+    : null;
 
   return {
     currentScreen,
@@ -87,8 +103,10 @@ export function useDeviceNavigation() {
     updateQuantity,
     removeItem,
     confirmOrder,
+    endSession,
     totalBill,
     sessionTotal,
+    currentRoundOrderId,
     previousOrders,
     setPreviousOrders,
     voiceOverlayOpen,

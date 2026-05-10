@@ -22,7 +22,6 @@ import { MenuItem } from "@/data/menu";
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
 const TABLE_ID = (import.meta.env.VITE_TABLE_ID as string) || "T1";
 
-// Normalize item names for matching: lowercase, collapse dashes/en-dashes to space
 function normalizeName(name: string): string {
   return name.toLowerCase().replace(/[-–—]/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -46,21 +45,20 @@ const IndexInner = () => {
     updateQuantity,
     removeItem,
     confirmOrder,
+    endSession,
     totalBill,
     sessionTotal,
+    currentRoundOrderId,
     previousOrders,
     setPreviousOrders,
   } = useDeviceNavigation();
 
-  // Shared menu context — one fetch for the whole app.
   const { items: menuItems, pairingsByItemId } = useMenu();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [nudge, setNudge] = useState<NudgeState | null>(null);
   const [completionSuggestion, setCompletionSuggestion] = useState<MatchedSuggestion | null>(null);
 
-  // Track backend order snapshot to diff additions/removals per voice turn
   const prevVoiceOrderRef = useRef<OrderSnapshot | null>(null);
 
   const handleAddToOrderWithNudge = useCallback(
@@ -72,7 +70,7 @@ const IndexInner = () => {
     [order, addToOrder],
   );
 
-  // Reconcile kiosk cart with backend voice order snapshot after each turn
+  // Shared handler: reconcile voice backend order snapshot with kiosk cart
   const handleVoiceDone = useCallback(
     (msg: DoneMessage) => {
       const prev = prevVoiceOrderRef.current;
@@ -84,18 +82,15 @@ const IndexInner = () => {
         const delta = nextItem.quantity - prevQty;
         if (delta === 0) continue;
 
-        // Find kiosk MenuItem by normalized name
         const normalized = normalizeName(nextItem.item_name);
         const kioskItem = menuItems.find((m) => normalizeName(m.name) === normalized);
         if (!kioskItem) continue;
 
         if (delta > 0) {
-          // Item added or quantity increased via voice
           const cartValueAtShow = order.reduce((s, o) => s + o.price * o.quantity, 0);
           addToOrder(kioskItem, delta);
           setNudge({ itemId: kioskItem.id, itemName: kioskItem.name, cartValueAtShow });
         } else {
-          // Item removed or quantity decreased via voice
           const newQty = (order.find((o) => o.id === kioskItem.id)?.quantity ?? 0) + delta;
           if (newQty <= 0) {
             removeItem(kioskItem.id);
@@ -105,7 +100,6 @@ const IndexInner = () => {
         }
       }
 
-      // Items present in prev but absent from next → removed by voice
       if (prev) {
         for (const prevItem of prev.items) {
           const stillExists = next.items.find((i) => i.item_id === prevItem.item_id);
@@ -117,7 +111,6 @@ const IndexInner = () => {
         }
       }
 
-      // Navigate to order-summary if items were added and user is on menu/item-detail
       if (
         msg.resolver.some((r) => r.type === "match") &&
         (currentScreen === "menu" || currentScreen === "item-detail")
@@ -125,15 +118,7 @@ const IndexInner = () => {
         setCurrentScreen("order-summary");
       }
     },
-    [
-      menuItems,
-      order,
-      addToOrder,
-      updateQuantity,
-      removeItem,
-      currentScreen,
-      setCurrentScreen,
-    ],
+    [menuItems, order, addToOrder, updateQuantity, removeItem, currentScreen, setCurrentScreen],
   );
 
   const handleSelectItem = useCallback(
@@ -166,7 +151,7 @@ const IndexInner = () => {
         const match = findMatchingRule((rules ?? []) as CompletionRule[], order);
         if (match) {
           setCompletionSuggestion(match);
-          return; // finally clears isSubmitting
+          return;
         }
       } catch {
         // DB error — fall through to submit
@@ -178,7 +163,7 @@ const IndexInner = () => {
   }, [isSubmitting, order, confirmOrder]);
 
   const showVoiceButton =
-    voiceEnabled && !["idle", "listening", "order-confirmation"].includes(currentScreen);
+    voiceEnabled && !["idle", "listening", "order-confirmation", "session-idle"].includes(currentScreen);
 
   const askWaiter = voiceEnabled ? () => setCurrentScreen("listening") : undefined;
 
@@ -206,7 +191,13 @@ const IndexInner = () => {
         );
       case "listening":
         return voiceEnabled ? (
-          <ListeningScreen onDone={() => setCurrentScreen("menu")} />
+          <ListeningScreen
+            order={order}
+            restaurantId={RESTAURANT_ID}
+            tableId={TABLE_ID}
+            onVoiceDone={handleVoiceDone}
+            onDone={() => setCurrentScreen("menu")}
+          />
         ) : null;
       case "menu":
         return (
@@ -251,8 +242,10 @@ const IndexInner = () => {
         return (
           <WaitingView
             previousOrders={previousOrders}
+            currentRoundOrderId={currentRoundOrderId}
             onOrderMore={() => setCurrentScreen("menu")}
             onRequestBill={() => setCurrentScreen("bill-summary")}
+            onEndSession={endSession}
             onRequestWater={() => setToast("Water requested")}
           />
         );
@@ -278,65 +271,63 @@ const IndexInner = () => {
 
   return (
     <AppShell
-        currentScreen={currentScreen}
-        onNavigate={setCurrentScreen}
-        onAskWaiter={askWaiter}
-        cartCount={cartCount}
-        tableId={TABLE_ID}
-      >
-        <div style={{ position: "relative", height: "100%" }}>
-          {renderScreen()}
+      currentScreen={currentScreen}
+      onNavigate={setCurrentScreen}
+      onAskWaiter={askWaiter}
+      cartCount={cartCount}
+      tableId={TABLE_ID}
+    >
+      <div style={{ position: "relative", height: "100%" }}>
+        {renderScreen()}
 
-          {/* Voice PTT button — bottom-right corner */}
-          {showVoiceButton && (
-            <div style={{ position: "absolute", bottom: 16, right: 16, zIndex: 40 }}>
-              <VoiceOrderButton
-                onDone={handleVoiceDone}
-                order={order}
-                restaurantId={RESTAURANT_ID}
-                tableId={TABLE_ID}
-              />
-            </div>
-          )}
-
-          {/* Pairing nudge */}
-          {nudge && (
-            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 30, paddingBottom: 8 }}>
-              <PairingNudge
-                key={nudge.itemId}
-                addedItemId={nudge.itemId}
-                addedItemName={nudge.itemName}
-                cartValueAtShow={nudge.cartValueAtShow}
-                onAddPairing={(item) => {
-                  handleAddToOrderWithNudge(item);
-                  setNudge(null);
-                }}
-                onDismiss={() => setNudge(null)}
-              />
-            </div>
-          )}
-
-          {/* Completion nudge — modal overlay before submit */}
-          {completionSuggestion && (
-            <CompletionNudge
-              suggestionText={completionSuggestion.text}
-              suggestedItemId={completionSuggestion.itemId}
-              cartValueAtShow={totalBill}
-              onAdd={(item) => {
-                handleAddToOrderWithNudge(item);
-                setCompletionSuggestion(null);
-                setCurrentScreen("order-summary");
-              }}
-              onSkip={() => {
-                setCompletionSuggestion(null);
-                confirmOrder();
-              }}
+        {/* Voice PTT button — bottom-right corner, hidden on idle/listening/confirmation/session-idle */}
+        {showVoiceButton && (
+          <div style={{ position: "absolute", bottom: 16, right: 16, zIndex: 40 }}>
+            <VoiceOrderButton
+              onDone={handleVoiceDone}
+              order={order}
+              restaurantId={RESTAURANT_ID}
+              tableId={TABLE_ID}
             />
-          )}
+          </div>
+        )}
 
-          {toast && <div className="toast">{toast}</div>}
-        </div>
-      </AppShell>
+        {nudge && (
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 30, paddingBottom: 8 }}>
+            <PairingNudge
+              key={nudge.itemId}
+              addedItemId={nudge.itemId}
+              addedItemName={nudge.itemName}
+              cartValueAtShow={nudge.cartValueAtShow}
+              onAddPairing={(item) => {
+                handleAddToOrderWithNudge(item);
+                setNudge(null);
+              }}
+              onDismiss={() => setNudge(null)}
+            />
+          </div>
+        )}
+
+        {completionSuggestion && (
+          <CompletionNudge
+            suggestionText={completionSuggestion.text}
+            suggestedItemId={completionSuggestion.itemId}
+            cartValueAtShow={totalBill}
+            onAdd={(item) => {
+              handleAddToOrderWithNudge(item);
+              setCompletionSuggestion(null);
+              setCurrentScreen("order-summary");
+            }}
+            onSkip={() => {
+              setCompletionSuggestion(null);
+              confirmOrder();
+            }}
+          />
+        )}
+
+        {toast && <div className="toast">{toast}</div>}
+      </div>
+    </AppShell>
   );
 };
 
