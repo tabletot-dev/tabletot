@@ -5,8 +5,6 @@ interface AppShellProps {
   children: React.ReactNode;
   currentScreen: ScreenType;
   onNavigate: (screen: ScreenType) => void;
-  onAskWaiter?: () => void;
-  cartCount: number;
   restaurantName?: string;
   tableId: string;
 }
@@ -17,8 +15,6 @@ export default function AppShell({
   children,
   currentScreen,
   onNavigate,
-  onAskWaiter,
-  cartCount,
   restaurantName = "Tabletot",
   tableId,
 }: AppShellProps) {
@@ -32,8 +28,6 @@ export default function AppShell({
           <AppHeader
             currentScreen={currentScreen}
             onNavigate={onNavigate}
-            onAskWaiter={onAskWaiter}
-            cartCount={cartCount}
             restaurantName={restaurantName}
             tableId={tableId}
           />

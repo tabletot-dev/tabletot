@@ -27,7 +27,7 @@ _SSL_CTX = ssl.create_default_context(cafile=certifi.where())
 
 from src.models import Ambiguous, ConfidentMatch, NeedsVariantSelection, NoMatch, Unavailable
 from src.orchestrator import ResolverCall
-from voice_agent.session_manager import SessionManager
+from voice_agent.session_manager import SessionManager, TURN_END
 from voice_agent.stt_handler import SarvamSTTHandler
 
 logger = logging.getLogger(__name__)
@@ -249,28 +249,38 @@ async def voice_stt(ws: WebSocket, session_id: str) -> None:
 
     if final_transcript:
         t_llm_start = time.perf_counter()
+        result = None
+        first_sentence = True
         try:
-            result = await asyncio.to_thread(
-                session.orchestrator.process_turn,
-                final_transcript,
-                datetime.now(),
-            )
-            response_text = result.llm_response.response_text
+            async for item in session.orchestrator.process_turn_streaming(
+                final_transcript, datetime.now()
+            ):
+                if isinstance(item, str):
+                    # Sentence chunk: pipe to TTS immediately
+                    await session.tts_queue.put(item)
+                    if first_sentence:
+                        logger.info("[TIMING] first sentence queued session=%s %.3fs", session_id, time.perf_counter() - t_llm_start)
+                        first_sentence = False
+                else:
+                    # Final TurnResult yielded last
+                    result = item
         except Exception as e:
-            logger.exception("Orchestrator error for session %s", session_id)
+            logger.exception("Orchestrator streaming error for session %s", session_id)
             await ws.send_json({"type": "error", "message": str(e)})
             return
-        t_llm_done = time.perf_counter()
-        logger.info("[TIMING] LLM session=%s %.3fs", session_id, t_llm_done - t_llm_start)
 
-        # Hand off to TTS endpoint via the session queue
-        await session.tts_queue.put(response_text)
-        logger.info("[TIMING] TTS queued session=%s total_to_tts=%.3fs", session_id, time.perf_counter() - t_stt_start)
+        # Signal TTS loop that this turn's sentences are all queued
+        await session.tts_queue.put(TURN_END)
+        logger.info("[TIMING] LLM+stream session=%s %.3fs", session_id, time.perf_counter() - t_llm_start)
+
+        if result is None:
+            logger.error("process_turn_streaming yielded no TurnResult session=%s", session_id)
+            return
 
         done_message = {
             "type": "done",
             "transcript": final_transcript,
-            "response": response_text,
+            "response": result.llm_response.response_text,
             "resolver": _serialize_resolver_results(result.resolver_results),
             "order": result.order_state_snapshot,
             "client_session_id": session.client_session_id,
@@ -278,7 +288,6 @@ async def voice_stt(ws: WebSocket, session_id: str) -> None:
         try:
             await ws.send_json(done_message)
         except (WebSocketDisconnect, RuntimeError):
-            # Client disconnected before done — log and move on
             logger.warning("STT done message lost — client disconnected session=%s", session_id)
         logger.info(
             "STT turn complete session=%s transcript=%r",
@@ -327,26 +336,29 @@ async def voice_tts(ws: WebSocket, session_id: str) -> None:
 
     try:
         while True:
-            # Wait for the next response text queued by the STT endpoint
-            text = await session.tts_queue.get()
+            item = await session.tts_queue.get()
 
-            if text is None:
-                # Shutdown sentinel put by end_session()
+            if item is None:
+                # Shutdown sentinel from end_session()
                 break
 
+            if item is TURN_END:
+                # All sentences for this turn have been spoken — notify client
+                try:
+                    await ws.send_json({"type": "speech_complete"})
+                    logger.debug("TTS speech_complete for session %s", session_id)
+                except (WebSocketDisconnect, RuntimeError):
+                    logger.info("TTS client disconnected before speech_complete session=%s", session_id)
+                continue
+
+            # Regular sentence string — speak it
+            text: str = item
             try:
                 async for audio_chunk in session.tts_handler.speak(text):
                     try:
                         await ws.send_bytes(audio_chunk)
                     except (WebSocketDisconnect, RuntimeError):
                         logger.info("TTS client disconnected during audio stream session=%s", session_id)
-                        break
-                else:
-                    try:
-                        await ws.send_json({"type": "speech_complete"})
-                        logger.debug("TTS speech_complete for session %s", session_id)
-                    except (WebSocketDisconnect, RuntimeError):
-                        logger.info("TTS client disconnected before speech_complete session=%s", session_id)
                         break
             except Exception as e:
                 logger.exception("TTS speak error session=%s", session_id)

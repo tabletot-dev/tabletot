@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import logging
+from typing import AsyncIterator
 
 import anthropic
 
+from ._sentence_splitter import drain_buffer, split_buffer
 from .base import LLMProvider, LLMResponse
 from .intent_parser import parse_intents
 from .prompts.system_prompt import (
@@ -19,6 +21,7 @@ logger = logging.getLogger(__name__)
 class ClaudeProvider(LLMProvider):
     def __init__(self, api_key: str, model: str = "claude-haiku-4-5-20251001"):
         self.client = anthropic.Anthropic(api_key=api_key)
+        self.async_client = anthropic.AsyncAnthropic(api_key=api_key)
         self.model = model
 
     def extract_intents(
@@ -71,6 +74,7 @@ class ClaudeProvider(LLMProvider):
         turn_outcomes: list[dict],
         current_order: dict | None,
         detected_language: str,
+        voice_persona: str | None = None,
     ) -> LLMResponse:
         system_prompt = build_response_prompt(
             menu_context=menu_context,
@@ -79,6 +83,7 @@ class ClaudeProvider(LLMProvider):
             turn_outcomes=turn_outcomes,
             current_order=current_order,
             detected_language=detected_language,
+            voice_persona=voice_persona,
         )
         # Pass 2 doesn't need the full prior chat — the system prompt already
         # contains the transcript and turn outcomes. A single neutral user
@@ -112,6 +117,50 @@ class ClaudeProvider(LLMProvider):
             prompt_tokens=response.usage.input_tokens,
             completion_tokens=response.usage.output_tokens,
         )
+
+    async def generate_response_stream(
+        self,
+        transcript: str,
+        menu_context: str,
+        conversation_history: list[dict],
+        extracted_intents: list[dict],
+        turn_outcomes: list[dict],
+        current_order: dict | None,
+        detected_language: str,
+        voice_persona: str | None = None,
+    ) -> AsyncIterator[str]:
+        system_prompt = build_response_prompt(
+            menu_context=menu_context,
+            transcript=transcript,
+            extracted_intents=extracted_intents,
+            turn_outcomes=turn_outcomes,
+            current_order=current_order,
+            detected_language=detected_language,
+            voice_persona=voice_persona,
+        )
+        messages = [{"role": "user", "content": "Generate the customer reply."}]
+
+        try:
+            buffer = ""
+            async with self.async_client.messages.stream(
+                model=self.model,
+                max_tokens=512,
+                system=system_prompt,
+                messages=messages,
+            ) as stream:
+                async for token in stream.text_stream:
+                    buffer += token
+                    sentences, buffer = split_buffer(buffer)
+                    for sentence in sentences:
+                        yield sentence
+            for sentence in drain_buffer(buffer):
+                yield sentence
+        except anthropic.RateLimitError as e:
+            logger.error("Rate limited by Anthropic API (pass 2 stream): %s", e)
+            yield "Sorry, the system is busy. Please try again in a moment."
+        except anthropic.APIError as e:
+            logger.error("Anthropic API error (pass 2 stream): %s", e)
+            yield "Sorry, something went wrong. Please try again."
 
     def get_provider_name(self) -> str:
         return "claude"

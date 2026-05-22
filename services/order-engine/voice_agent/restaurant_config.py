@@ -20,6 +20,7 @@ class RestaurantConfig:
     fallback_language_code: str | None = None
     fallback_speaker: str | None = None
     db_restaurant_id: str | None = None
+    voice_persona: str | None = None
 
 
 def load_restaurant_config(path: Path) -> dict[str, RestaurantConfig]:

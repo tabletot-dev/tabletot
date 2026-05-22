@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useDeviceNavigation } from "@/hooks/useDeviceNavigation";
 import HomeView from "@/components/screens/HomeView";
 import ListeningScreen from "@/components/screens/ListeningScreen";
@@ -8,9 +9,10 @@ import CartView from "@/components/screens/CartView";
 import BillView from "@/components/screens/BillView";
 import ConfirmationView from "@/components/screens/ConfirmationView";
 import WaitingView from "@/components/screens/WaitingView";
-import PairingNudge from "@/components/PairingNudge";
 import CompletionNudge from "@/components/CompletionNudge";
-import VoiceOrderButton from "@/components/VoiceOrderButton";
+import VoiceOrderButton, { type PressStatus } from "@/components/VoiceOrderButton";
+import VoiceModal from "@/components/VoiceModal";
+import MiniCartSidebar from "@/components/MiniCartSidebar";
 import AppShell from "@/components/AppShell";
 import { RestaurantProvider, useRestaurant } from "@/lib/restaurantContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,10 +28,10 @@ function normalizeName(name: string): string {
   return name.toLowerCase().replace(/[-–—]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-interface NudgeState {
-  itemId: string;
-  itemName: string;
-  cartValueAtShow: number;
+interface VoiceModalState {
+  transcript: string;
+  response: string;
+  resolvedItems: Array<{ name: string; applied: boolean }>;
 }
 
 const IndexInner = () => {
@@ -56,21 +58,23 @@ const IndexInner = () => {
   const { items: menuItems, pairingsByItemId } = useMenu();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [nudge, setNudge] = useState<NudgeState | null>(null);
   const [completionSuggestion, setCompletionSuggestion] = useState<MatchedSuggestion | null>(null);
+  const [voiceStatus, setVoiceStatus] = useState<PressStatus>("idle");
+  const [voiceModalData, setVoiceModalData] = useState<VoiceModalState>({
+    transcript: "",
+    response: "",
+    resolvedItems: [],
+  });
 
   const prevVoiceOrderRef = useRef<OrderSnapshot | null>(null);
 
-  const handleAddToOrderWithNudge = useCallback(
+  const handleAddToOrder = useCallback(
     (item: MenuItem) => {
-      const cartValueAtShow = order.reduce((s, o) => s + o.price * o.quantity, 0);
       addToOrder(item);
-      setNudge({ itemId: item.id, itemName: item.name, cartValueAtShow });
     },
-    [order, addToOrder],
+    [addToOrder],
   );
 
-  // Shared handler: reconcile voice backend order snapshot with kiosk cart
   const handleVoiceDone = useCallback(
     (msg: DoneMessage) => {
       const prev = prevVoiceOrderRef.current;
@@ -87,9 +91,7 @@ const IndexInner = () => {
         if (!kioskItem) continue;
 
         if (delta > 0) {
-          const cartValueAtShow = order.reduce((s, o) => s + o.price * o.quantity, 0);
           addToOrder(kioskItem, delta);
-          setNudge({ itemId: kioskItem.id, itemName: kioskItem.name, cartValueAtShow });
         } else {
           const newQty = (order.find((o) => o.id === kioskItem.id)?.quantity ?? 0) + delta;
           if (newQty <= 0) {
@@ -111,14 +113,23 @@ const IndexInner = () => {
         }
       }
 
-      if (
-        msg.resolver.some((r) => r.type === "match") &&
-        (currentScreen === "menu" || currentScreen === "item-detail")
-      ) {
-        setCurrentScreen("order-summary");
-      }
+      // Populate voice modal with results
+      const resolved = msg.resolver
+        .filter((r): r is Extract<typeof r, { type: "match" | "no_match" }> =>
+          r.type === "match" || r.type === "no_match"
+        )
+        .map((r) => ({
+          name: r.type === "match" ? (r as { type: "match"; item: string }).item : (r as { type: "no_match"; raw: string }).raw,
+          applied: r.type === "match",
+        }));
+
+      setVoiceModalData({
+        transcript: msg.transcript,
+        response: msg.response,
+        resolvedItems: resolved,
+      });
     },
-    [menuItems, order, addToOrder, updateQuantity, removeItem, currentScreen, setCurrentScreen],
+    [menuItems, order, addToOrder, updateQuantity, removeItem],
   );
 
   const handleSelectItem = useCallback(
@@ -129,12 +140,12 @@ const IndexInner = () => {
     [setSelectedItem, setCurrentScreen],
   );
 
-  const handleAddToOrder = useCallback(() => {
+  const handleAddFromDetail = useCallback(() => {
     if (selectedItem) {
-      handleAddToOrderWithNudge(selectedItem);
-      setCurrentScreen("order-summary");
+      handleAddToOrder(selectedItem);
+      setCurrentScreen("menu");
     }
-  }, [selectedItem, handleAddToOrderWithNudge, setCurrentScreen]);
+  }, [selectedItem, handleAddToOrder, setCurrentScreen]);
 
   const handleConfirmOrder = useCallback(async () => {
     if (isSubmitting) return;
@@ -162,17 +173,19 @@ const IndexInner = () => {
     }
   }, [isSubmitting, order, confirmOrder]);
 
-  const showVoiceButton =
-    voiceEnabled && !["idle", "listening", "order-confirmation", "session-idle"].includes(currentScreen);
-
-  const askWaiter = voiceEnabled ? () => setCurrentScreen("listening") : undefined;
-
   const [toast, setToast] = useState<string>("");
   useEffect(() => {
     if (!toast) return;
     const id = setTimeout(() => setToast(""), 2200);
     return () => clearTimeout(id);
   }, [toast]);
+
+  const isBrowsing = currentScreen === "menu" || currentScreen === "item-detail";
+
+  const showFloatingPtt =
+    voiceEnabled &&
+    !isBrowsing &&
+    !["idle", "listening", "order-confirmation", "session-idle"].includes(currentScreen);
 
   const renderScreen = () => {
     switch (currentScreen) {
@@ -184,7 +197,6 @@ const IndexInner = () => {
               setSelectedItem(item);
               setCurrentScreen("item-detail");
             }}
-            onAskWaiter={askWaiter}
             onInfoToast={(msg) => setToast(msg)}
             tableId={TABLE_ID}
           />
@@ -199,26 +211,83 @@ const IndexInner = () => {
             onDone={() => setCurrentScreen("menu")}
           />
         ) : null;
+
+      // Browse layout: menu + mini cart sidebar + item detail modal
       case "menu":
-        return (
-          <MenuView
-            onSelect={handleSelectItem}
-            onAddToCart={handleAddToOrderWithNudge}
-            onUpdateQuantity={updateQuantity}
-            onAskWaiter={askWaiter}
-            order={order}
-          />
-        );
       case "item-detail":
-        return selectedItem ? (
-          <DetailView
-            item={selectedItem}
-            pairings={pairingsByItemId[selectedItem.id] ?? []}
-            onAdd={handleAddToOrder}
-            onBack={() => setCurrentScreen("menu")}
-            onSelectPairing={handleSelectItem}
-          />
-        ) : null;
+        return (
+          <div className="browse-layout">
+            <div className="browse-main">
+              <div className="browse-content">
+                <MenuView
+                  onSelect={handleSelectItem}
+                  onAddToCart={handleAddToOrder}
+                  onUpdateQuantity={updateQuantity}
+                  order={order}
+                />
+                <AnimatePresence>
+                  {currentScreen === "item-detail" && selectedItem && (
+                    <motion.div
+                      className="item-modal-backdrop"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      onClick={() => setCurrentScreen("menu")}
+                    >
+                      <motion.div
+                        className="item-modal-panel"
+                        initial={{ y: 28, opacity: 0, scale: 0.98 }}
+                        animate={{ y: 0, opacity: 1, scale: 1 }}
+                        exit={{ y: 28, opacity: 0, scale: 0.98 }}
+                        transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <DetailView
+                          item={selectedItem}
+                          pairings={pairingsByItemId[selectedItem.id] ?? []}
+                          onAdd={handleAddFromDetail}
+                          onBack={() => setCurrentScreen("menu")}
+                          onSelectPairing={handleSelectItem}
+                        />
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Voice modal — overlays the browse area */}
+                {voiceEnabled && (
+                  <VoiceModal
+                    status={voiceStatus}
+                    transcript={voiceModalData.transcript}
+                    response={voiceModalData.response}
+                    resolvedItems={voiceModalData.resolvedItems}
+                    onDismiss={() => setVoiceModalData({ transcript: "", response: "", resolvedItems: [] })}
+                  />
+                )}
+              </div>
+
+              <MiniCartSidebar
+                order={order}
+                onUpdateQuantity={updateQuantity}
+                onGoToCart={() => setCurrentScreen("order-summary")}
+              />
+            </div>
+
+            {voiceEnabled && (
+              <div className="browse-footer">
+                <VoiceOrderButton
+                  onDone={handleVoiceDone}
+                  order={order}
+                  restaurantId={RESTAURANT_ID}
+                  tableId={TABLE_ID}
+                  onStatusChange={setVoiceStatus}
+                />
+              </div>
+            )}
+          </div>
+        );
+
       case "order-summary":
         return (
           <CartView
@@ -267,43 +336,24 @@ const IndexInner = () => {
     }
   };
 
-  const cartCount = order.reduce((s, o) => s + o.quantity, 0);
-
   return (
     <AppShell
       currentScreen={currentScreen}
       onNavigate={setCurrentScreen}
-      onAskWaiter={askWaiter}
-      cartCount={cartCount}
       tableId={TABLE_ID}
     >
       <div style={{ position: "relative", height: "100%" }}>
         {renderScreen()}
 
-        {/* Voice PTT button — bottom-right corner, hidden on idle/listening/confirmation/session-idle */}
-        {showVoiceButton && (
+        {/* Floating PTT only for non-browse voice-enabled screens */}
+        {showFloatingPtt && (
           <div style={{ position: "absolute", bottom: 16, right: 16, zIndex: 40 }}>
             <VoiceOrderButton
               onDone={handleVoiceDone}
               order={order}
               restaurantId={RESTAURANT_ID}
               tableId={TABLE_ID}
-            />
-          </div>
-        )}
-
-        {nudge && (
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 30, paddingBottom: 8 }}>
-            <PairingNudge
-              key={nudge.itemId}
-              addedItemId={nudge.itemId}
-              addedItemName={nudge.itemName}
-              cartValueAtShow={nudge.cartValueAtShow}
-              onAddPairing={(item) => {
-                handleAddToOrderWithNudge(item);
-                setNudge(null);
-              }}
-              onDismiss={() => setNudge(null)}
+              onStatusChange={setVoiceStatus}
             />
           </div>
         )}
@@ -314,7 +364,7 @@ const IndexInner = () => {
             suggestedItemId={completionSuggestion.itemId}
             cartValueAtShow={totalBill}
             onAdd={(item) => {
-              handleAddToOrderWithNudge(item);
+              handleAddToOrder(item);
               setCompletionSuggestion(null);
               setCurrentScreen("order-summary");
             }}
@@ -325,7 +375,19 @@ const IndexInner = () => {
           />
         )}
 
-        {toast && <div className="toast">{toast}</div>}
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              className="toast"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
+              {toast}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </AppShell>
   );

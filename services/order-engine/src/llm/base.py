@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import AsyncIterator
 
 
 @dataclass
@@ -58,6 +59,7 @@ class LLMProvider(ABC):
         turn_outcomes: list[dict],
         current_order: dict | None,
         detected_language: str,
+        voice_persona: str | None = None,
     ) -> LLMResponse:
         """Pass 2: generate the customer-facing reply given what actually happened.
 
@@ -70,6 +72,34 @@ class LLMProvider(ABC):
         Populates: response_text, raw_output, tokens. intents is [].
         """
         pass
+
+    async def generate_response_stream(
+        self,
+        transcript: str,
+        menu_context: str,
+        conversation_history: list[dict],
+        extracted_intents: list[dict],
+        turn_outcomes: list[dict],
+        current_order: dict | None,
+        detected_language: str,
+        voice_persona: str | None = None,
+    ) -> AsyncIterator[str]:
+        """Pass 2, streaming variant: yields sentence-sized chunks as they are generated.
+
+        Default implementation calls generate_response() and yields the full text
+        as a single chunk — providers that support streaming override this.
+        """
+        result = self.generate_response(
+            transcript=transcript,
+            menu_context=menu_context,
+            conversation_history=conversation_history,
+            extracted_intents=extracted_intents,
+            turn_outcomes=turn_outcomes,
+            current_order=current_order,
+            detected_language=detected_language,
+            voice_persona=voice_persona,
+        )
+        yield result.response_text
 
     @abstractmethod
     def get_provider_name(self) -> str:

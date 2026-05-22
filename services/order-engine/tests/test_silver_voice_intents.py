@@ -53,7 +53,7 @@ class MockProvider(LLMProvider):
 
     def generate_response(self, transcript, menu_context, conversation_history,
                           extracted_intents, turn_outcomes, current_order,
-                          detected_language) -> LLMResponse:
+                          detected_language, voice_persona=None) -> LLMResponse:
         return LLMResponse(
             intents=[],
             response_text="ok",

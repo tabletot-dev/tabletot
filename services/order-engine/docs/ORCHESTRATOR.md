@@ -14,6 +14,19 @@ User input → Orchestrator → LLM (extract intents)
 
 ---
 
+## Two Entry Points
+
+The orchestrator exposes two public methods with identical semantics but different delivery:
+
+| Method | When to use | How Pass 2 runs |
+|--------|-------------|-----------------|
+| `process_turn()` | CLI, unit tests | Blocking — returns full `TurnResult` |
+| `process_turn_streaming()` | Voice WebSocket | Async generator — yields sentences then `TurnResult` |
+
+Both call the same private `_resolve()` method for Pass 1 + resolver, so order state mutations happen identically in both paths.
+
+---
+
 ## Core Flow: `process_turn()`
 
 ```python
@@ -205,6 +218,53 @@ Feedback is built by the orchestrator and formatted into the system prompt by `s
 ```
 
 The `system_prompt.py` module converts these dicts into natural language for the LLM's system prompt.
+
+---
+
+## Streaming Flow: `process_turn_streaming()`
+
+Used by the voice WebSocket path to pipeline Pass 2 tokens directly into TTS, cutting ~1–2s off perceived latency.
+
+```python
+async def process_turn_streaming(
+    self, user_input: str, current_time: datetime | None = None
+) -> AsyncIterator[str | TurnResult]:
+```
+
+**Yields:**
+- `str` — a sentence chunk from Pass 2 as it streams (pipe to TTS queue immediately)
+- `TurnResult` — the final result, yielded last once streaming completes
+
+**Usage in voice.py:**
+```python
+async for item in session.orchestrator.process_turn_streaming(transcript):
+    if isinstance(item, str):
+        await session.tts_queue.put(item)   # sentence → TTS starts playing
+    else:
+        result = item                        # TurnResult, yielded last
+await session.tts_queue.put(TURN_END)       # signals speech_complete to client
+```
+
+**How it works internally:**
+1. `_resolve()` runs in a thread (`asyncio.to_thread`) — it calls the sync LLM for Pass 1 and runs the resolver. Order state is mutated here.
+2. `provider.generate_response_stream()` runs in the event loop directly — uses the async LLM client (e.g. `AsyncAnthropic`).
+3. Each sentence chunk is yielded as it arrives.
+4. After the stream ends, `_build_turn_result()` assembles the `TurnResult` from the joined sentences and yields it.
+
+**TTS queue protocol:** the queue carries `str | TURN_END | None`.
+- `str` — speak this sentence, no `speech_complete` yet
+- `TURN_END` sentinel — all sentences spoken, send `speech_complete` to client
+- `None` — session shutdown
+
+---
+
+## Internal: `_resolve()`
+
+```python
+def _resolve(self, user_input: str, current_time: datetime | None) -> _ResolveContext:
+```
+
+Extracted from `process_turn()` so both the blocking and streaming paths share exactly the same Pass 1 + resolver logic. Returns a `_ResolveContext` dataclass with `pass1`, `resolver_results`, `turn_outcomes`, and `new_feedback`. Does not call Pass 2.
 
 ---
 

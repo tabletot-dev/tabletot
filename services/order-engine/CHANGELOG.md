@@ -8,6 +8,42 @@ All notable changes to the Menu Resolver project.
 
 ### Added
 
+- **Per-restaurant voice persona** (`backend/config/restaurants.json`, `src/llm/prompts/system_prompt.py`, `src/orchestrator.py`, `src/llm/base.py`, all three providers, `voice_agent/restaurant_config.py`, `voice_agent/session_manager.py`) — Pass 2 (response generation) now uses a per-restaurant `voice_persona` field from `restaurants.json` instead of a hardcoded "Roast CCx" identity. Pass 1 (intent extraction) is fully generic — no restaurant name anywhere. Adding a new restaurant persona = one JSON field, no code change. Falls back to a neutral generic persona if the field is absent.
+  - `RestaurantConfig` dataclass gains optional `voice_persona: str | None` field.
+  - `Orchestrator.__init__` accepts `voice_persona` and threads it through every Pass 2 call.
+  - `LLMProvider.generate_response` and `generate_response_stream` signatures updated on base class and all three provider implementations.
+  - Silver, Roast CCx, and Sozo personas written and committed to `restaurants.json`.
+
+- **LLM prompt guardrails for public use** (`src/llm/prompts/system_prompt.py`) — four new rule sections added to the Pass 2 system prompt for unmonitored public kiosk use:
+  - **Scope** — redirects off-topic customer speech (politics, personal topics, etc.) back to the menu.
+  - **Decorum** — stay warm and professional regardless of customer tone; never repeat or escalate inappropriate language.
+  - **Role Integrity** — ignore prompt injection attempts ("ignore your instructions", "pretend you are", "act as", etc.) embedded in customer speech.
+  - **Privacy** — do not acknowledge or repeat personal information a customer may share (name, phone, etc.).
+
+- **Root-level `TODOs.md`** — consolidated project-wide deferred items (infrastructure, kiosk, POS, order-engine) into a single file at the repo root.
+
+- **LAN / tablet dev setup** (`apps/kiosk/src/lib/voice/api.ts`, `apps/kiosk/.env.example`) — `VITE_ORDER_ENGINE_HTTP` and `VITE_ORDER_ENGINE_WS` env vars make the order-engine URL configurable at build time. Defaults to `localhost`; override with the Mac's LAN IP for on-device tablet testing without touching source code.
+
+### Added (previous)
+
+- **LLM response streaming → TTS pipelining** (`src/orchestrator.py`, `src/llm/base.py`, `src/llm/claude_provider.py`, `backend/routers/voice.py`, `voice_agent/session_manager.py`) — Pass 2 (response generation) now streams sentence-by-sentence directly into the TTS queue, cutting ~1–2s off perceived latency. First TTS audio starts before the LLM finishes generating the full response.
+  - `Orchestrator.process_turn_streaming()` — new async generator: runs `_resolve()` (Pass 1 + resolver) in a thread, then streams Pass 2 sentences via `provider.generate_response_stream()`.
+  - `LLMProvider.generate_response_stream()` — new non-abstract method on the base class. Default fallback calls `generate_response()` and yields the full text as one chunk; Claude overrides with true streaming via `AsyncAnthropic`.
+  - `src/llm/_sentence_splitter.py` — shared `split_buffer()` / `drain_buffer()` helpers used by all three providers. Splits on `.?!।！？`.
+  - TTS queue protocol: queue now carries `str | TURN_END | None`. Sentences arrive as `str`; `TURN_END` sentinel triggers `speech_complete` after the last sentence; `None` remains the shutdown signal.
+  - `process_turn()` is **unchanged** — CLI and all unit tests use it unmodified.
+
+- **OpenAI and Gemini providers fully implemented** (`src/llm/openai_provider.py`, `src/llm/gemini_provider.py`) — both support the two-pass flow and `generate_response_stream()`. Gemini uses the current `google-genai` SDK (not the deprecated `google-generativeai` which was retired Nov 2025).
+
+- **Multi-provider switching via env vars** (`backend/main.py`, `voice_agent/session_manager.py`, `.env.example`) — set `LLM_PROVIDER=claude|openai|gemini` and `LLM_MODEL=<model-name>` in `.env`, restart the backend. No code changes needed. Backend auto-selects the correct API key env var (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY`).
+
+- **Silver voice intent test suite** (`tests/test_silver_voice_intents.py`) — 15 tests covering all kiosk intents against the real Silver Specialty Coffee menu: single add, multi-add, qty add, remove, remove-not-in-order, modify qty up/down, ambiguous (bagel), no-match, ask-menu, confirm empty, confirm with items, and a full 4-turn happy path. No API calls, no audio — runs offline in <0.1s.
+  - Resolver behaviour note: `"coffee"` → Silver Cold Coffee (confident, not ambiguous); `"espresso"` → Silver Espresso (alias); `"bagel"` → Ambiguous (Veggie / Egg, both score=100).
+
+- **Voice pipeline latency instrumentation** (`backend/routers/voice.py`) — `[TIMING]` log lines at INFO level for STT duration, first-sentence-to-TTS, and LLM+stream total. Grep `\[TIMING\]` in backend logs for per-stage breakdown.
+
+### Added (previous)
+
 - **Silver Specialty Coffee restaurant** (`backend/config/restaurants.json`) — added `silver-ssc-hyd` entry with `language_code: en-IN`, `speaker: rohan`, and `db_restaurant_id: b22b5d53-6dd8-4f5b-8276-2e828cd1ab91`. The `db_restaurant_id` field lets `SessionManager._resolve_restaurant_slug` accept the Supabase UUID sent by the kiosk (`VITE_RESTAURANT_ID`) in addition to the slug key, fixing a 404 on `POST /voice/session/start`.
 - **DB alias loading** (`src/loader.py`) — `MenuIndex` now loads item aliases from the `menu_item_aliases` Supabase table (scoped by `restaurant_id`) in addition to aliases defined in the menu JSON. Refreshes every 5 minutes; falls back to JSON-only aliases on DB error.
 - **Menu from Supabase DB** (`src/loader.py`) — menu items are loaded from the `menu_items` Supabase table with a 5-minute cache and `menu.json` fallback for offline/dev use.

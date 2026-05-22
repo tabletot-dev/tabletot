@@ -17,26 +17,13 @@ const TAG_CLASS: Record<string, string> = {
 interface HomeViewProps {
   onStartOrdering: () => void;
   onSelectItem?: (item: AnchorItem) => void;
-  onAskWaiter?: () => void;
   onInfoToast?: (message: string) => void;
   tableId?: string;
-}
-
-function MicIcon() {
-  return (
-    <svg className="mic-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="9" y="3" width="6" height="11" rx="3" />
-      <path d="M6 11a6 6 0 0 0 12 0" />
-      <path d="M12 17v4" />
-      <path d="M9 21h6" />
-    </svg>
-  );
 }
 
 export default function HomeView({
   onStartOrdering,
   onSelectItem,
-  onAskWaiter,
   onInfoToast,
   tableId,
 }: HomeViewProps) {
@@ -64,15 +51,6 @@ export default function HomeView({
             <button className="primary-btn" onClick={onStartOrdering}>
               Start Ordering
             </button>
-            {onAskWaiter && (
-              <button className="waiter-btn" onClick={onAskWaiter}>
-                <span className="waiter-bubble">How can I help?</span>
-                <span className="waiter-dot">
-                  <MicIcon />
-                </span>
-                <span>Ask Waiter</span>
-              </button>
-            )}
           </div>
         </div>
 

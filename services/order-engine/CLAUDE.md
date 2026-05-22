@@ -32,16 +32,21 @@ A voice-first, tablet-based self-ordering system for **Roast CCx**, a casual din
 Natural language input
         │
         ▼
-Layer 1: LLM (Claude Sonnet)
+Layer 1: LLM — Pass 1 (configurable: Claude / OpenAI / Gemini)
   → Extracts structured intents: {action, raw_name, qty, modifiers, special_notes}
   → Receives: item names, categories, tags ONLY (never prices or IDs)
-  → Outputs XML: <intents>, <response>, <language> tags
+  → Outputs XML: <intents>, <language> tags
         │
         ▼
 Layer 2: Menu Resolver (deterministic Python)
   → Matches intents to canonical menu.json
   → 5-step cascade: exact → alias → fuzzy token_sort → fuzzy partial → no-match
   → Returns: ConfidentMatch | NeedsVariantSelection | Ambiguous | NoMatch | Unavailable
+        │
+        ▼
+Layer 1: LLM — Pass 2 (streaming)
+  → Generates customer-facing reply grounded in real resolver outcomes
+  → Streams sentence-by-sentence directly into TTS queue
         │
         ▼
 Order State Manager
@@ -66,21 +71,21 @@ Sarvam saaras:v3 STT
   → vad_signals: True (interim feedback)
         │
         ▼
-Orchestrator.process_turn(transcript)
+Orchestrator.process_turn_streaming(transcript)
+  → Pass 1 (sync, in thread): extract intents → resolver → order state
+  → Pass 2 (async stream): LLM generates reply sentence by sentence
         │
-        ▼
-Confirmation text (native script: Devanagari / Telugu / English)
-        │
-        ▼
+        ▼  ← sentences yielded here as they arrive, not after full response
 FastAPI /voice/tts WebSocket (persistent per session)
         │
         ▼
 Sarvam bulbul:v3 TTS
   → configured once per session (language from restaurant config)
-  → streams audio chunks back immediately
+  → speaks each sentence as it arrives in the queue
+  → sends speech_complete after TURN_END sentinel
         │
         ▼
-Client plays audio as chunks arrive
+Client plays audio — first sentence starts ~1–2s before LLM finishes
 ```
 
 ### Dual Input Model
@@ -98,7 +103,7 @@ Client plays audio as chunks arrive
 |---|---|
 | STT | Sarvam `saaras:v3` (WebSocket, auto language detection) |
 | TTS | Sarvam `bulbul:v3` (WebSocket streaming, persistent per session) |
-| LLM | Claude Sonnet via Anthropic SDK |
+| LLM | Configurable via `LLM_PROVIDER` env var: `claude` (default) / `openai` / `gemini` |
 | Backend | Python FastAPI (modular monolith) |
 | Database | Supabase PostgreSQL (`ap-south-1`) |
 | Frontend | React PWA (Android Chrome, kiosk mode) |
@@ -135,7 +140,10 @@ Client plays audio as chunks arrive
 │   ├── orchestrator.py
 │   └── llm/
 │       ├── base.py
+│       ├── _sentence_splitter.py   # shared streaming helper
 │       ├── claude_provider.py
+│       ├── openai_provider.py
+│       ├── gemini_provider.py
 │       ├── intent_parser.py
 │       └── prompts/
 │           ├── system_prompt.py
@@ -222,28 +230,39 @@ Env var: `SARVAM_API_KEY`
 ## Environment Variables
 
 ```
-# LLM
-ANTHROPIC_API_KEY=
-
 # Voice
 SARVAM_API_KEY=
+
+# LLM — provider selection (default: claude)
+LLM_PROVIDER=claude          # claude | openai | gemini
+LLM_MODEL=                   # must be set explicitly; blank = provider default
+
+# LLM API keys — only the one matching LLM_PROVIDER is required at runtime
+ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
+GEMINI_API_KEY=
 
 # Database (Stage 5)
 SUPABASE_URL=
 SUPABASE_KEY=
 ```
 
+The backend selects the correct API key automatically based on `LLM_PROVIDER`.
+
 ---
 
-## Test Counts (as of Stage 2 completion)
+## Test Counts
 
 | Suite | Count | Status |
 |---|---|---|
-| Unit tests | 118/118 | ✅ |
+| Unit tests (all) | 151/151 | ✅ |
 | Batch test battery | 98/98 | ✅ |
 | Natural speech tests | 46/48 (96%) | ✅ |
+| Silver voice intent tests | 15/15 | ✅ |
 
 2 failing natural speech tests are genuinely ambiguous inputs — known and accepted.
+
+Silver intent tests (`tests/test_silver_voice_intents.py`) cover: single add, multi-add, qty add, remove, remove-not-in-order, modify qty, ambiguous, no-match, ask-menu, confirm empty, confirm with items, full 4-turn happy path. Run offline — no API calls, no audio required.
 
 ---
 
@@ -283,15 +302,17 @@ python -m cli.batch data/test_battery.txt
 
 # Stage 2: LLM conversation (typed input)
 python -m cli.conversation
+python -m cli.conversation --provider openai --model gpt-4o-mini
+python -m cli.conversation --provider gemini --model gemini-2.5-flash
 
 # Stage 3: voice (PTT + audio)
 python -m cli.voice
 
-# All unit tests
+# All unit tests (no API calls, no audio required)
 pytest tests/ -v
 
-# Stage 3 integration test (WAV file injection)
-python scripts/test_voice_pipeline.py
+# Stage 3 integration test (WAV file injection, needs running backend + API keys)
+python scripts/test_voice_pipeline.py data/conversation_tests/simple_order.wav --inprocess
 ```
 
 ---

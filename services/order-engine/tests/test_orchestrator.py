@@ -45,6 +45,7 @@ class MockProvider(LLMProvider):
         turn_outcomes: list[dict],
         current_order: dict | None,
         detected_language: str,
+        voice_persona: str | None = None,
     ) -> LLMResponse:
         self.last_response_inputs.append({
             "transcript": transcript,

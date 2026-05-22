@@ -85,10 +85,20 @@ async def lifespan(app: FastAPI):
     sarvam_api_key = os.environ.get("SARVAM_API_KEY", "")
     db_url = os.environ.get("DATABASE_URL")
 
-    if not anthropic_api_key:
-        logger.warning("ANTHROPIC_API_KEY not set — LLM calls will fail")
+    provider_name = os.environ.get("LLM_PROVIDER", "claude").strip().lower()
+    provider_model = os.environ.get("LLM_MODEL", "").strip() or None
+    _provider_key_env = {
+        "claude": "ANTHROPIC_API_KEY",
+        "openai": "OPENAI_API_KEY",
+        "gemini": "GEMINI_API_KEY",
+    }
+    provider_api_key = os.environ.get(_provider_key_env.get(provider_name, "ANTHROPIC_API_KEY"), "")
+
+    if not provider_api_key:
+        logger.warning("%s not set — LLM calls will fail", _provider_key_env.get(provider_name))
     if not sarvam_api_key:
         logger.warning("SARVAM_API_KEY not set — voice calls will fail")
+    logger.info("LLM provider: %s  model: %s", provider_name, provider_model or "(default)")
 
     restaurant_configs = load_restaurant_config(_RESTAURANTS_PATH)
     menus = _load_restaurant_menus(_PROJECT_ROOT, restaurant_configs, db_url)
@@ -98,6 +108,9 @@ async def lifespan(app: FastAPI):
         sarvam_api_key=sarvam_api_key,
         anthropic_api_key=anthropic_api_key,
         menus=menus,
+        provider_name=provider_name,
+        provider_api_key=provider_api_key,
+        provider_model=provider_model,
     )
     app.state.session_manager = session_manager
     app.state.restaurant_configs = restaurant_configs

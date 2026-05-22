@@ -7,19 +7,7 @@ interface MenuViewProps {
   onSelect: (item: MenuItem) => void;
   onAddToCart: (item: MenuItem) => void;
   onUpdateQuantity: (itemId: string, delta: number) => void;
-  onAskWaiter?: () => void;
   order: OrderItem[];
-}
-
-function MicIcon() {
-  return (
-    <svg className="mic-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="9" y="3" width="6" height="11" rx="3" />
-      <path d="M6 11a6 6 0 0 0 12 0" />
-      <path d="M12 17v4" />
-      <path d="M9 21h6" />
-    </svg>
-  );
 }
 
 type DietFilter = "all" | "veg" | "nonveg";
@@ -109,7 +97,7 @@ function CategoryIcon({ category }: { category: string }) {
   return icons[category] ?? fallback;
 }
 
-export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onAskWaiter, order }: MenuViewProps) {
+export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, order }: MenuViewProps) {
   const { categories, itemsByCategory, pairingsByItemId, loading, error, retry } = useMenu();
   const [activeCategory, setActiveCategory] = useState("");
   const [diet, setDiet] = useState<DietFilter>("all");
@@ -158,49 +146,33 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onAs
 
   return (
     <section className="view menu-view">
-      <div className="menu-workspace">
-        {/* Category sidebar */}
-        <aside className="menu-sidebar">
-          <div className="menu-sidebar-title">
-            <p className="eyebrow">Sections</p>
-            <h2>Browse menu</h2>
-          </div>
-          <div className="menu-sidebar-list">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                className={`menu-category-item${resolvedCategory === cat ? " active" : ""}`}
-                onClick={() => setActiveCategory(cat)}
-              >
-                <span className="menu-category-icon">
-                  <CategoryIcon category={cat} />
-                </span>
-                <span className="menu-category-label">{cat}</span>
-              </button>
-            ))}
-          </div>
-        </aside>
+      {/* Horizontal category bar */}
+      <div className="menu-cat-bar">
+        <div className="menu-cat-scroll">
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              className={`menu-cat-pill${resolvedCategory === cat ? " active" : ""}`}
+              onClick={() => setActiveCategory(cat)}
+            >
+              <span className="menu-cat-pill-icon">
+                <CategoryIcon category={cat} />
+              </span>
+              <span>{cat}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
-        {/* Menu canvas */}
-        <section className="menu-canvas">
-          <div className="menu-canvas-header">
-            <div>
-              <p className="eyebrow">Now browsing</p>
-              <h1>{resolvedCategory}</h1>
-            </div>
-            {onAskWaiter && (
-              <button className="waiter-btn menu-waiter-btn" onClick={onAskWaiter}>
-                <span className="waiter-bubble">Need a suggestion?</span>
-                <span className="waiter-dot">
-                  <MicIcon />
-                </span>
-                <span>Ask Waiter</span>
-              </button>
-            )}
+      {/* Scrollable canvas */}
+      <div className="menu-canvas">
+        <div className="menu-canvas-header">
+          <div>
+            <p className="eyebrow">Now browsing</p>
+            <h1>{resolvedCategory}</h1>
           </div>
-
-          <div className="menu-toolbar">
-            <div className="diet-row menu-diet-row">
+          <div className="menu-toolbar-inline">
+            <div className="diet-row">
               {(["all", "veg", "nonveg"] as DietFilter[]).map((d) => (
                 <button
                   key={d}
@@ -211,37 +183,34 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onAs
                 </button>
               ))}
             </div>
-            <div className="menu-summary">
-              <span>{filteredItems.length} items</span>
-            </div>
+            <span className="menu-item-count">{filteredItems.length} items</span>
           </div>
+        </div>
 
-          <div className="menu-product-scaffold">
-            <div className="menu-product-grid">
-              {filteredItems.length === 0 ? (
-                <div className="empty-state" style={{ gridColumn: "1 / -1", padding: "32px", color: "var(--muted)", textAlign: "center" }}>
-                  No dishes match that filter.
-                </div>
-              ) : (
-                filteredItems.map((item) => (
-                  <DishCard
-                    key={item.id}
-                    item={item}
-                    qty={getQty(item.id)}
-                    pairings={pairingsByItemId[item.id] ?? []}
-                    cartTotal={cartTotal}
-                    onAddToCart={onAddToCart}
-                    onUpdateQuantity={onUpdateQuantity}
-                    onSelect={onSelect}
-                    onAddPairing={onAddToCart}
-                  />
-                ))
-              )}
-            </div>
+        <div className="menu-product-scaffold">
+          <div className="menu-product-grid">
+            {filteredItems.length === 0 ? (
+              <div className="empty-state" style={{ gridColumn: "1 / -1", padding: "32px", color: "var(--muted)", textAlign: "center" }}>
+                No dishes match that filter.
+              </div>
+            ) : (
+              filteredItems.map((item) => (
+                <DishCard
+                  key={item.id}
+                  item={item}
+                  qty={getQty(item.id)}
+                  pairings={pairingsByItemId[item.id] ?? []}
+                  cartTotal={cartTotal}
+                  onAddToCart={onAddToCart}
+                  onUpdateQuantity={onUpdateQuantity}
+                  onSelect={onSelect}
+                  onAddPairing={onAddToCart}
+                />
+              ))
+            )}
           </div>
-        </section>
+        </div>
       </div>
-
     </section>
   );
 }
