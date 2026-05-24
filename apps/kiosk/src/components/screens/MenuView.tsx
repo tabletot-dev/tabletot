@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, type ReactNode } from "react";
 import { useMenu } from "@/lib/menuStore";
 import DishCard from "@/components/DishCard";
 import type { MenuItem, OrderItem } from "@/data/menu";
@@ -8,6 +8,8 @@ interface MenuViewProps {
   onAddToCart: (item: MenuItem) => void;
   onUpdateQuantity: (itemId: string, delta: number) => void;
   order: OrderItem[];
+  voiceDock?: ReactNode;
+  voicePanel?: ReactNode;
 }
 
 type DietFilter = "all" | "veg" | "nonveg";
@@ -97,7 +99,7 @@ function CategoryIcon({ category }: { category: string }) {
   return icons[category] ?? fallback;
 }
 
-export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, order }: MenuViewProps) {
+export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, order, voiceDock, voicePanel }: MenuViewProps) {
   const { categories, itemsByCategory, pairingsByItemId, loading, error, retry } = useMenu();
   const [activeCategory, setActiveCategory] = useState("");
   const [diet, setDiet] = useState<DietFilter>("all");
@@ -165,7 +167,7 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, orde
       </div>
 
       {/* Scrollable canvas */}
-      <div className="menu-canvas">
+      <div className={`menu-canvas${voiceDock ? " has-voice-dock" : ""}`}>
         <div className="menu-canvas-header">
           <div>
             <p className="eyebrow">Now browsing</p>
@@ -205,11 +207,18 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, orde
                   onUpdateQuantity={onUpdateQuantity}
                   onSelect={onSelect}
                   onAddPairing={onAddToCart}
+                  getQuantity={getQty}
                 />
               ))
             )}
           </div>
         </div>
+        {voiceDock && (
+          <div className="menu-voice-section">
+            {voiceDock}
+          </div>
+        )}
+        {voicePanel}
       </div>
     </section>
   );

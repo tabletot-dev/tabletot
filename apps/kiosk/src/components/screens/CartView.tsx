@@ -1,6 +1,7 @@
 import type { OrderItem } from "@/data/menu";
 import type { OrderRound } from "@/hooks/useDeviceNavigation";
-import { categoryGradient } from "@/lib/categoryGradients";
+import TabletotLogo from "@/components/TabletotLogo";
+import { itemImageBackground } from "@/lib/menuImages";
 import { computeTotals } from "@/lib/pricing";
 
 interface CartViewProps {
@@ -27,6 +28,11 @@ export default function CartView({
 
   return (
     <section className="view cart-view">
+      {isSubmitting && (
+        <div className="order-boot-overlay" role="status" aria-live="polite">
+          <TabletotLogo className="order-boot-mark" />
+        </div>
+      )}
       <div className="split-layout">
         {/* Left: order list */}
         <div className="panel scroll-panel">
@@ -47,7 +53,7 @@ export default function CartView({
                 <div key={item.id} className="order-row">
                   <div
                     className="order-thumb"
-                    style={{ background: categoryGradient(item.category) }}
+                    style={{ background: itemImageBackground(item) }}
                   />
                   <div className="order-copy">
                     <strong>{item.name}</strong>
@@ -112,7 +118,7 @@ export default function CartView({
             order flow.
           </p>
           <button
-            className="primary-btn wide"
+            className="primary-btn wide confirm-order-btn"
             onClick={onConfirm}
             disabled={order.length === 0 || isSubmitting}
             style={{ opacity: order.length === 0 || isSubmitting ? 0.45 : 1 }}

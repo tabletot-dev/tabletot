@@ -4,12 +4,15 @@ import { submitOrder } from "@/lib/orderSubmission";
 
 export type ScreenType =
   | "idle"
+  | "home"
   | "listening"
   | "menu"
   | "item-detail"
   | "order-summary"
   | "order-confirmation"
   | "session-idle"
+  | "games"
+  | "conversation-starters"
   | "bill-summary";
 
 export interface OrderRound {

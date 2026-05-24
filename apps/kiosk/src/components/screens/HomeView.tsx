@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useMenu } from "@/lib/menuStore";
 import type { AnchorItem } from "@/lib/menuStore";
-import { categoryGradient } from "@/lib/categoryGradients";
+import { itemImageBackground } from "@/lib/menuImages";
 
 function heroGradient(item: AnchorItem) {
-  return categoryGradient(item.category);
+  return itemImageBackground(item);
 }
 
 const TAG_CLASS: Record<string, string> = {
@@ -42,101 +42,117 @@ export default function HomeView({
   }, [chefPicks.length]);
 
   return (
-    <section className="view home-view">
-      <div className="hero-panel">
-        <div className="hero-copy">
-          <p className="eyebrow">Good evening{tableId ? `, Table ${tableId}` : ""}</p>
-          <h1>Order beautifully. Without waiting.</h1>
-          <div className="hero-actions">
-            <button className="primary-btn" onClick={onStartOrdering}>
-              Start Ordering
-            </button>
+    <section className="view home-view home-sun-view">
+      <div className="home-command-grid">
+        <div className="home-launch-panel">
+          <div className="home-hero-block">
+            <p className="eyebrow">Good evening{tableId ? `, Table ${tableId}` : ""}</p>
+            <div className="home-hero-row">
+              <h1 className="home-brand-headline" aria-label="Speak. Order. Served.">
+                <span className="headline-speak">Speak.</span>
+                <span className="headline-order">Order.</span>
+                <span className="headline-served">Served.</span>
+              </h1>
+              <p className="hero-sub hero-system-copy">
+                Discover dishes, place orders instantly, and experience a new way to dine.
+                <span>Ordering, reimagined for the modern table.</span>
+              </p>
+            </div>
+          </div>
+
+          <button className="primary-btn home-start-cta" onClick={onStartOrdering}>
+            <span>Start Ordering</span>
+            <small>Tap to begin</small>
+          </button>
+
+          <div className="hero-machine-strip" aria-label="Kiosk status">
+            <span>Table OS</span>
+            <span>Kitchen Sync</span>
+            <span>Voice Ready</span>
           </div>
         </div>
 
-        {loading || !heroItem ? (
-          <div
-            className="hero-feature"
-            style={{ background: "linear-gradient(135deg, #f5e6d8, #e8c9a8)" }}
-          />
-        ) : (
-          <button
-            className="hero-feature"
-            style={{ background: heroGradient(heroItem) }}
-            onClick={() => onSelectItem?.(heroItem)}
-            aria-label={`View ${heroItem.name}`}
-          >
-            <div className="feature-overlay">
-              {heroItem.tags.length > 0 && (
-                <div className="hero-tags">
-                  {heroItem.tags.slice(0, 2).map((tag) => (
-                    <span key={tag} className={`tag ${TAG_CLASS[tag] ?? "tag-light"}`}>
-                      {tag}
-                    </span>
-                  ))}
+        <div className="home-spotlight-stack">
+          {loading || !heroItem ? (
+            <div
+              className="hero-feature home-spotlight"
+              style={{ background: "linear-gradient(135deg, #f5e6d8, #e8c9a8)" }}
+            />
+          ) : (
+            <button
+              className="hero-feature home-spotlight"
+              style={{ background: heroGradient(heroItem) }}
+              onClick={() => onSelectItem?.(heroItem)}
+              aria-label={`View ${heroItem.name}`}
+            >
+              <div className="feature-overlay">
+                {heroItem.tags.length > 0 && (
+                  <div className="hero-tags">
+                    {heroItem.tags.slice(0, 2).map((tag) => (
+                      <span key={tag} className={`tag ${TAG_CLASS[tag] ?? "tag-light"}`}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <p className="feature-kicker" style={{ marginTop: "auto" }}>
+                  Chef sequence
+                </p>
+                <h2>{heroItem.name}</h2>
+                <div className="feature-footer">
+                  <strong>₹{heroItem.price}</strong>
+                  <span className="ghost-pill">View Dish</span>
                 </div>
-              )}
-              <p className="feature-kicker" style={{ marginTop: "auto" }}>
-                Tonight's highlight
-              </p>
-              <h2>{heroItem.name}</h2>
-              <div className="feature-footer">
-                <strong>₹{heroItem.price}</strong>
-                <span className="ghost-pill">View Dish</span>
+                {chefPicks.length > 1 && (
+                  <div className="hero-dots">
+                    {chefPicks.map((_, i) => (
+                      <span
+                        key={i}
+                        className={`hero-dot${i === heroIndex % chefPicks.length ? " active" : ""}`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-              {chefPicks.length > 1 && (
-                <div className="hero-dots">
-                  {chefPicks.map((_, i) => (
-                    <span
-                      key={i}
-                      className={`hero-dot${i === heroIndex % chefPicks.length ? " active" : ""}`}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </button>
-        )}
+            </button>
+          )}
+
+          <div className="home-quick-actions">
+            <button
+              className="utility-card"
+              onClick={() =>
+                onInfoToast?.(
+                  "Please ask the team for allergen guidance, vegetarian recommendations, and ingredient details before confirming your order.",
+                )
+              }
+            >
+              <p className="eyebrow">Dietary Information</p>
+              <strong>Prepared for every preference</strong>
+              <span>
+                Vegetarian options and allergen guidance are available on request.
+              </span>
+            </button>
+            <button
+              className="utility-card"
+              onClick={() => onInfoToast?.("Please ask the team for the current Wi-Fi network name and password.")}
+            >
+              <p className="eyebrow">Wi-Fi</p>
+              <strong>Stay connected at the table</strong>
+              <span>
+                Ask the team for today's network and password.
+              </span>
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="utility-layout">
-        <div className="utility-row utility-row-two">
-          <button
-            className="utility-card"
-            onClick={() =>
-              onInfoToast?.(
-                "Please ask the team for allergen guidance, vegetarian recommendations, and ingredient details before confirming your order.",
-              )
-            }
-          >
-            <p className="eyebrow">Dietary Information</p>
-            <strong>Prepared for every preference</strong>
-            <span>
-              Vegetarian-friendly dishes, egg-based breakfast options, and support for allergen
-              questions are available on request.
-            </span>
-          </button>
-          <button
-            className="utility-card"
-            onClick={() => onInfoToast?.("Please ask the team for the current Wi-Fi network name and password.")}
-          >
-            <p className="eyebrow">Wi-Fi</p>
-            <strong>Stay connected at the table</strong>
-            <span>
-              Ask the team for today's network and password if you'd like to work, browse, or stay
-              online while you dine.
-            </span>
-          </button>
-        </div>
-
+      <div className="utility-layout home-info-layout">
         <div className="panel utility-about-panel">
           <p className="eyebrow">About Us</p>
           <h2>Silver Specialty Coffee</h2>
           <p className="hero-sub">
-            Silver Specialty Coffee is a bright all-day cafe built around carefully brewed coffee,
-            generous breakfast plates, sweet comforts, and a relaxed table-side experience. The
-            space is designed for slow mornings, casual meetings, and easy catch-ups, with a menu
-            that balances comfort classics and signature house favorites.
+            Carefully brewed coffee, generous breakfast plates, and a relaxed table-side
+            experience.
           </p>
         </div>
 
@@ -145,8 +161,7 @@ export default function HomeView({
             <p className="eyebrow">Chef's Note</p>
             <strong>Fresh, simple, and made to linger over</strong>
             <span>
-              Our kitchen focuses on approachable breakfast and brunch plates with clean flavors,
-              seasonal touches, and dishes that pair naturally with specialty coffee.
+              Breakfast and brunch plates designed to pair naturally with specialty coffee.
             </span>
           </div>
           <div className="utility-card utility-card-static">

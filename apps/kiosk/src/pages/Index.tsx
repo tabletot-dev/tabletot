@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDeviceNavigation } from "@/hooks/useDeviceNavigation";
+import IdleScreen from "@/components/screens/IdleScreen";
 import HomeView from "@/components/screens/HomeView";
 import ListeningScreen from "@/components/screens/ListeningScreen";
 import MenuView from "@/components/screens/MenuView";
@@ -9,10 +10,12 @@ import CartView from "@/components/screens/CartView";
 import BillView from "@/components/screens/BillView";
 import ConfirmationView from "@/components/screens/ConfirmationView";
 import WaitingView from "@/components/screens/WaitingView";
+import GamesView from "@/components/screens/GamesView";
+import ConversationStartersView from "@/components/screens/ConversationStartersView";
 import CompletionNudge from "@/components/CompletionNudge";
-import VoiceOrderButton, { type PressStatus } from "@/components/VoiceOrderButton";
-import VoiceModal from "@/components/VoiceModal";
+import VoiceOrderButton from "@/components/VoiceOrderButton";
 import MiniCartSidebar from "@/components/MiniCartSidebar";
+import VoiceConversationPanel from "@/components/VoiceConversationPanel";
 import AppShell from "@/components/AppShell";
 import { RestaurantProvider, useRestaurant } from "@/lib/restaurantContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,10 +31,25 @@ function normalizeName(name: string): string {
   return name.toLowerCase().replace(/[-–—]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-interface VoiceModalState {
-  transcript: string;
-  response: string;
-  resolvedItems: Array<{ name: string; applied: boolean }>;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const id = window.setTimeout(() => reject(new Error("Timed out")), ms);
+    promise.then(
+      (value) => {
+        window.clearTimeout(id);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(id);
+        reject(error);
+      },
+    );
+  });
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 const IndexInner = () => {
@@ -47,7 +65,6 @@ const IndexInner = () => {
     updateQuantity,
     removeItem,
     confirmOrder,
-    endSession,
     totalBill,
     sessionTotal,
     currentRoundOrderId,
@@ -55,16 +72,12 @@ const IndexInner = () => {
     setPreviousOrders,
   } = useDeviceNavigation();
 
-  const { items: menuItems, pairingsByItemId } = useMenu();
+  const { items: menuItems, pairingsByItemId, anchors } = useMenu();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [completionSuggestion, setCompletionSuggestion] = useState<MatchedSuggestion | null>(null);
-  const [voiceStatus, setVoiceStatus] = useState<PressStatus>("idle");
-  const [voiceModalData, setVoiceModalData] = useState<VoiceModalState>({
-    transcript: "",
-    response: "",
-    resolvedItems: [],
-  });
+  const [voiceConversationOpen, setVoiceConversationOpen] = useState(false);
+  const [voiceSessionId, setVoiceSessionId] = useState<string | null>(null);
 
   const prevVoiceOrderRef = useRef<OrderSnapshot | null>(null);
 
@@ -73,6 +86,22 @@ const IndexInner = () => {
       addToOrder(item);
     },
     [addToOrder],
+  );
+
+  const getDetailPairings = useCallback(
+    (item: MenuItem) => {
+      const directPairings = pairingsByItemId[item.id] ?? [];
+      if (directPairings.length > 0) return directPairings;
+
+      const fallback =
+        anchors.find((anchor) => anchor.id !== item.id && anchor.anchorType === "signature") ??
+        anchors.find((anchor) => anchor.id !== item.id && anchor.anchorType === "chef_pick") ??
+        menuItems.find((entry) => entry.id !== item.id && /coffee|tea|chocolate/i.test(entry.category)) ??
+        menuItems.find((entry) => entry.id !== item.id);
+
+      return fallback ? [{ ...fallback, context: "suggested_pairing", priority: 0 }] : [];
+    },
+    [anchors, menuItems, pairingsByItemId],
   );
 
   const handleVoiceDone = useCallback(
@@ -113,21 +142,6 @@ const IndexInner = () => {
         }
       }
 
-      // Populate voice modal with results
-      const resolved = msg.resolver
-        .filter((r): r is Extract<typeof r, { type: "match" | "no_match" }> =>
-          r.type === "match" || r.type === "no_match"
-        )
-        .map((r) => ({
-          name: r.type === "match" ? (r as { type: "match"; item: string }).item : (r as { type: "no_match"; raw: string }).raw,
-          applied: r.type === "match",
-        }));
-
-      setVoiceModalData({
-        transcript: msg.transcript,
-        response: msg.response,
-        resolvedItems: resolved,
-      });
     },
     [menuItems, order, addToOrder, updateQuantity, removeItem],
   );
@@ -143,21 +157,28 @@ const IndexInner = () => {
   const handleAddFromDetail = useCallback(() => {
     if (selectedItem) {
       handleAddToOrder(selectedItem);
-      setCurrentScreen("menu");
     }
-  }, [selectedItem, handleAddToOrder, setCurrentScreen]);
+  }, [selectedItem, handleAddToOrder]);
+
+  const getOrderQuantity = useCallback(
+    (itemId: string) => order.find((item) => item.id === itemId)?.quantity ?? 0,
+    [order],
+  );
 
   const handleConfirmOrder = useCallback(async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
       try {
-        const { data: rules } = await supabase
-          .from("meal_completion_rules")
-          .select("rule_name, condition, suggestion")
-          .eq("restaurant_id", RESTAURANT_ID)
-          .eq("active", true)
-          .order("priority", { ascending: false });
+        const { data: rules } = await withTimeout(
+          supabase
+            .from("meal_completion_rules")
+            .select("rule_name, condition, suggestion")
+            .eq("restaurant_id", RESTAURANT_ID)
+            .eq("active", true)
+            .order("priority", { ascending: false }),
+          700,
+        );
 
         const match = findMatchingRule((rules ?? []) as CompletionRule[], order);
         if (match) {
@@ -167,6 +188,7 @@ const IndexInner = () => {
       } catch {
         // DB error — fall through to submit
       }
+      await wait(1150);
       await confirmOrder();
     } finally {
       setIsSubmitting(false);
@@ -180,16 +202,11 @@ const IndexInner = () => {
     return () => clearTimeout(id);
   }, [toast]);
 
-  const isBrowsing = currentScreen === "menu" || currentScreen === "item-detail";
-
-  const showFloatingPtt =
-    voiceEnabled &&
-    !isBrowsing &&
-    !["idle", "listening", "order-confirmation", "session-idle"].includes(currentScreen);
-
   const renderScreen = () => {
     switch (currentScreen) {
       case "idle":
+        return <IdleScreen onActivate={() => setCurrentScreen("home")} />;
+      case "home":
         return (
           <HomeView
             onStartOrdering={() => setCurrentScreen("menu")}
@@ -212,7 +229,6 @@ const IndexInner = () => {
           />
         ) : null;
 
-      // Browse layout: menu + mini cart sidebar + item detail modal
       case "menu":
       case "item-detail":
         return (
@@ -224,6 +240,33 @@ const IndexInner = () => {
                   onAddToCart={handleAddToOrder}
                   onUpdateQuantity={updateQuantity}
                   order={order}
+                  voiceDock={
+                    voiceEnabled ? (
+                      <VoiceOrderButton
+                        onDone={handleVoiceDone}
+                        order={order}
+                        restaurantId={RESTAURANT_ID}
+                        tableId={TABLE_ID}
+                        onOpenConversation={() => setVoiceConversationOpen(true)}
+                        onSessionReady={setVoiceSessionId}
+                      />
+                    ) : null
+                  }
+                  voicePanel={
+                    voiceEnabled && voiceConversationOpen ? (
+                      <VoiceConversationPanel
+                        sessionId={voiceSessionId}
+                        items={menuItems}
+                        order={order}
+                        getQuantity={getOrderQuantity}
+                        onClose={() => setVoiceConversationOpen(false)}
+                        onDone={handleVoiceDone}
+                        onAddItem={handleAddToOrder}
+                        onUpdateQuantity={updateQuantity}
+                        onSelectItem={handleSelectItem}
+                      />
+                    ) : null
+                  }
                 />
                 <AnimatePresence>
                   {currentScreen === "item-detail" && selectedItem && (
@@ -245,46 +288,35 @@ const IndexInner = () => {
                       >
                         <DetailView
                           item={selectedItem}
-                          pairings={pairingsByItemId[selectedItem.id] ?? []}
+                          pairings={getDetailPairings(selectedItem)}
                           onAdd={handleAddFromDetail}
+                          onAddItem={handleAddToOrder}
+                          onUpdateQuantity={updateQuantity}
+                          getQuantity={getOrderQuantity}
                           onBack={() => setCurrentScreen("menu")}
                           onSelectPairing={handleSelectItem}
+                          onOpenVoice={() => {
+                            setCurrentScreen("menu");
+                            setVoiceConversationOpen(true);
+                          }}
                         />
                       </motion.div>
                     </motion.div>
                   )}
                 </AnimatePresence>
 
-                {/* Voice modal — overlays the browse area */}
-                {voiceEnabled && (
-                  <VoiceModal
-                    status={voiceStatus}
-                    transcript={voiceModalData.transcript}
-                    response={voiceModalData.response}
-                    resolvedItems={voiceModalData.resolvedItems}
-                    onDismiss={() => setVoiceModalData({ transcript: "", response: "", resolvedItems: [] })}
-                  />
-                )}
+
               </div>
 
               <MiniCartSidebar
                 order={order}
+                previousOrders={previousOrders}
+                onAddToCart={handleAddToOrder}
                 onUpdateQuantity={updateQuantity}
+                onSelect={handleSelectItem}
                 onGoToCart={() => setCurrentScreen("order-summary")}
               />
             </div>
-
-            {voiceEnabled && (
-              <div className="browse-footer">
-                <VoiceOrderButton
-                  onDone={handleVoiceDone}
-                  order={order}
-                  restaurantId={RESTAURANT_ID}
-                  tableId={TABLE_ID}
-                  onStatusChange={setVoiceStatus}
-                />
-              </div>
-            )}
           </div>
         );
 
@@ -304,7 +336,6 @@ const IndexInner = () => {
         return (
           <ConfirmationView
             onReset={() => setCurrentScreen("session-idle")}
-            onOrderMore={() => setCurrentScreen("menu")}
           />
         );
       case "session-idle":
@@ -314,10 +345,15 @@ const IndexInner = () => {
             currentRoundOrderId={currentRoundOrderId}
             onOrderMore={() => setCurrentScreen("menu")}
             onRequestBill={() => setCurrentScreen("bill-summary")}
-            onEndSession={endSession}
+            onGames={() => setCurrentScreen("games")}
+            onConversationStarters={() => setCurrentScreen("conversation-starters")}
             onRequestWater={() => setToast("Water requested")}
           />
         );
+      case "games":
+        return <GamesView onBack={() => setCurrentScreen("session-idle")} />;
+      case "conversation-starters":
+        return <ConversationStartersView onBack={() => setCurrentScreen("session-idle")} />;
       case "bill-summary":
         return (
           <BillView
@@ -326,6 +362,7 @@ const IndexInner = () => {
             onClose={() => {
               setOrder([]);
               setPreviousOrders([]);
+              sessionStorage.removeItem("tt_session_id");
               setCurrentScreen("idle");
             }}
             onContinueOrdering={() => setCurrentScreen("menu")}
@@ -341,22 +378,10 @@ const IndexInner = () => {
       currentScreen={currentScreen}
       onNavigate={setCurrentScreen}
       tableId={TABLE_ID}
+      showStatusReturn={previousOrders.length > 0 && currentScreen !== "session-idle"}
     >
       <div style={{ position: "relative", height: "100%" }}>
         {renderScreen()}
-
-        {/* Floating PTT only for non-browse voice-enabled screens */}
-        {showFloatingPtt && (
-          <div style={{ position: "absolute", bottom: 16, right: 16, zIndex: 40 }}>
-            <VoiceOrderButton
-              onDone={handleVoiceDone}
-              order={order}
-              restaurantId={RESTAURANT_ID}
-              tableId={TABLE_ID}
-              onStatusChange={setVoiceStatus}
-            />
-          </div>
-        )}
 
         {completionSuggestion && (
           <CompletionNudge

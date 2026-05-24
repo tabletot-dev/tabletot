@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, hasSupabaseConfig } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import type { OrderItem } from '@/data/menu';
 import { computeTotals } from '@/lib/pricing';

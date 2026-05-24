@@ -20,10 +20,12 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Insert a placeholder row with the target UUID so FK updates don't violate PK.
-  -- Copy all columns from the old row.
+  -- Temporarily rename old row to release the unique name constraint,
+  -- then insert the new row with the pinned UUID.
+  UPDATE restaurants SET name = '__migrating__' WHERE id = old_id;
+
   INSERT INTO restaurants (id, name, pos_provider, config)
-  SELECT new_id, name, pos_provider, config
+  SELECT new_id, 'Silver Specialty Coffee', pos_provider, config
   FROM   restaurants
   WHERE  id = old_id;
 

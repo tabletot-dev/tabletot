@@ -8,6 +8,25 @@ Customer-facing tablet ordering app (React + Vite, Android Chrome kiosk mode).
 
 ### Added
 
+- **VoiceConversationPanel — real backend wiring** (`components/VoiceConversationPanel.tsx`, `components/VoiceOrderButton.tsx`, `pages/Index.tsx`) — panel now runs real PTT using the session owned by `VoiceOrderButton`. Each completed turn appends the user transcript and AI response to a live conversation history. Items matched by the resolver (`type: "match"`) are shown as tappable cards below the AI turn. `VoiceOrderButton` gained `onSessionReady` callback; `Index.tsx` threads `voiceSessionId` to the panel.
+- **Migration 0015** (`supabase/migrations/0015_seed_silver_tables.sql`) — seeds a T1 row in `restaurant_tables` for Silver Specialty Coffee. Superseded in practice by 0016 but kept for audit trail.
+- **Migration 0016** (`supabase/migrations/0016_fix_table_number_unique.sql`) — drops the global `UNIQUE` constraint on `restaurant_tables.table_number` and replaces it with a composite `UNIQUE (restaurant_id, table_number)`, enabling two restaurants to both have a T1. Inserts Silver's T1 cleanly after the constraint fix.
+
+### Fixed
+
+- **Migration 0009** (`supabase/migrations/0009_silver_specialty_coffee.sql`) — hardcodes Silver's UUID (`b22b5d53-6dd8-4f5b-8276-2e828cd1ab91`) instead of `gen_random_uuid()`, so every `db reset` produces the same UUID and `VITE_RESTAURANT_ID` stays valid.
+- **Migration 0014** (`supabase/migrations/0014_pin_silver_uuid.sql`) — fixed a duplicate-key crash: the old row is now renamed to `__migrating__` before the new row is inserted, releasing the `restaurants_name_uidx` unique constraint. Previously failed with `23505` on every fresh `supabase start`.
+- **`.env.local` UUID mismatch** (`apps/kiosk/.env.local`, `apps/dashboard/.env.local`) — both files had `VITE_RESTAURANT_ID=73a32fde...` (stale value) while migrations pinned `b22b5d53...`. Aligned to `b22b5d53...`.
+
+### Removed
+
+- **`VoiceModal`** (`components/VoiceModal.tsx`) — post-turn result overlay. Redundant now that `VoiceConversationPanel` shows real transcript and resolver results inline.
+- **`VoiceBanner`** (`components/VoiceBanner.tsx`) — status strip component. Was never imported; dead code from an earlier design iteration.
+- **`VoiceAssistantOverlay`** (`components/VoiceAssistantOverlay.tsx`) — older listening overlay with pulsing mic and cycling prompts. Was never imported; superseded by `VoiceModal` then `VoiceConversationPanel`.
+- **Floating PTT button on non-menu screens** (`pages/Index.tsx`) — second `VoiceOrderButton` instance (cart, detail, etc.) removed. Voice ordering is now menu-only. Also removed: `showFloatingPtt`, `voiceStatus`, `voiceModalData`, and the `VoiceModalState` interface.
+
+### Added
+
 - **Sessionful ordering** (`lib/orderSubmission.ts`, `hooks/useDeviceNavigation.ts`) — all order rounds placed by the same table in one sitting are linked via `tt_session_id` (UUID stored in `sessionStorage`). `session_id` is written to both `orders` and `kot_tickets` rows so the POS can bill the full session together.
 - **WaitingView — live order status** (`components/screens/WaitingView.tsx`) — subscribes to the specific `orders` row via Supabase Realtime; fetches initial status on mount so the progress bar reflects reality rather than a timer. Status map: `pending` → Queued (28%), `preparing` → Cooking (60%), `ready` → Plating (85%), `served` → Done (100%).
 - **WaitingView — End Session long-press** — 2-second hold-to-confirm button clears the order state, removes `tt_session_id` from `sessionStorage`, and returns to idle. Animated fill bar shows hold progress.

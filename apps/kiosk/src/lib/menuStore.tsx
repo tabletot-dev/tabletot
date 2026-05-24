@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, hasSupabaseConfig } from '@/integrations/supabase/client';
 import type { MenuItem } from '@/data/menu';
+import { hydrateMenuItemImage } from '@/lib/menuImages';
 
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
 
@@ -54,7 +55,7 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
       const [menuRes, pairingsRes, anchorsRes] = await Promise.all([
         supabase
           .from('menu_items')
-          .select('id, name, category, price, tags, is_veg')
+          .select('id, name, category, price, tags, is_veg, image_url')
           .eq('restaurant_id', RESTAURANT_ID)
           .eq('active', true)
           .order('category', { ascending: true })
@@ -89,7 +90,8 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
         tags: Array.isArray(row.tags) ? (row.tags as string[]) : [],
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         is_veg: (row as any).is_veg ?? false,
-      }));
+        image: row.image_url ?? undefined,
+      })).map(hydrateMenuItemImage);
 
       const itemMap = new Map(mapped.map((i) => [i.id, i]));
 
@@ -132,6 +134,10 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     fetchAll();
+
+    if (!hasSupabaseConfig || !RESTAURANT_ID) {
+      return;
+    }
 
     const channel = supabase
       .channel('menu_realtime')

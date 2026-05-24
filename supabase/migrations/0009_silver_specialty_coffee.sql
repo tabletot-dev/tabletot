@@ -28,7 +28,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS menu_items_restaurant_name_uidx
 
 WITH restaurant AS (
   INSERT INTO restaurants (id, name, pos_provider)
-  VALUES (gen_random_uuid(), 'Silver Specialty Coffee', 'tabletot')
+  VALUES ('b22b5d53-6dd8-4f5b-8276-2e828cd1ab91', 'Silver Specialty Coffee', 'tabletot')
   ON CONFLICT (name) DO NOTHING
   RETURNING id
 )

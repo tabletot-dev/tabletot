@@ -2,6 +2,8 @@ import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { MenuItem, OrderItem } from "@/data/menu";
 import type { PairedItem } from "@/lib/menuStore";
+import { itemImageBackground } from "@/lib/menuImages";
+import DietMark from "@/components/DietMark";
 
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
 
@@ -14,25 +16,6 @@ function getSessionId(): string {
   }
   return id;
 }
-
-// Category → background gradient for dish-media placeholder (no image_url in schema yet)
-// TODO: image_url missing from schema — replace with background-image once column is added
-const CATEGORY_GRADIENTS: Record<string, string> = {
-  "All Day Breakfast": "linear-gradient(135deg, #f8c58d, #f4956a)",
-  "Silver Breakfast": "linear-gradient(135deg, #f0d89a, #e8a55c)",
-  "Smoothie Bowls": "linear-gradient(135deg, #a8e6cf, #56c596)",
-  "Pancakes": "linear-gradient(135deg, #fde68a, #f59e0b)",
-  "Fries": "linear-gradient(135deg, #fcd34d, #f59e0b)",
-  "Sandwiches": "linear-gradient(135deg, #d4a574, #b8845a)",
-  "Focaccia": "linear-gradient(135deg, #deb887, #c4975a)",
-  "Burgers": "linear-gradient(135deg, #e8a87c, #d4624a)",
-  "Pastas": "linear-gradient(135deg, #f9c78c, #e8926a)",
-  "Hot Coffee": "linear-gradient(135deg, #c8a97e, #8b5e3c)",
-  "Signature Coffee": "linear-gradient(135deg, #b8956a, #7a4e2a)",
-  "Iced Coffee": "linear-gradient(135deg, #a8d8ea, #5ba4cf)",
-  "Tea & Chocolate": "linear-gradient(135deg, #c8b5a0, #8b7355)",
-  "Desserts": "linear-gradient(135deg, #f9d4d4, #e8a0b0)",
-};
 
 const TAG_CLASS: Record<string, string> = {
   "Chef's Pick": "tag-dark",
@@ -52,6 +35,7 @@ interface DishCardProps {
   onUpdateQuantity: (itemId: string, delta: number) => void;
   onSelect: (item: MenuItem) => void;
   onAddPairing: (item: MenuItem) => void;
+  getQuantity?: (itemId: string) => number;
 }
 
 export default function DishCard({
@@ -63,11 +47,11 @@ export default function DishCard({
   onUpdateQuantity,
   onSelect,
   onAddPairing,
+  getQuantity,
 }: DishCardProps) {
   const hasPairings = pairings.length > 0;
   const showPairingPanel = qty > 0 && hasPairings;
 
-  // Track prior qty to detect the 0 → 1 transition (first add)
   const prevQtyRef = useRef(qty);
   const loggedShowRef = useRef(false);
 
@@ -88,7 +72,6 @@ export default function DishCard({
       });
     }
 
-    // Reset so we log again if item is removed and re-added
     if (qty === 0) loggedShowRef.current = false;
   }, [qty, showPairingPanel, pairings, cartTotal]);
 
@@ -105,12 +88,11 @@ export default function DishCard({
     onAddPairing(paired);
   };
 
-  const bg = CATEGORY_GRADIENTS[item.category] ?? "linear-gradient(135deg, #e8d5c4, #c4a882)";
+  const bg = itemImageBackground(item);
   const displayTags = item.tags.slice(0, 2);
 
   return (
-    <article className="dish-card">
-      {/* Dish media — color gradient placeholder until image_url is added to schema */}
+    <article className={`dish-card${showPairingPanel ? " has-inline-pairing" : ""}`}>
       <div
         className="dish-media"
         style={{ background: bg, cursor: "pointer" }}
@@ -140,6 +122,7 @@ export default function DishCard({
           tabIndex={0}
           onKeyDown={(e) => e.key === "Enter" && onSelect(item)}
         >
+          <DietMark isVeg={item.is_veg} compact />
           <h3>{item.name}</h3>
         </div>
 
@@ -176,26 +159,54 @@ export default function DishCard({
             </div>
             <div className="card-pairing-list">
               {pairings.slice(0, 2).map((paired) => (
-                <button
+                <div
                   key={paired.id}
                   className="pairing-chip"
-                  onClick={() => handleAddPairing(paired)}
-                  aria-label={`Add ${paired.name} — ₹${paired.price}`}
                 >
                   <span
                     className="pairing-thumb"
                     style={{
-                      background: CATEGORY_GRADIENTS[paired.category] ?? "linear-gradient(135deg, #e8d5c4, #c4a882)",
+                      background: itemImageBackground(paired),
                     }}
                   />
                   <span className="pairing-info">
                     <span className="pairing-topline">
-                      <span className="pairing-name">{paired.name}</span>
+                      <span className="pairing-name">
+                        <DietMark isVeg={paired.is_veg} compact />
+                        {paired.name}
+                      </span>
                       <small>₹{paired.price}</small>
                     </span>
-                    <span className="pairing-add">Add</span>
+                    {(getQuantity?.(paired.id) ?? 0) > 0 ? (
+                      <span className="card-stepper pairing-stepper" aria-label={`${paired.name} quantity`}>
+                        <button
+                          type="button"
+                          onClick={() => onUpdateQuantity(paired.id, -1)}
+                          aria-label={`Decrease ${paired.name}`}
+                        >
+                          −
+                        </button>
+                        <span>{getQuantity?.(paired.id) ?? 0}</span>
+                        <button
+                          type="button"
+                          onClick={() => onUpdateQuantity(paired.id, 1)}
+                          aria-label={`Increase ${paired.name}`}
+                        >
+                          +
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="pairing-add"
+                        onClick={() => handleAddPairing(paired)}
+                        aria-label={`Add ${paired.name} — ₹${paired.price}`}
+                      >
+                        Add
+                      </button>
+                    )}
                   </span>
-                </button>
+                </div>
               ))}
             </div>
           </div>

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, hasSupabaseConfig } from "@/integrations/supabase/client";
 
 interface RestaurantCtx {
   restaurantId: string;
@@ -21,7 +21,7 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
   const [voiceEnabled, setVoiceEnabled] = useState(true);
 
   useEffect(() => {
-    if (!restaurantId) return;
+    if (!restaurantId || !hasSupabaseConfig) return;
     supabase
       .from("restaurants")
       .select("config")

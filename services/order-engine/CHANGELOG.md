@@ -8,6 +8,8 @@ All notable changes to the Menu Resolver project.
 
 ### Added
 
+- **Silver UUID aligned** (`backend/config/restaurants.json`) — `db_restaurant_id` for `silver-ssc-hyd` updated from `73a32fde...` to `b22b5d53-6dd8-4f5b-8276-2e828cd1ab91` to match the pinned value in migration 0014 and the kiosk `.env.local`. The mismatch caused every `/voice/session/start` call to return 404 ("Restaurant not found in config").
+
 - **Per-restaurant voice persona** (`backend/config/restaurants.json`, `src/llm/prompts/system_prompt.py`, `src/orchestrator.py`, `src/llm/base.py`, all three providers, `voice_agent/restaurant_config.py`, `voice_agent/session_manager.py`) — Pass 2 (response generation) now uses a per-restaurant `voice_persona` field from `restaurants.json` instead of a hardcoded "Roast CCx" identity. Pass 1 (intent extraction) is fully generic — no restaurant name anywhere. Adding a new restaurant persona = one JSON field, no code change. Falls back to a neutral generic persona if the field is absent.
   - `RestaurantConfig` dataclass gains optional `voice_persona: str | None` field.
   - `Orchestrator.__init__` accepts `voice_persona` and threads it through every Pass 2 call.

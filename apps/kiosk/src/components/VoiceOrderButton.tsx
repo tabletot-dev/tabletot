@@ -20,12 +20,15 @@ export interface VoiceOrderButtonProps {
   restaurantId: string;
   tableId: string;
   onStatusChange?: (status: PressStatus) => void;
+  onOpenConversation?: () => void;
+  onSessionReady?: (sessionId: string) => void;
 }
 
-const VoiceOrderButton = ({ onDone, order, restaurantId, tableId, onStatusChange }: VoiceOrderButtonProps) => {
+const VoiceOrderButton = ({ onDone, order, restaurantId, tableId, onStatusChange, onOpenConversation, onSessionReady }: VoiceOrderButtonProps) => {
   const [backendStatus, setBackendStatus] = useState<BackendStatus>("starting");
   const [pressStatus, setPressStatus] = useState<PressStatus>("idle");
   const [micBlocked, setMicBlocked] = useState(false);
+  const conversationMode = Boolean(onOpenConversation);
 
   const sessionIdRef = useRef<string | null>(null);
   const clientSessionIdRef = useRef<string | null>(null);
@@ -53,6 +56,7 @@ const VoiceOrderButton = ({ onDone, order, restaurantId, tableId, onStatusChange
         ttsRef.current = openTtsClient(voiceSessionId, (msg) => {
           if (msg.type === "error") console.warn("TTS error:", msg.message);
         });
+        onSessionReady?.(voiceSessionId);
         setBackendStatus("ready");
       } catch (err) {
         if (!mounted) return;
@@ -95,6 +99,11 @@ const VoiceOrderButton = ({ onDone, order, restaurantId, tableId, onStatusChange
   );
 
   const handleToggle = useCallback(async () => {
+    if (conversationMode) {
+      onOpenConversation?.();
+      return;
+    }
+
     if (backendStatusRef.current !== "ready") return;
     if (micBlocked) return;
 
@@ -128,12 +137,13 @@ const VoiceOrderButton = ({ onDone, order, restaurantId, tableId, onStatusChange
         setPressStatus("idle");
       }
     }
-  }, [handleSttMessage, order, micBlocked]);
+  }, [conversationMode, onOpenConversation, handleSttMessage, order, micBlocked]);
 
-  const disabled = backendStatus !== "ready" || pressStatus === "processing";
+  const disabled = !conversationMode && (backendStatus !== "ready" || pressStatus === "processing");
 
   const label =
-    pressStatus === "recording" ? "Tap to stop"
+    conversationMode ? "Open voice conversation"
+    : pressStatus === "recording" ? "Tap to stop"
     : pressStatus === "processing" ? "Processing…"
     : backendStatus === "error" ? "Voice unavailable"
     : "Tap to speak";
@@ -142,8 +152,8 @@ const VoiceOrderButton = ({ onDone, order, restaurantId, tableId, onStatusChange
     "ptt-btn",
     pressStatus === "recording" ? "ptt-recording" : "",
     pressStatus === "processing" ? "ptt-processing" : "",
-    backendStatus === "error" || micBlocked ? "ptt-error" : "",
-    backendStatus === "starting" ? "ptt-starting" : "",
+    !conversationMode && (backendStatus === "error" || micBlocked) ? "ptt-error" : "",
+    !conversationMode && backendStatus === "starting" ? "ptt-starting" : "",
   ].filter(Boolean).join(" ");
 
   return (
@@ -153,6 +163,11 @@ const VoiceOrderButton = ({ onDone, order, restaurantId, tableId, onStatusChange
           Allow microphone access in browser settings to use voice ordering.
         </div>
       )}
+      <div className="ptt-bubbles" aria-hidden="true">
+        <span>Suggest a meal?</span>
+        <span>For three people?</span>
+        <span>Post-gym?</span>
+      </div>
       <button
         disabled={disabled}
         onClick={() => void handleToggle()}
