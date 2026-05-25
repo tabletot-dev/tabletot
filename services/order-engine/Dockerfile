@@ -7,7 +7,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml .
-RUN pip install uv && uv pip install --system --no-install-project .
+RUN pip install uv && \
+    uv pip compile pyproject.toml -o /tmp/requirements.txt && \
+    uv pip install --system -r /tmp/requirements.txt
 
 COPY . .
 
