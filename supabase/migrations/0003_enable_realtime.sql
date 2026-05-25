@@ -1,5 +1,5 @@
 -- 0003_enable_realtime.sql
--- Enrolls `kots` in supabase_realtime publication so postgres_changes
--- INSERT events fire for client subscriptions. Without this, the publication
--- is empty by default and Realtime listeners silently no-op.
-ALTER PUBLICATION supabase_realtime ADD TABLE kots;
+-- Enroll POS-native tables in supabase_realtime publication so
+-- postgres_changes INSERT/UPDATE events fire for client subscriptions.
+ALTER PUBLICATION supabase_realtime ADD TABLE orders;
+ALTER PUBLICATION supabase_realtime ADD TABLE kot_tickets;

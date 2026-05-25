@@ -11,7 +11,9 @@ Endpoints:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import time
 from datetime import datetime
 
 import ssl
@@ -24,8 +26,8 @@ from pydantic import BaseModel
 _SSL_CTX = ssl.create_default_context(cafile=certifi.where())
 
 from src.models import Ambiguous, ConfidentMatch, NeedsVariantSelection, NoMatch, Unavailable
-from src.orchestrator import ResolverCall
-from voice_agent.session_manager import SessionManager
+from src.orchestrator import ResolverCall, TurnResult
+from voice_agent.session_manager import SessionManager, TURN_END
 from voice_agent.stt_handler import SarvamSTTHandler
 
 logger = logging.getLogger(__name__)
@@ -71,6 +73,7 @@ async def health(request: Request) -> dict:
 class SessionStartRequest(BaseModel):
     table_id: str
     restaurant_id: str
+    client_session_id: str | None = None
 
 
 class SessionEndRequest(BaseModel):
@@ -83,7 +86,8 @@ async def session_start(body: SessionStartRequest, request: Request) -> dict:
 
     mgr: SessionManager = request.app.state.session_manager
     try:
-        session = await mgr.create_session(body.table_id, body.restaurant_id)
+        # create_session accepts slug or db_restaurant_id UUID — resolved internally
+        session = await mgr.create_session(body.table_id, body.restaurant_id, body.client_session_id)
     except KeyError:
         raise HTTPException(
             status_code=404,
@@ -154,8 +158,103 @@ def _serialize_resolver_results(calls: list[ResolverCall]) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Voice turn analytics (fire-and-forget, non-blocking)
+# ---------------------------------------------------------------------------
+
+
+async def _record_voice_turn(
+    db_url: str | None,
+    session_key: str | None,
+    restaurant_id: str,
+    table_number: str,
+    resolver_results: list[ResolverCall],
+) -> None:
+    """Write one voice_turns row to Supabase. Fails silently — never blocks voice response."""
+    if not db_url:
+        return
+
+    resolved = [
+        {"raw": c.raw_name, "item": c.result.item_name}
+        for c in resolver_results
+        if isinstance(c.result, ConfidentMatch) and c.applied_to_order
+    ]
+    unresolved = [c.raw_name for c in resolver_results if isinstance(c.result, NoMatch)]
+
+    # Skip turns with no ordering intent (e.g. greeting, question)
+    if not resolved and not unresolved:
+        return
+
+    import json as _json
+
+    import psycopg2
+
+    def _write() -> None:
+        conn = psycopg2.connect(db_url)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO voice_turns (session_key, restaurant_id, table_number, resolved_items, unresolved_phrases)
+            VALUES (%s, %s, %s, %s::jsonb, %s)
+            """,
+            (
+                session_key,
+                restaurant_id,
+                table_number,
+                _json.dumps(resolved),
+                unresolved or None,
+            ),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+
+    try:
+        await asyncio.to_thread(_write)
+    except Exception as exc:
+        logger.debug("voice_turns write skipped: %s", exc)
+
+
+# ---------------------------------------------------------------------------
 # STT WebSocket — per PTT press
 # ---------------------------------------------------------------------------
+
+
+def _apply_cart_sync(session: "VoiceSession", items: list[dict]) -> None:  # type: ignore[name-defined]
+    """Replace backend order state with the current kiosk touch cart.
+
+    Each item carries {id, name, qty, price}. We resolve the display name
+    against the menu index to get the canonical item_id (petpooja external_id)
+    so that subsequent voice removals/modifications find the right entry.
+    Falls back to a slugified name when the resolver can't match.
+    """
+    from src.models import ConfidentMatch
+    from src.resolver import resolve
+
+    session.orchestrator.order_state.clear()
+    for item in items:
+        name: str = item.get("name", "")
+        qty: int = int(item.get("qty", 1))
+        price: int = int(item.get("price", 0))
+        if not name:
+            continue
+        result = resolve(name, session.orchestrator.menu_index, datetime.now())
+        if isinstance(result, ConfidentMatch):
+            session.orchestrator.order_state.add_item(
+                item_id=result.item_id,
+                item_name=result.item_name,
+                quantity=qty,
+                unit_price=result.price or price,
+                category=result.category,
+            )
+        else:
+            # Resolver couldn't match — use slugified name so LLM still sees the item
+            session.orchestrator.order_state.add_item(
+                item_id=name.lower().replace(" ", "_"),
+                item_name=name,
+                quantity=qty,
+                unit_price=price,
+                category="",
+            )
 
 
 @router.websocket("/stt/{session_id}")
@@ -171,40 +270,91 @@ async def voice_stt(ws: WebSocket, session_id: str) -> None:
         await ws.close(code=4004)
         return
 
+    # Fix A: accept one optional cart_sync JSON message before audio starts.
+    # 500 ms timeout — if nothing arrives (or first frame is already binary audio)
+    # we proceed without syncing and the backend order state is unchanged.
+    try:
+        raw = await asyncio.wait_for(ws.receive(), timeout=0.5)
+        if raw.get("type") == "websocket.receive" and raw.get("text"):
+            try:
+                parsed = json.loads(raw["text"])
+                if parsed.get("type") == "cart_sync":
+                    _apply_cart_sync(session, parsed.get("items", []))
+                    logger.info(
+                        "cart_sync applied: %d item(s) session=%s",
+                        len(parsed.get("items", [])),
+                        session_id,
+                    )
+            except (json.JSONDecodeError, Exception):
+                pass
+        # If first frame is binary audio we consumed it — acceptable; Sarvam
+        # handles a small amount of missing audio at the start without issue.
+    except asyncio.TimeoutError:
+        pass
+
     stt_handler = SarvamSTTHandler(mgr._sarvam_api_key)
 
+    t_stt_start = time.perf_counter()
     try:
         final_transcript = await stt_handler.transcribe_session(ws)
     except Exception as e:
         logger.exception("STT proxy error for session %s", session_id)
         await ws.send_json({"type": "error", "message": str(e)})
         return
+    t_stt_done = time.perf_counter()
+    logger.info("[TIMING] STT session=%s %.3fs transcript=%r", session_id, t_stt_done - t_stt_start, (final_transcript or "")[:60])
 
     if final_transcript:
+        t_llm_start = time.perf_counter()
+        result = None
+        first_sentence = True
         try:
-            result = await asyncio.to_thread(
-                session.orchestrator.process_turn,
-                final_transcript,
-                datetime.now(),
-            )
-            response_text = result.llm_response.response_text
+            async for item in session.orchestrator.process_turn_streaming(
+                final_transcript, datetime.now()
+            ):
+                if isinstance(item, str):
+                    # Sentence chunk: pipe to TTS immediately
+                    await session.tts_queue.put(item)
+                    if first_sentence:
+                        logger.info("[TIMING] first sentence queued session=%s %.3fs", session_id, time.perf_counter() - t_llm_start)
+                        first_sentence = False
+                else:
+                    # Final TurnResult yielded last
+                    result = item
         except Exception as e:
-            logger.exception("Orchestrator error for session %s", session_id)
+            logger.exception("Orchestrator streaming error for session %s", session_id)
             await ws.send_json({"type": "error", "message": str(e)})
             return
 
-        # Hand off to TTS endpoint via the session queue
-        await session.tts_queue.put(response_text)
+        # Signal TTS loop that this turn's sentences are all queued
+        await session.tts_queue.put(TURN_END)
+        logger.info("[TIMING] LLM+stream session=%s %.3fs", session_id, time.perf_counter() - t_llm_start)
 
-        await ws.send_json(
-            {
-                "type": "done",
-                "transcript": final_transcript,
-                "response": response_text,
-                "resolver": _serialize_resolver_results(result.resolver_results),
-                "order": result.order_state_snapshot,
-            }
-        )
+        if result is None:
+            logger.error("process_turn_streaming yielded no TurnResult session=%s", session_id)
+            return
+
+        # Record turn analytics asynchronously — does not block the voice response
+        asyncio.create_task(_record_voice_turn(
+            ws.app.state.db_url,
+            session.client_session_id,
+            session.restaurant_id,
+            session.table_id,
+            result.resolver_results,
+        ))
+
+        done_message = {
+            "type": "done",
+            "transcript": final_transcript,
+            "response": result.llm_response.response_text,
+            "resolver": _serialize_resolver_results(result.resolver_results),
+            "order": result.order_state_snapshot,
+            "client_session_id": session.client_session_id,
+        }
+        try:
+            await ws.send_json(done_message)
+        except (WebSocketDisconnect, RuntimeError):
+            logger.warning("STT done message lost — client disconnected session=%s", session_id)
         logger.info(
             "STT turn complete session=%s transcript=%r",
             session_id,
@@ -214,7 +364,10 @@ async def voice_stt(ws: WebSocket, session_id: str) -> None:
         # Sarvam returned no transcript (silence, timeout, or empty audio).
         # Signal the client so it can reset the PTT button.
         logger.info("STT no speech detected session=%s", session_id)
-        await ws.send_json({"type": "no_speech"})
+        try:
+            await ws.send_json({"type": "no_speech"})
+        except (WebSocketDisconnect, RuntimeError):
+            pass  # Client already gone, nothing to do
 
 
 # ---------------------------------------------------------------------------
@@ -237,7 +390,7 @@ async def voice_tts(ws: WebSocket, session_id: str) -> None:
 
     # Lazy TTS init — connect to Sarvam on first client WS connection
     if not session.tts_handler.is_configured:
-        config = mgr._configs[session.restaurant_id]
+        config = mgr.get_restaurant_config(session)
         try:
             await session.tts_handler.configure(config.language_code, config.speaker)
             session.tts_handler.start_keepalive()
@@ -249,21 +402,36 @@ async def voice_tts(ws: WebSocket, session_id: str) -> None:
 
     try:
         while True:
-            # Wait for the next response text queued by the STT endpoint
-            text = await session.tts_queue.get()
+            item = await session.tts_queue.get()
 
-            if text is None:
-                # Shutdown sentinel put by end_session()
+            if item is None:
+                # Shutdown sentinel from end_session()
                 break
 
+            if item is TURN_END:
+                # All sentences for this turn have been spoken — notify client
+                try:
+                    await ws.send_json({"type": "speech_complete"})
+                    logger.debug("TTS speech_complete for session %s", session_id)
+                except (WebSocketDisconnect, RuntimeError):
+                    logger.info("TTS client disconnected before speech_complete session=%s", session_id)
+                continue
+
+            # Regular sentence string — speak it
+            text: str = item
             try:
                 async for audio_chunk in session.tts_handler.speak(text):
-                    await ws.send_bytes(audio_chunk)
-                await ws.send_json({"type": "speech_complete"})
-                logger.debug("TTS speech_complete for session %s", session_id)
+                    try:
+                        await ws.send_bytes(audio_chunk)
+                    except (WebSocketDisconnect, RuntimeError):
+                        logger.info("TTS client disconnected during audio stream session=%s", session_id)
+                        break
             except Exception as e:
                 logger.exception("TTS speak error session=%s", session_id)
-                await ws.send_json({"type": "error", "message": str(e)})
+                try:
+                    await ws.send_json({"type": "error", "message": str(e)})
+                except (WebSocketDisconnect, RuntimeError):
+                    logger.info("TTS client disconnected before error message session=%s", session_id)
 
     except WebSocketDisconnect:
         logger.info("TTS client disconnected: session=%s", session_id)

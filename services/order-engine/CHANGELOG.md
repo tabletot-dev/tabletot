@@ -6,6 +6,71 @@ All notable changes to the Menu Resolver project.
 
 ## [Unreleased]
 
+### Added
+
+- **Voice turns analytics** (`backend/routers/voice.py`, `supabase/migrations/0020`) — after each STT turn, a `voice_turns` row is written fire-and-forget to Supabase. Captures `resolved_items` (items successfully added/removed) and `unresolved_phrases` (NoMatch inputs). No raw transcript stored — DPDP compliance for pilot. Silent turns (greeting, question, no ordering intent) are skipped. Write failure never blocks the voice response.
+- **`_record_voice_turn()` helper** (`backend/routers/voice.py`) — async function that translates `ResolverCall` results into the analytics schema and calls psycopg2 in a thread pool. Logs at `DEBUG` on failure.
+
+### Changed
+
+- **Menu overlay uses `restaurant_id` + normalised name** (`src/loader.py`) — `load_menu_overlay_from_db` now accepts a `restaurant_id` parameter and queries `menu_items` directly without a JOIN to `external_id_mapping`. Overlay keys are `normalize(item_name)` instead of Petpooja `external_id`. `apply_overlay` builds a `name_to_id` translation map before mutating the index. Silver SSC price/active changes in the POS now propagate to the voice engine within 5 minutes. See ADR 0012.
+- **Per-restaurant overlay in `_load_restaurant_menus` and `_refresh_loop`** (`backend/main.py`) — `load_menu_overlay_from_db` called inside the per-restaurant loop with `cfg.db_restaurant_id`, matching the fix in `_refresh_loop` and `/admin/refresh-menu`. Previously fetched a shared cross-restaurant overlay before the loop.
+- **`/admin/refresh-menu` per-restaurant loop** (`backend/main.py`) — overlay load moved inside the restaurant loop with `db_restaurant_id`. Previously loaded a global overlay outside the loop.
+- **Zero-match log level** (`src/loader.py`) — `apply_overlay` logs `WARNING` (not `DEBUG`) when no DB items match JSON menu entries, ensuring misconfiguration is visible under the default `INFO` log level.
+- **`restaurants.json`** — `roast-ccx-hyd` entry removed. Silver Specialty Coffee is the sole active restaurant for the pilot.
+- **App title** (`backend/main.py`) — changed from `"Roast CCx Voice Backend"` to `"Tabletot Voice Engine"`.
+- **Test fixtures** — all 6 unit test files updated from `roast-ccx-hyd.json` to `silver-ssc-hyd.json`. `test_session_manager.py` `db_restaurant_id` updated to Silver's UUID.
+- **CLI defaults** — all 4 CLI files and `scripts/test_voice_pipeline.py` updated from `--restaurant roast-ccx-hyd` to `silver-ssc-hyd`.
+- **Import scripts** (`scripts/import_menu.py`, `scripts/import_aliases.py`) — `MENU_FILE` updated to `silver-ssc-hyd.json`; `import_aliases.py` `RESTAURANT_ID` updated to Silver's UUID. Running either script no longer silently imports Roast CCx data.
+
+### Added
+
+- **Silver UUID aligned** (`backend/config/restaurants.json`) — `db_restaurant_id` for `silver-ssc-hyd` updated from `73a32fde...` to `b22b5d53-6dd8-4f5b-8276-2e828cd1ab91` to match the pinned value in migration 0014 and the kiosk `.env.local`. The mismatch caused every `/voice/session/start` call to return 404 ("Restaurant not found in config").
+
+- **Per-restaurant voice persona** (`backend/config/restaurants.json`, `src/llm/prompts/system_prompt.py`, `src/orchestrator.py`, `src/llm/base.py`, all three providers, `voice_agent/restaurant_config.py`, `voice_agent/session_manager.py`) — Pass 2 (response generation) now uses a per-restaurant `voice_persona` field from `restaurants.json` instead of a hardcoded "Roast CCx" identity. Pass 1 (intent extraction) is fully generic — no restaurant name anywhere. Adding a new restaurant persona = one JSON field, no code change. Falls back to a neutral generic persona if the field is absent.
+  - `RestaurantConfig` dataclass gains optional `voice_persona: str | None` field.
+  - `Orchestrator.__init__` accepts `voice_persona` and threads it through every Pass 2 call.
+  - `LLMProvider.generate_response` and `generate_response_stream` signatures updated on base class and all three provider implementations.
+  - Silver, Roast CCx, and Sozo personas written and committed to `restaurants.json`.
+
+- **LLM prompt guardrails for public use** (`src/llm/prompts/system_prompt.py`) — four new rule sections added to the Pass 2 system prompt for unmonitored public kiosk use:
+  - **Scope** — redirects off-topic customer speech (politics, personal topics, etc.) back to the menu.
+  - **Decorum** — stay warm and professional regardless of customer tone; never repeat or escalate inappropriate language.
+  - **Role Integrity** — ignore prompt injection attempts ("ignore your instructions", "pretend you are", "act as", etc.) embedded in customer speech.
+  - **Privacy** — do not acknowledge or repeat personal information a customer may share (name, phone, etc.).
+
+- **Root-level `TODOs.md`** — consolidated project-wide deferred items (infrastructure, kiosk, POS, order-engine) into a single file at the repo root.
+
+- **LAN / tablet dev setup** (`apps/kiosk/src/lib/voice/api.ts`, `apps/kiosk/.env.example`) — `VITE_ORDER_ENGINE_HTTP` and `VITE_ORDER_ENGINE_WS` env vars make the order-engine URL configurable at build time. Defaults to `localhost`; override with the Mac's LAN IP for on-device tablet testing without touching source code.
+
+### Added (previous)
+
+- **LLM response streaming → TTS pipelining** (`src/orchestrator.py`, `src/llm/base.py`, `src/llm/claude_provider.py`, `backend/routers/voice.py`, `voice_agent/session_manager.py`) — Pass 2 (response generation) now streams sentence-by-sentence directly into the TTS queue, cutting ~1–2s off perceived latency. First TTS audio starts before the LLM finishes generating the full response.
+  - `Orchestrator.process_turn_streaming()` — new async generator: runs `_resolve()` (Pass 1 + resolver) in a thread, then streams Pass 2 sentences via `provider.generate_response_stream()`.
+  - `LLMProvider.generate_response_stream()` — new non-abstract method on the base class. Default fallback calls `generate_response()` and yields the full text as one chunk; Claude overrides with true streaming via `AsyncAnthropic`.
+  - `src/llm/_sentence_splitter.py` — shared `split_buffer()` / `drain_buffer()` helpers used by all three providers. Splits on `.?!।！？`.
+  - TTS queue protocol: queue now carries `str | TURN_END | None`. Sentences arrive as `str`; `TURN_END` sentinel triggers `speech_complete` after the last sentence; `None` remains the shutdown signal.
+  - `process_turn()` is **unchanged** — CLI and all unit tests use it unmodified.
+
+- **OpenAI and Gemini providers fully implemented** (`src/llm/openai_provider.py`, `src/llm/gemini_provider.py`) — both support the two-pass flow and `generate_response_stream()`. Gemini uses the current `google-genai` SDK (not the deprecated `google-generativeai` which was retired Nov 2025).
+
+- **Multi-provider switching via env vars** (`backend/main.py`, `voice_agent/session_manager.py`, `.env.example`) — set `LLM_PROVIDER=claude|openai|gemini` and `LLM_MODEL=<model-name>` in `.env`, restart the backend. No code changes needed. Backend auto-selects the correct API key env var (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY`).
+
+- **Silver voice intent test suite** (`tests/test_silver_voice_intents.py`) — 15 tests covering all kiosk intents against the real Silver Specialty Coffee menu: single add, multi-add, qty add, remove, remove-not-in-order, modify qty up/down, ambiguous (bagel), no-match, ask-menu, confirm empty, confirm with items, and a full 4-turn happy path. No API calls, no audio — runs offline in <0.1s.
+  - Resolver behaviour note: `"coffee"` → Silver Cold Coffee (confident, not ambiguous); `"espresso"` → Silver Espresso (alias); `"bagel"` → Ambiguous (Veggie / Egg, both score=100).
+
+- **Voice pipeline latency instrumentation** (`backend/routers/voice.py`) — `[TIMING]` log lines at INFO level for STT duration, first-sentence-to-TTS, and LLM+stream total. Grep `\[TIMING\]` in backend logs for per-stage breakdown.
+
+### Added (previous)
+
+- **Silver Specialty Coffee restaurant** (`backend/config/restaurants.json`) — added `silver-ssc-hyd` entry with `language_code: en-IN`, `speaker: rohan`, and `db_restaurant_id: b22b5d53-6dd8-4f5b-8276-2e828cd1ab91`. The `db_restaurant_id` field lets `SessionManager._resolve_restaurant_slug` accept the Supabase UUID sent by the kiosk (`VITE_RESTAURANT_ID`) in addition to the slug key, fixing a 404 on `POST /voice/session/start`.
+- **DB alias loading** (`src/loader.py`) — `MenuIndex` now loads item aliases from the `menu_item_aliases` Supabase table (scoped by `restaurant_id`) in addition to aliases defined in the menu JSON. Refreshes every 5 minutes; falls back to JSON-only aliases on DB error.
+- **Menu from Supabase DB** (`src/loader.py`) — menu items are loaded from the `menu_items` Supabase table with a 5-minute cache and `menu.json` fallback for offline/dev use.
+
+### Fixed
+
+- **Voice 404 on session start** — `POST /voice/session/start` returned 404 when the kiosk sent a Supabase UUID as `restaurant_id` (instead of the slug key). Root cause: `restaurants.json` had no `db_restaurant_id` field for Silver, so `_resolve_restaurant_slug` found no match. Fixed by adding the field; no code changes required.
+
 ### Changed
 
 - **Two-pass LLM flow in Orchestrator** (`src/orchestrator.py`, `src/llm/`) — the customer-facing reply is now generated AFTER the resolver runs, eliminating hallucinated confirmations.

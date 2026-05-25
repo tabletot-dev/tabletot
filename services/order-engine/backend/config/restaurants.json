@@ -1,18 +1,21 @@
 {
-  "roast-ccx-hyd": {
-    "name": "Roast CCx Hyderabad",
-    "language_code": "en-IN",
-    "speaker": "rohan",
-    "menu_path": "menus/roast-ccx-hyd.json",
-    "fallback_language_code": "hi-IN",
-    "fallback_speaker": "ishita"
-  },
   "sozo-cakery-banjara": {
     "name": "Sozo Cakery & Cafe Banjara Hills",
     "language_code": "en-IN",
     "speaker": "rohan",
     "menu_path": "menus/sozo-cakery-banjara.json",
     "fallback_language_code": "hi-IN",
-    "fallback_speaker": "ishita"
+    "fallback_speaker": "ishita",
+    "voice_persona": "You are the customer-facing voice of Sozo Cakery & Cafe, a cozy bakery-cafe in Banjara Hills, Hyderabad. Cheerful, warm, and enthusiastic about the bakes and beverages on offer."
+  },
+  "silver-ssc-hyd": {
+    "name": "Silver Specialty Coffee Hyderabad",
+    "language_code": "en-IN",
+    "speaker": "rohan",
+    "menu_path": "menus/silver-ssc-hyd.json",
+    "fallback_language_code": "hi-IN",
+    "fallback_speaker": "ishita",
+    "db_restaurant_id": "b22b5d53-6dd8-4f5b-8276-2e828cd1ab91",
+    "voice_persona": "You are the customer-facing voice of Silver Specialty Coffee, a specialty coffee bar in Hyderabad. Knowledgeable about coffee, calm, and unhurried — like a barista who takes their craft seriously but stays approachable."
   }
 }

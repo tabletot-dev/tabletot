@@ -20,7 +20,7 @@ interface Category {
 interface MenuItem {
   id: string;
   item_id: string;
-  item_name: string;
+  name: string;
   category: string;
   price: number;
 }
@@ -98,9 +98,9 @@ export function POSLayout() {
     // Fetch menu items
     const { data: itemsData, error: itemsError } = await supabase
       .from('menu_items')
-      .select('id, item_id, item_name, category, price')
-      .eq('is_available', true)
-      .order('item_name');
+      .select('id, name, category, price')
+      .eq('active', true)
+      .order('name');
 
     if (itemsError) {
       toast({ title: 'Error', description: itemsError.message, variant: 'destructive' });
@@ -129,7 +129,7 @@ export function POSLayout() {
           id: crypto.randomUUID(),
           menu_item_id: item.id,
           item_id: item.item_id,
-          name: item.item_name,
+          name: item.name,
           price: item.price,
           quantity: 1,
         },
@@ -492,7 +492,7 @@ export function POSLayout() {
                 >
                   <div className="space-y-2">
                     <h3 className="font-medium text-sm leading-tight line-clamp-2 group-hover:text-primary transition-colors">
-                      {item.item_name}
+                      {item.name}
                     </h3>
                     <p className="font-bold text-lg text-primary">₹{item.price}</p>
                   </div>

@@ -333,7 +333,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--restaurant",
-        default="roast-ccx-hyd",
+        default="silver-ssc-hyd",
         help="Restaurant ID",
     )
     parser.add_argument(

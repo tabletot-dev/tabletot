@@ -1,165 +1,414 @@
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useDeviceNavigation } from "@/hooks/useDeviceNavigation";
 import IdleScreen from "@/components/screens/IdleScreen";
+import HomeView from "@/components/screens/HomeView";
 import ListeningScreen from "@/components/screens/ListeningScreen";
-import MenuScreen from "@/components/screens/MenuScreen";
-import ItemDetailScreen from "@/components/screens/ItemDetailScreen";
-import OrderSummaryScreen from "@/components/screens/OrderSummaryScreen";
-import BillSummaryScreen from "@/components/screens/BillSummaryScreen";
-import OrderConfirmationScreen from "@/components/screens/OrderConfirmationScreen";
-import VoiceAssistantOverlay from "@/components/VoiceAssistantOverlay";
-import SessionIdleScreen from "@/components/screens/SessionIdleScreen";
+import MenuView from "@/components/screens/MenuView";
+import DetailView from "@/components/screens/DetailView";
+import CartView from "@/components/screens/CartView";
+import BillView from "@/components/screens/BillView";
+import ConfirmationView from "@/components/screens/ConfirmationView";
+import WaitingView from "@/components/screens/WaitingView";
+import GamesView from "@/components/screens/GamesView";
+import ConversationStartersView from "@/components/screens/ConversationStartersView";
+import CompletionNudge from "@/components/CompletionNudge";
+import VoiceOrderButton from "@/components/VoiceOrderButton";
+import MiniCartSidebar from "@/components/MiniCartSidebar";
+import VoiceConversationPanel from "@/components/VoiceConversationPanel";
+import AppShell from "@/components/AppShell";
+import { RestaurantProvider, useRestaurant } from "@/lib/restaurantContext";
+import { supabase } from "@/integrations/supabase/client";
+import { resolveTableId, startSession } from "@/lib/orderSubmission";
+import { findMatchingRule, type CompletionRule, type MatchedSuggestion } from "@/lib/completionRules";
+import { useMenu, MenuProvider } from "@/lib/menuStore";
+import type { DoneMessage, OrderSnapshot } from "@/lib/voice/types";
 import { MenuItem } from "@/data/menu";
 
-const voiceHints = [
-  "Need suggestions?",
-  "Talk to your waiter",
-  "Ask about allergens",
-  "What's popular?",
-  "Get a recommendation",
-];
+const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
+const TABLE_ID =
+  new URLSearchParams(window.location.search).get("table") ||
+  (import.meta.env.VITE_TABLE_ID as string) ||
+  "T1";
 
-const VoiceFab = ({ onClick }: { onClick: () => void }) => {
-  const [hintIndex, setHintIndex] = useState(0);
-  const [visible, setVisible] = useState(true);
+function normalizeName(name: string): string {
+  return name.toLowerCase().replace(/[-–—]/g, " ").replace(/\s+/g, " ").trim();
+}
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setVisible(false);
-      setTimeout(() => {
-        setHintIndex((i) => (i + 1) % voiceHints.length);
-        setVisible(true);
-      }, 300);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
 
-  return (
-    <div className="absolute bottom-4 right-4 z-40 flex items-center gap-2">
-      <div
-        className={`bg-secondary/10 border border-secondary/30 px-3 py-1.5 transition-all duration-300 ${
-          visible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-2"
-        }`}
-        style={{ boxShadow: "0 0 12px hsl(var(--tt-orange) / 0.3), 0 0 4px hsl(var(--tt-orange) / 0.15)" }}
-      >
-        <span className="text-[10px] tracking-wider text-secondary font-display font-semibold whitespace-nowrap" style={{ textShadow: "0 0 8px hsl(var(--tt-orange) / 0.6)" }}>
-          {voiceHints[hintIndex]}
-        </span>
-      </div>
-      <button
-        onClick={onClick}
-        className="w-12 h-12 border border-secondary bg-secondary/10 flex items-center justify-center cursor-pointer transition-all hover:bg-secondary/20 active:bg-secondary/30 group flex-shrink-0 animate-mic-pulse-glow"
-        style={{ boxShadow: "0 0 16px hsl(var(--tt-orange) / 0.4), 0 0 6px hsl(var(--tt-orange) / 0.2)" }}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-secondary group-hover:text-secondary transition-colors" style={{ filter: "drop-shadow(0 0 4px hsl(var(--tt-orange) / 0.6))" }}>
-          <rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M5 10a7 7 0 0014 0" stroke="currentColor" strokeWidth="1.5" fill="none" />
-          <line x1="12" y1="17" x2="12" y2="22" stroke="currentColor" strokeWidth="1.5" />
-        </svg>
-      </button>
-    </div>
-  );
-};
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const id = window.setTimeout(() => reject(new Error("Timed out")), ms);
+    promise.then(
+      (value) => {
+        window.clearTimeout(id);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(id);
+        reject(error);
+      },
+    );
+  });
+}
 
-const Index = () => {
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+const IndexInner = () => {
+  const { voiceEnabled } = useRestaurant();
   const {
     currentScreen,
     setCurrentScreen,
     selectedItem,
     setSelectedItem,
     order,
-    setOrder,
     addToOrder,
     updateQuantity,
     removeItem,
     confirmOrder,
+    endSession,
     totalBill,
     sessionTotal,
+    currentRoundOrderId,
     previousOrders,
-    setPreviousOrders,
-    voiceOverlayOpen,
-    setVoiceOverlayOpen,
   } = useDeviceNavigation();
+
+  const [activeSessionKey, setActiveSessionKey] = useState<string | null>(null);
+
+  // When POS staff close the session (status → 'closed'), reset the kiosk screen.
+  useEffect(() => {
+    if (!activeSessionKey) return;
+    const channel = supabase
+      .channel(`session-status-${activeSessionKey}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "sessions",
+          filter: `session_key=eq.${activeSessionKey}`,
+        },
+        (payload) => {
+          if ((payload.new as { status: string }).status === "closed") {
+            endSession();
+            setActiveSessionKey(null);
+          }
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [activeSessionKey, endSession]);
+
+  const { items: menuItems, pairingsByItemId, anchors } = useMenu();
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [completionSuggestion, setCompletionSuggestion] = useState<MatchedSuggestion | null>(null);
+  const [voiceConversationOpen, setVoiceConversationOpen] = useState(false);
+  const [voiceSessionId, setVoiceSessionId] = useState<string | null>(null);
+
+  const prevVoiceOrderRef = useRef<OrderSnapshot | null>(null);
+
+  const handleAddToOrder = useCallback(
+    (item: MenuItem) => {
+      addToOrder(item);
+    },
+    [addToOrder],
+  );
+
+  const getDetailPairings = useCallback(
+    (item: MenuItem) => {
+      const directPairings = pairingsByItemId[item.id] ?? [];
+      if (directPairings.length > 0) return directPairings;
+
+      const fallback =
+        anchors.find((anchor) => anchor.id !== item.id && anchor.anchorType === "signature") ??
+        anchors.find((anchor) => anchor.id !== item.id && anchor.anchorType === "chef_pick") ??
+        menuItems.find((entry) => entry.id !== item.id && /coffee|tea|chocolate/i.test(entry.category)) ??
+        menuItems.find((entry) => entry.id !== item.id);
+
+      return fallback ? [{ ...fallback, context: "suggested_pairing", priority: 0 }] : [];
+    },
+    [anchors, menuItems, pairingsByItemId],
+  );
+
+  const handleVoiceDone = useCallback(
+    (msg: DoneMessage) => {
+      const prev = prevVoiceOrderRef.current;
+      const next = msg.order;
+      prevVoiceOrderRef.current = next;
+
+      for (const nextItem of next.items) {
+        const prevQty = prev?.items.find((i) => i.item_id === nextItem.item_id)?.quantity ?? 0;
+        const delta = nextItem.quantity - prevQty;
+        if (delta === 0) continue;
+
+        const normalized = normalizeName(nextItem.item_name);
+        const kioskItem = menuItems.find((m) => normalizeName(m.name) === normalized);
+        if (!kioskItem) continue;
+
+        if (delta > 0) {
+          addToOrder(kioskItem, delta);
+        } else {
+          const newQty = (order.find((o) => o.id === kioskItem.id)?.quantity ?? 0) + delta;
+          if (newQty <= 0) {
+            removeItem(kioskItem.id);
+          } else {
+            updateQuantity(kioskItem.id, delta);
+          }
+        }
+      }
+
+      if (prev) {
+        for (const prevItem of prev.items) {
+          const stillExists = next.items.find((i) => i.item_id === prevItem.item_id);
+          if (!stillExists) {
+            const normalized = normalizeName(prevItem.item_name);
+            const kioskItem = menuItems.find((m) => normalizeName(m.name) === normalized);
+            if (kioskItem) removeItem(kioskItem.id);
+          }
+        }
+      }
+
+    },
+    [menuItems, order, addToOrder, updateQuantity, removeItem],
+  );
 
   const handleSelectItem = useCallback(
     (item: MenuItem) => {
       setSelectedItem(item);
       setCurrentScreen("item-detail");
     },
-    [setSelectedItem, setCurrentScreen]
+    [setSelectedItem, setCurrentScreen],
   );
 
-  const handleAddToOrder = useCallback(() => {
+  const handleAddFromDetail = useCallback(() => {
     if (selectedItem) {
-      addToOrder(selectedItem);
-      setCurrentScreen("order-summary");
+      handleAddToOrder(selectedItem);
     }
-  }, [selectedItem, addToOrder, setCurrentScreen]);
+  }, [selectedItem, handleAddToOrder]);
 
-  const handleConfirmOrder = useCallback(() => {
-    confirmOrder();
-  }, [confirmOrder]);
+  const getOrderQuantity = useCallback(
+    (itemId: string) => order.find((item) => item.id === itemId)?.quantity ?? 0,
+    [order],
+  );
 
-  const handleReset = useCallback(() => {
-    setCurrentScreen("idle");
-  }, [setCurrentScreen]);
+  const handleConfirmOrder = useCallback(async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      try {
+        const { data: rules } = await withTimeout(
+          supabase
+            .from("meal_completion_rules")
+            .select("rule_name, condition, suggestion")
+            .eq("restaurant_id", RESTAURANT_ID)
+            .eq("active", true)
+            .order("priority", { ascending: false }),
+          700,
+        );
+
+        const match = findMatchingRule((rules ?? []) as CompletionRule[], order);
+        if (match) {
+          setCompletionSuggestion(match);
+          return;
+        }
+      } catch {
+        // DB error — fall through to submit
+      }
+      await wait(1150);
+      await confirmOrder();
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [isSubmitting, order, confirmOrder]);
+
+  const [toast, setToast] = useState<string>("");
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(""), 2200);
+    return () => clearTimeout(id);
+  }, [toast]);
 
   const renderScreen = () => {
     switch (currentScreen) {
       case "idle":
+        return <IdleScreen onActivate={() => setCurrentScreen("home")} />;
+      case "home":
         return (
-          <IdleScreen onActivate={() => setCurrentScreen("menu")} />
+          <HomeView
+            onStartOrdering={async () => {
+              await startSession();
+              setActiveSessionKey(sessionStorage.getItem("tt_session_id"));
+              setCurrentScreen("menu");
+            }}
+            onSelectItem={(item) => {
+              setSelectedItem(item);
+              setCurrentScreen("item-detail");
+            }}
+            onInfoToast={(msg) => setToast(msg)}
+            tableId={TABLE_ID}
+          />
         );
       case "listening":
-        return (
+        return voiceEnabled ? (
           <ListeningScreen
+            order={order}
+            restaurantId={RESTAURANT_ID}
+            tableId={TABLE_ID}
+            onVoiceDone={handleVoiceDone}
             onDone={() => setCurrentScreen("menu")}
           />
-        );
-      case "menu":
-        return (
-          <MenuScreen onSelect={handleSelectItem} onAddToCart={addToOrder} onUpdateQuantity={updateQuantity} order={order} />
-        );
-      case "item-detail":
-        return selectedItem ? (
-          <ItemDetailScreen
-            item={selectedItem}
-            onAdd={handleAddToOrder}
-            onBack={() => setCurrentScreen("menu")}
-          />
         ) : null;
+
+      case "menu":
+      case "item-detail":
+        return (
+          <div className="browse-layout">
+            <div className="browse-main">
+              <div className="browse-content">
+                <MenuView
+                  onSelect={handleSelectItem}
+                  onAddToCart={handleAddToOrder}
+                  onUpdateQuantity={updateQuantity}
+                  order={order}
+                  voiceDock={
+                    voiceEnabled ? (
+                      <VoiceOrderButton
+                        onDone={handleVoiceDone}
+                        order={order}
+                        restaurantId={RESTAURANT_ID}
+                        tableId={TABLE_ID}
+                        onOpenConversation={() => setVoiceConversationOpen(true)}
+                        onSessionReady={setVoiceSessionId}
+                      />
+                    ) : null
+                  }
+                  voicePanel={
+                    voiceEnabled && voiceConversationOpen ? (
+                      <VoiceConversationPanel
+                        sessionId={voiceSessionId}
+                        items={menuItems}
+                        order={order}
+                        getQuantity={getOrderQuantity}
+                        onClose={() => setVoiceConversationOpen(false)}
+                        onDone={handleVoiceDone}
+                        onAddItem={handleAddToOrder}
+                        onUpdateQuantity={updateQuantity}
+                        onSelectItem={handleSelectItem}
+                      />
+                    ) : null
+                  }
+                />
+                <AnimatePresence>
+                  {currentScreen === "item-detail" && selectedItem && (
+                    <motion.div
+                      className="item-modal-backdrop"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      onClick={() => setCurrentScreen("menu")}
+                    >
+                      <motion.div
+                        className="item-modal-panel"
+                        initial={{ y: 28, opacity: 0, scale: 0.98 }}
+                        animate={{ y: 0, opacity: 1, scale: 1 }}
+                        exit={{ y: 28, opacity: 0, scale: 0.98 }}
+                        transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <DetailView
+                          item={selectedItem}
+                          pairings={getDetailPairings(selectedItem)}
+                          onAdd={handleAddFromDetail}
+                          onAddItem={handleAddToOrder}
+                          onUpdateQuantity={updateQuantity}
+                          getQuantity={getOrderQuantity}
+                          onBack={() => setCurrentScreen("menu")}
+                          onSelectPairing={handleSelectItem}
+                          onOpenVoice={() => {
+                            setCurrentScreen("menu");
+                            setVoiceConversationOpen(true);
+                          }}
+                        />
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+
+              </div>
+
+              <MiniCartSidebar
+                order={order}
+                previousOrders={previousOrders}
+                onAddToCart={handleAddToOrder}
+                onUpdateQuantity={updateQuantity}
+                onSelect={handleSelectItem}
+                onGoToCart={() => setCurrentScreen("order-summary")}
+              />
+            </div>
+          </div>
+        );
+
       case "order-summary":
         return (
-          <OrderSummaryScreen
+          <CartView
             order={order}
             totalBill={totalBill}
             previousOrders={previousOrders}
-            sessionTotal={sessionTotal}
+            isSubmitting={isSubmitting}
             onContinue={() => setCurrentScreen("menu")}
             onConfirm={handleConfirmOrder}
             onUpdateQuantity={updateQuantity}
-            onRemoveItem={removeItem}
           />
         );
       case "order-confirmation":
-        return <OrderConfirmationScreen onReset={() => setCurrentScreen("session-idle")} />;
-      case "session-idle":
         return (
-          <SessionIdleScreen
-            onOrderMore={() => setCurrentScreen("menu")}
-            onRequestBill={() => setCurrentScreen("bill-summary")}
+          <ConfirmationView
+            onReset={() => setCurrentScreen("session-idle")}
           />
         );
+      case "session-idle":
+        return (
+          <WaitingView
+            previousOrders={previousOrders}
+            currentRoundOrderId={currentRoundOrderId}
+            onOrderMore={() => setCurrentScreen("menu")}
+            onRequestBill={() => setCurrentScreen("bill-summary")}
+            onGames={() => setCurrentScreen("games")}
+            onConversationStarters={() => setCurrentScreen("conversation-starters")}
+            onRequestWater={async () => {
+              try {
+                const tableUuid = await resolveTableId();
+                await supabase.from("table_requests").insert({
+                  table_id: tableUuid,
+                  request_type: "water",
+                  status: "pending",
+                });
+              } catch {
+                // non-blocking — toast still shows
+              }
+              setToast("Water requested");
+            }}
+          />
+        );
+      case "games":
+        return <GamesView onBack={() => setCurrentScreen("session-idle")} />;
+      case "conversation-starters":
+        return <ConversationStartersView onBack={() => setCurrentScreen("session-idle")} />;
       case "bill-summary":
         return (
-          <BillSummaryScreen
+          <BillView
             previousOrders={previousOrders}
             sessionTotal={sessionTotal}
             onClose={() => {
-              setOrder([]);
-              setPreviousOrders([]);
-              setCurrentScreen("idle");
+              endSession();
+              setActiveSessionKey(null);
             }}
+            onContinueOrdering={() => setCurrentScreen("menu")}
           />
         );
       default:
@@ -168,43 +417,56 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      {/* Device frame - 7" portrait display simulation */}
-      <div className="relative w-[360px] h-[640px] bg-background border border-border overflow-hidden flex flex-col">
-        {/* Status bar */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-background">
-          <span className="font-display text-[10px] tracking-[0.3em] uppercase text-muted-foreground">
-            Table-Tot
-          </span>
-          {order.length > 0 && currentScreen !== "order-summary" && currentScreen !== "order-confirmation" && (
-            <button
-              onClick={() => setCurrentScreen("order-summary")}
-              className="text-[10px] tracking-wider uppercase text-primary border border-primary px-3 py-1 cursor-pointer active:bg-primary/10"
+    <AppShell
+      currentScreen={currentScreen}
+      onNavigate={setCurrentScreen}
+      tableId={TABLE_ID}
+      showStatusReturn={previousOrders.length > 0 && currentScreen !== "session-idle"}
+    >
+      <div style={{ position: "relative", height: "100%" }}>
+        {renderScreen()}
+
+        {completionSuggestion && (
+          <CompletionNudge
+            suggestionText={completionSuggestion.text}
+            suggestedItemId={completionSuggestion.itemId}
+            cartValueAtShow={totalBill}
+            onAdd={(item) => {
+              handleAddToOrder(item);
+              setCompletionSuggestion(null);
+              setCurrentScreen("order-summary");
+            }}
+            onSkip={() => {
+              setCompletionSuggestion(null);
+              confirmOrder();
+            }}
+          />
+        )}
+
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              className="toast"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
             >
-              Cart ({order.reduce((s, o) => s + o.quantity, 0)})
-            </button>
+              {toast}
+            </motion.div>
           )}
-          <span className="text-[10px] font-mono text-muted-foreground">
-            {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          </span>
-        </div>
-
-        {/* Screen content */}
-        <div className="flex-1 overflow-hidden relative">
-          {renderScreen()}
-          {/* Voice assistant overlay */}
-          {currentScreen === "menu" && voiceOverlayOpen && (
-            <VoiceAssistantOverlay onClose={() => setVoiceOverlayOpen(false)} />
-          )}
-          {/* Voice FAB on menu */}
-          {currentScreen === "menu" && !voiceOverlayOpen && (
-            <VoiceFab onClick={() => setVoiceOverlayOpen(true)} />
-          )}
-        </div>
+        </AnimatePresence>
       </div>
-
-    </div>
+    </AppShell>
   );
 };
+
+const Index = () => (
+  <RestaurantProvider>
+    <MenuProvider>
+      <IndexInner />
+    </MenuProvider>
+  </RestaurantProvider>
+);
 
 export default Index;

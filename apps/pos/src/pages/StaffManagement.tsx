@@ -23,8 +23,14 @@ interface StaffMember {
   created_at: string;
 }
 
+interface UserRole {
+  user_id: string;
+  role: string;
+}
+
 export default function StaffManagement() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [userRoles, setUserRoles] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -43,17 +49,34 @@ export default function StaffManagement() {
 
   const fetchStaff = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('staff')
-      .select('*')
-      .order('full_name');
+    const [staffRes, rolesRes] = await Promise.all([
+      supabase.from('staff').select('*').order('full_name'),
+      supabase.from('user_roles').select('user_id, role'),
+    ]);
 
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (staffRes.error) {
+      toast({ title: 'Error', description: staffRes.error.message, variant: 'destructive' });
     } else {
-      setStaff(data || []);
+      setStaff(staffRes.data || []);
+    }
+    if (!rolesRes.error) {
+      const map = new Map<string, string>();
+      (rolesRes.data as UserRole[] || []).forEach(r => map.set(r.user_id, r.role));
+      setUserRoles(map);
     }
     setLoading(false);
+  };
+
+  const updatePosRole = async (userId: string, role: string) => {
+    const { error } = await supabase
+      .from('user_roles')
+      .upsert({ user_id: userId, role }, { onConflict: 'user_id' });
+    if (error) {
+      toast({ title: 'Error updating POS role', description: error.message, variant: 'destructive' });
+    } else {
+      setUserRoles(prev => new Map(prev).set(userId, role));
+      toast({ title: 'POS role updated' });
+    }
   };
 
   const resetForm = () => {
@@ -315,7 +338,8 @@ export default function StaffManagement() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Role</TableHead>
+                  <TableHead>Job Role</TableHead>
+                  <TableHead>POS Login Role</TableHead>
                   <TableHead>Phone</TableHead>
                   <TableHead className="text-center">Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -336,6 +360,25 @@ export default function StaffManagement() {
                       <Badge className={getRoleBadgeColor(member.role)}>
                         {member.role}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {member.user_id ? (
+                        <Select
+                          value={userRoles.get(member.user_id) ?? ''}
+                          onValueChange={(role) => updatePosRole(member.user_id, role)}
+                        >
+                          <SelectTrigger className="h-8 w-32">
+                            <SelectValue placeholder="No access" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="staff">Staff</SelectItem>
+                            <SelectItem value="manager">Manager</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No login</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {member.phone || '-'}

@@ -17,7 +17,7 @@ from src.loader import MenuIndex, load_menu
 from src.normalizer import normalize
 from src.resolver import resolve
 
-MENU_PATH = Path(__file__).parent.parent / "menus" / "roast-ccx-hyd.json"
+MENU_PATH = Path(__file__).parent.parent / "menus" / "silver-ssc-hyd.json"
 
 
 HELP_TEXT = """

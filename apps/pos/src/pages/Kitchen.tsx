@@ -26,12 +26,37 @@ export default function Kitchen() {
   useEffect(() => {
     fetchTickets();
 
-    // Subscribe to real-time updates
     const channel = supabase
       .channel('kot_tickets')
+      // New pending tickets appended directly — no round-trip fetch needed.
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'kot_tickets' },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'kot_tickets',
+          filter: 'status=eq.pending',
+        },
+        (payload) => {
+          setTickets((prev) => [...prev, payload.new as KOTTicket]);
+        }
+      )
+      // Status changes and deletions require a full refresh to reflect current DB state.
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'kot_tickets' },
+        (payload) => {
+          const updated = payload.new as KOTTicket;
+          if (updated.status === 'completed') {
+            setTickets((prev) => prev.filter((t) => t.id !== updated.id));
+          } else {
+            setTickets((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'kot_tickets' },
         () => fetchTickets()
       )
       .subscribe();
@@ -65,8 +90,8 @@ export default function Kitchen() {
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Updated', description: `Order marked as ${status}` });
-      fetchTickets();
+      toast({ title: 'Updated', description: `Ticket marked as ${status}` });
+      // Realtime UPDATE handler updates state; trigger also syncs orders.status
     }
   };
 

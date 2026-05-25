@@ -4,7 +4,7 @@ Hold SPACE to speak (PTT). Release to finalize and get audio response.
 Press Q (or Ctrl+C) to quit.
 
 Usage:
-    python -m cli.voice [--url http://localhost:8000] [--restaurant roast-ccx-hyd] [--table T-01]
+    python -m cli.voice [--url http://localhost:8000] [--restaurant silver-ssc-hyd] [--table T-01]
 
 macOS note: Terminal needs Accessibility permission.
     System Settings → Privacy & Security → Accessibility → enable Terminal (or iTerm2).
@@ -288,7 +288,7 @@ async def run(base_url: str, restaurant_id: str, table_id: str) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Voice CLI — Stage 3 PTT test harness")
     parser.add_argument("--url", default="http://localhost:8000", help="Backend base URL")
-    parser.add_argument("--restaurant", default="roast-ccx-hyd", help="Restaurant ID")
+    parser.add_argument("--restaurant", default="silver-ssc-hyd", help="Restaurant ID")
     parser.add_argument("--table", default="T-01", help="Table ID")
     args = parser.parse_args(argv)
 

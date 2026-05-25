@@ -19,40 +19,36 @@ const ItemDetailScreen = ({ item, onAdd, onBack }: ItemDetailScreenProps) => {
         </button>
       </div>
 
-      {/* Image */}
-      <div className="relative">
-        <img
-          src={item.image}
-          alt={item.name}
-          className="w-full aspect-[4/3] object-cover"
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            background: "linear-gradient(to top, hsl(var(--background)), transparent 50%)",
-          }}
-        />
-        <div className="absolute bottom-4 right-4 bg-primary px-3 py-1">
-          <span className="font-display text-lg font-bold text-primary-foreground">
-            ${item.price.toFixed(2)}
+      {/* Details */}
+      <div className="flex-1 px-4 py-6 flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="font-display text-2xl font-bold text-foreground tracking-wide leading-tight">
+            {item.name}
+          </h1>
+          <span className="font-display text-xl font-bold text-primary flex-shrink-0">
+            ₹{item.price}
           </span>
         </div>
-      </div>
 
-      {/* Details */}
-      <div className="flex-1 px-4 py-4 flex flex-col gap-3">
-        <h1 className="font-display text-2xl font-bold text-foreground tracking-wide">
-          {item.name}
-        </h1>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          {item.description}
-        </p>
         <span className="self-start text-xs tracking-widest uppercase border border-border px-2 py-1 text-muted-foreground">
-          {item.category}
+          {item.category.replace(/_/g, ' ')}
         </span>
+
+        {item.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {item.tags.map((tag) => (
+              <span
+                key={tag}
+                className="text-xs border border-border px-2 py-1 text-muted-foreground tracking-wider"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Action bar - large touch target */}
+      {/* Action bar */}
       <div className="border-t border-border p-4">
         <button
           onClick={onAdd}

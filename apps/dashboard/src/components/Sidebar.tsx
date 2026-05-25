@@ -1,0 +1,44 @@
+import { NavLink } from 'react-router-dom';
+import { BarChart2, Anchor, GitFork, CheckSquare } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+const navItems = [
+  { to: '/curation/anchors', label: 'Anchor Items', icon: Anchor },
+  { to: '/curation/pairings', label: 'Item Pairings', icon: GitFork },
+  { to: '/curation/rules', label: 'Completion Rules', icon: CheckSquare },
+  { to: '/curation/aov', label: 'AOV Lift', icon: BarChart2 },
+];
+
+export function Sidebar() {
+  return (
+    <aside className="w-56 min-h-screen border-r border-border bg-card flex flex-col shrink-0">
+      <div className="px-4 py-5 border-b border-border">
+        <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">Table-Tot</p>
+        <p className="text-sm font-semibold text-foreground mt-0.5">Dashboard</p>
+      </div>
+
+      <nav className="flex-1 px-2 py-4 space-y-0.5">
+        <p className="px-2 py-1.5 text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">
+          Curation
+        </p>
+        {navItems.map(({ to, label, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-2.5 rounded-md px-2 py-2 text-sm transition-colors',
+                isActive
+                  ? 'bg-primary/10 text-primary font-medium'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )
+            }
+          >
+            <Icon className="h-4 w-4 shrink-0" />
+            {label}
+          </NavLink>
+        ))}
+      </nav>
+    </aside>
+  );
+}

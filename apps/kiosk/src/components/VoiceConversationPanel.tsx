@@ -1,0 +1,313 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import DietMark from "@/components/DietMark";
+import { itemImageBackground } from "@/lib/menuImages";
+import type { MenuItem } from "@/data/menu";
+import type { DoneMessage } from "@/lib/voice/types";
+import { startSttPress, type SttPressHandle } from "@/lib/voice/sttClient";
+
+interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+interface Turn {
+  role: "user" | "ai";
+  text: string;
+  matchedItems?: MenuItem[];
+}
+
+type PressStatus = "idle" | "recording" | "processing";
+
+interface VoiceConversationPanelProps {
+  sessionId: string | null;
+  items: MenuItem[];
+  order: CartItem[];
+  getQuantity: (itemId: string) => number;
+  onClose: () => void;
+  onDone: (msg: DoneMessage) => void;
+  onAddItem: (item: MenuItem) => void;
+  onUpdateQuantity: (itemId: string, delta: number) => void;
+  onSelectItem: (item: MenuItem) => void;
+}
+
+function normalizeName(name: string) {
+  return name.toLowerCase().replace(/[-–—]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+export default function VoiceConversationPanel({
+  sessionId,
+  items,
+  order,
+  getQuantity,
+  onClose,
+  onDone,
+  onAddItem,
+  onUpdateQuantity,
+  onSelectItem,
+}: VoiceConversationPanelProps) {
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const [pressStatus, setPressStatus] = useState<PressStatus>("idle");
+  const [levels, setLevels] = useState<number[]>(() =>
+    Array.from({ length: 18 }, (_, i) => 0.28 + (i % 4) * 0.08),
+  );
+
+  const sttRef = useRef<SttPressHandle | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const streamEndRef = useRef<HTMLDivElement | null>(null);
+  const pressStatusRef = useRef<PressStatus>("idle");
+
+  useEffect(() => {
+    pressStatusRef.current = pressStatus;
+  }, [pressStatus]);
+
+  // Animated waveform while recording
+  useEffect(() => {
+    if (pressStatus !== "recording") {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      return;
+    }
+
+    const tick = () => {
+      const now = Date.now() / 260;
+      setLevels((cur) =>
+        cur.map((_, i) => {
+          const wave = Math.sin(now + i * 0.72) * 0.5 + 0.5;
+          const pulse = Math.sin(now * 1.6 + i * 0.24) * 0.5 + 0.5;
+          return 0.18 + wave * 0.52 + pulse * 0.22;
+        }),
+      );
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    };
+  }, [pressStatus]);
+
+  // Auto-scroll to bottom on new turns
+  useEffect(() => {
+    streamEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [turns]);
+
+  const handleSttMessage = useCallback(
+    (msg: Parameters<Parameters<typeof startSttPress>[1]>[0]) => {
+      if (msg.type === "done") {
+        const matchedNames = msg.resolver
+          .filter((r): r is Extract<typeof r, { type: "match" }> => r.type === "match")
+          .map((r) => normalizeName(r.item));
+        const matchedItems = items.filter((item) =>
+          matchedNames.some((n) => n === normalizeName(item.name)),
+        );
+
+        setTurns((prev) => [
+          ...prev,
+          { role: "user", text: msg.transcript },
+          { role: "ai", text: msg.response, matchedItems },
+        ]);
+        onDone(msg);
+        setPressStatus("idle");
+      } else if (msg.type === "no_speech" || msg.type === "error") {
+        setPressStatus("idle");
+      }
+    },
+    [items, onDone],
+  );
+
+  const handleToggle = useCallback(async () => {
+    if (!sessionId) return;
+
+    if (pressStatusRef.current === "recording") {
+      setPressStatus("processing");
+      try {
+        await sttRef.current?.stop();
+      } catch {
+        setPressStatus("idle");
+      }
+    } else if (pressStatusRef.current === "idle") {
+      setPressStatus("recording");
+      try {
+        const cartItems = order.map((item) => ({
+          id: item.id,
+          name: item.name,
+          qty: item.quantity,
+          price: item.price,
+        }));
+        const handle = await startSttPress(sessionId, handleSttMessage, cartItems);
+        sttRef.current = handle;
+      } catch {
+        setPressStatus("idle");
+      }
+    }
+  }, [sessionId, order, handleSttMessage]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      sttRef.current?.stop().catch(() => {});
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
+  const canSpeak = sessionId !== null && pressStatus !== "processing";
+
+  const inputLabel =
+    pressStatus === "recording"
+      ? "Listening…"
+      : pressStatus === "processing"
+        ? "Processing…"
+        : !sessionId
+          ? "Connecting…"
+          : "Tap to speak";
+
+  return (
+    <motion.section
+      className="voice-conversation-panel"
+      initial={{ opacity: 0, y: 18, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 18, scale: 0.98 }}
+      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+      aria-label="Voice conversation"
+    >
+      <div className="voice-conversation-head">
+        <div>
+          <p className="eyebrow">Voice channel</p>
+          <h2>Ask Tabletot</h2>
+        </div>
+        <button
+          type="button"
+          className="voice-conversation-close"
+          onClick={onClose}
+          aria-label="Close voice conversation"
+        >
+          X
+        </button>
+      </div>
+
+      <div className="voice-conversation-stream">
+        {turns.length === 0 && (
+          <>
+            <div className="voice-chat-row ai">
+              <div className="voice-chat-bubble">
+                Tell me what you need. I can recommend meals by appetite, diet,
+                group size, allergens, or pairings.
+              </div>
+            </div>
+            <div className="voice-prompt-grid">
+              <span>Suggest a post-gym meal</span>
+              <span>Recommend for three people</span>
+              <span>High calorie or light?</span>
+              <span>One veg, one non-veg</span>
+            </div>
+          </>
+        )}
+
+        {turns.map((turn, i) => (
+          <div key={i}>
+            <div className={`voice-chat-row ${turn.role}`}>
+              <div className="voice-chat-bubble">{turn.text}</div>
+            </div>
+
+            {turn.role === "ai" && turn.matchedItems && turn.matchedItems.length > 0 && (
+              <div className="voice-recommendation-grid">
+                {turn.matchedItems.slice(0, 2).map((item) => (
+                  <article key={item.id} className="voice-recommendation-card">
+                    <button
+                      type="button"
+                      className="voice-recommendation-media"
+                      style={{ background: itemImageBackground(item) }}
+                      onClick={() => onSelectItem(item)}
+                      aria-label={`View ${item.name}`}
+                    />
+                    <div className="voice-recommendation-body">
+                      <p className="eyebrow">Recommended</p>
+                      <div className="voice-recommendation-title">
+                        <DietMark isVeg={item.is_veg} compact />
+                        <strong>{item.name}</strong>
+                      </div>
+                      <div className="voice-recommendation-action">
+                        <span>₹{item.price}</span>
+                        {getQuantity(item.id) > 0 ? (
+                          <div
+                            className="card-stepper voice-stepper"
+                            aria-label={`${item.name} quantity`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => onUpdateQuantity(item.id, -1)}
+                              aria-label={`Decrease ${item.name}`}
+                            >
+                              −
+                            </button>
+                            <span>{getQuantity(item.id)}</span>
+                            <button
+                              type="button"
+                              onClick={() => onUpdateQuantity(item.id, 1)}
+                              aria-label={`Increase ${item.name}`}
+                            >
+                              +
+                            </button>
+                          </div>
+                        ) : (
+                          <button type="button" onClick={() => onAddItem(item)}>
+                            Add
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+        <div ref={streamEndRef} />
+      </div>
+
+      <div className={`voice-conversation-input${pressStatus === "recording" ? " is-listening" : ""}`}>
+        <div className="voice-input-status">
+          <span className="voice-live-dot" aria-hidden="true" />
+          <span>{inputLabel}</span>
+        </div>
+        <div className="voice-frequency-meter" aria-hidden="true">
+          {levels.map((level, index) => (
+            <span
+              key={index}
+              style={{
+                height: `${Math.round(10 + level * 38)}px`,
+                opacity: 0.52 + level * 0.48,
+              }}
+            />
+          ))}
+        </div>
+        <button
+          type="button"
+          className={`voice-stop-btn${pressStatus === "idle" ? "" : " muted"}`}
+          onClick={() => void handleToggle()}
+          disabled={!canSpeak}
+          aria-label={pressStatus === "recording" ? "Stop recording" : "Start recording"}
+        >
+          {pressStatus === "processing" ? (
+            <svg className="ptt-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <circle
+                cx="12" cy="12" r="10"
+                stroke="currentColor" strokeWidth="2"
+                strokeDasharray="31.4" strokeDashoffset="10"
+              />
+            </svg>
+          ) : pressStatus === "recording" ? (
+            "Stop"
+          ) : (
+            "Speak"
+          )}
+        </button>
+      </div>
+    </motion.section>
+  );
+}

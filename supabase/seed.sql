@@ -1,4 +1,16 @@
-insert into restaurant_tables (table_number, status) values
-  ('T1', 'available'),
-  ('T2', 'available'),
-  ('T3', 'available');
+-- seed.sql
+--
+-- All restaurant, menu, table, pairing, and anchor data for Silver Specialty Coffee
+-- is seeded by migrations 0009–0015. Nothing needs to be added here.
+--
+-- To create dev users (admin + staff) for local development:
+--   supabase db reset                    -- applies migrations + this seed
+--   supabase auth user create            -- or use Supabase Studio → Authentication
+--
+-- Recommended dev accounts:
+--   admin@silver.local   password: devadmin123   → assign role 'admin'   in user_roles
+--   staff@silver.local   password: devstaff123   → assign role 'staff'   in user_roles
+--   manager@silver.local password: devmgr123     → assign role 'manager' in user_roles
+--
+-- After creating auth users, insert their UUIDs into user_roles:
+--   INSERT INTO user_roles (user_id, role) VALUES ('<uuid>', 'admin');

@@ -45,6 +45,7 @@ class MockProvider(LLMProvider):
         turn_outcomes: list[dict],
         current_order: dict | None,
         detected_language: str,
+        voice_persona: str | None = None,
     ) -> LLMResponse:
         self.last_response_inputs.append({
             "transcript": transcript,
@@ -82,8 +83,8 @@ def _make_response(intents: list[dict], text: str = "ok") -> LLMResponse:
 
 
 def _build_orchestrator(responses: list[LLMResponse]) -> tuple[Orchestrator, MockProvider]:
-    menu_data = json.loads(Path("menus/roast-ccx-hyd.json").read_text(encoding="utf-8"))
-    index = load_menu("menus/roast-ccx-hyd.json")
+    menu_data = json.loads(Path("menus/silver-ssc-hyd.json").read_text(encoding="utf-8"))
+    index = load_menu("menus/silver-ssc-hyd.json")
     provider = MockProvider(responses)
     orch = Orchestrator(provider, index, menu_data)
     return orch, provider

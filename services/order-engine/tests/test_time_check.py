@@ -8,7 +8,7 @@ import pytest
 from src.loader import load_menu
 from src.time_check import check_availability
 
-MENU_PATH = Path(__file__).parent.parent / "menus" / "roast-ccx-hyd.json"
+MENU_PATH = Path(__file__).parent.parent / "menus" / "silver-ssc-hyd.json"
 
 
 @pytest.fixture(scope="module")

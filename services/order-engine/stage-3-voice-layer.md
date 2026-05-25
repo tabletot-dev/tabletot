@@ -175,7 +175,7 @@ Persistent per table session.
 
 ### `POST /voice/session/start`
 ```json
-{ "table_id": "T-01", "restaurant_id": "roast-ccx-hyd" }
+{ "table_id": "T-01", "restaurant_id": "silver-ssc-hyd" }
 ```
 Creates a session, opens persistent TTS WebSocket, returns `session_id`.
 
@@ -265,8 +265,8 @@ SARVAM_API_KEY=your_sarvam_api_subscription_key
 
 ```json
 {
-  "roast-ccx-hyd": {
-    "name": "Roast CCx Hyderabad",
+  "silver-ssc-hyd": {
+    "name": "Silver Specialty Coffee Hyderabad",
     "language_code": "hi-IN",
     "speaker": "meera",
     "fallback_language_code": "en-IN",

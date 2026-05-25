@@ -1,350 +1,434 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, TrendingUp, TrendingDown, Download, Calendar, IndianRupee, ShoppingBag, Users } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Loader2, Download, Calendar, IndianRupee, ShoppingBag,
+  TrendingUp, MoonStar, AlertTriangle,
+} from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
 
-interface SalesData {
-  date: string;
-  orders: number;
-  revenue: number;
+interface HistoryOrder {
+  id: string;
+  order_id: string | null;
+  table_no: string | null;
+  items_json: any;
+  subtotal: number;
+  tax: number;
+  discount: number;
+  total: number;
+  payment_method: string | null;
+  amount_paid: number;
+  tips: number;
+  source: string | null;
+  order_created_at: string | null;
+  created_at: string;
 }
 
-interface TopItem {
-  name: string;
-  quantity: number;
-  revenue: number;
+interface OpenOrder {
+  id: string;
+  order_id: string | null;
+  table_no: string | null;
+  status: string;
+  total: number;
+  created_at: string;
+}
+
+function todayStart() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString();
+}
+
+function periodStart(period: string): string {
+  const now = new Date();
+  switch (period) {
+    case 'today': { const d = new Date(now); d.setHours(0, 0, 0, 0); return d.toISOString(); }
+    case 'week':  { const d = new Date(now); d.setDate(d.getDate() - 7); return d.toISOString(); }
+    case 'month': { const d = new Date(now); d.setMonth(d.getMonth() - 1); return d.toISOString(); }
+    case 'year':  { const d = new Date(now); d.setFullYear(d.getFullYear() - 1); return d.toISOString(); }
+    default:      { const d = new Date(now); d.setHours(0, 0, 0, 0); return d.toISOString(); }
+  }
 }
 
 export default function Reports() {
-  const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('today');
-  const [salesData, setSalesData] = useState<SalesData[]>([]);
-  const [topItems, setTopItems] = useState<TopItem[]>([]);
-  const [summary, setSummary] = useState({
-    totalRevenue: 0,
-    totalOrders: 0,
-    avgOrderValue: 0,
-    totalItems: 0,
-  });
+  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<HistoryOrder[]>([]);
 
-  useEffect(() => {
-    fetchReportData();
-  }, [period]);
+  // Day close tab
+  const [openOrders, setOpenOrders] = useState<OpenOrder[]>([]);
+  const [todayOrders, setTodayOrders] = useState<HistoryOrder[]>([]);
+  const [dayCloseLoading, setDayCloseLoading] = useState(true);
+  const [closing, setClosing] = useState(false);
 
-  const getDateRange = () => {
-    const now = new Date();
-    let start: Date;
-    
-    switch (period) {
-      case 'today':
-        start = new Date(now.setHours(0, 0, 0, 0));
-        break;
-      case 'week':
-        start = new Date(now.setDate(now.getDate() - 7));
-        break;
-      case 'month':
-        start = new Date(now.setMonth(now.getMonth() - 1));
-        break;
-      case 'year':
-        start = new Date(now.setFullYear(now.getFullYear() - 1));
-        break;
-      default:
-        start = new Date(now.setHours(0, 0, 0, 0));
-    }
-    
-    return start.toISOString();
-  };
+  // ── Summary tab data ────────────────────────────────────────────────────────
 
-  const fetchReportData = async () => {
+  const fetchOrders = useCallback(async () => {
     setLoading(true);
-    const startDate = getDateRange();
-
-    const { data: orders, error } = await supabase
-      .from('orders')
+    const { data, error } = await supabase
+      .from('order_history')
       .select('*')
-      .gte('created_at', startDate)
-      .eq('status', 'completed');
+      .gte('order_created_at', periodStart(period))
+      .order('order_created_at', { ascending: false });
 
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      setLoading(false);
-      return;
+    } else {
+      setOrders(data || []);
     }
-
-    if (orders) {
-      // Calculate summary
-      const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
-      const totalOrders = orders.length;
-      
-      // Count total items from items_json
-      let totalItems = 0;
-      const itemCounts: { [key: string]: { quantity: number; revenue: number } } = {};
-      
-      orders.forEach(order => {
-        if (Array.isArray(order.items_json)) {
-          order.items_json.forEach((item: any) => {
-            const qty = item.quantity || item.qty || 1;
-            const name = item.name || item.item_name;
-            const price = item.price || 0;
-            
-            totalItems += qty;
-            
-            if (name) {
-              if (!itemCounts[name]) {
-                itemCounts[name] = { quantity: 0, revenue: 0 };
-              }
-              itemCounts[name].quantity += qty;
-              itemCounts[name].revenue += price * qty;
-            }
-          });
-        }
-      });
-
-      setSummary({
-        totalRevenue,
-        totalOrders,
-        avgOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
-        totalItems,
-      });
-
-      // Top items
-      const sortedItems = Object.entries(itemCounts)
-        .map(([name, data]) => ({ name, ...data }))
-        .sort((a, b) => b.quantity - a.quantity)
-        .slice(0, 10);
-      
-      setTopItems(sortedItems);
-
-      // Group by date for chart
-      const dateGroups: { [key: string]: { orders: number; revenue: number } } = {};
-      orders.forEach(order => {
-        const date = new Date(order.created_at!).toLocaleDateString();
-        if (!dateGroups[date]) {
-          dateGroups[date] = { orders: 0, revenue: 0 };
-        }
-        dateGroups[date].orders++;
-        dateGroups[date].revenue += order.total || 0;
-      });
-
-      setSalesData(
-        Object.entries(dateGroups).map(([date, data]) => ({
-          date,
-          ...data,
-        }))
-      );
-    }
-
     setLoading(false);
+  }, [period]);
+
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+
+  // ── Day close tab data ──────────────────────────────────────────────────────
+
+  const fetchDayCloseData = useCallback(async () => {
+    setDayCloseLoading(true);
+    const [openRes, todayRes] = await Promise.all([
+      supabase
+        .from('orders')
+        .select('id, order_id, table_no, status, total, created_at')
+        .in('status', ['new', 'preparing', 'ready', 'served'])
+        .order('created_at'),
+      supabase
+        .from('order_history')
+        .select('*')
+        .gte('created_at', todayStart())
+        .order('created_at', { ascending: false }),
+    ]);
+    setOpenOrders(openRes.data || []);
+    setTodayOrders(todayRes.data || []);
+    setDayCloseLoading(false);
+  }, []);
+
+  useEffect(() => { fetchDayCloseData(); }, [fetchDayCloseData]);
+
+  const handleCloseDay = async () => {
+    if (openOrders.length > 0) {
+      const confirmed = window.confirm(
+        `${openOrders.length} order(s) are still open. Close day anyway and mark them completed?`,
+      );
+      if (!confirmed) return;
+    }
+    setClosing(true);
+    const { error } = await supabase
+      .from('orders')
+      .update({ status: 'completed' })
+      .in('status', ['new', 'preparing', 'ready', 'served']);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Day closed', description: 'All open orders marked completed.' });
+      fetchDayCloseData();
+    }
+    setClosing(false);
   };
 
-  const exportReport = () => {
-    // Simple CSV export
-    const headers = ['Date', 'Orders', 'Revenue'];
-    const rows = salesData.map(d => [d.date, d.orders, d.revenue.toFixed(2)]);
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-    
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `sales-report-${period}.csv`;
+  // ── Derived metrics ─────────────────────────────────────────────────────────
+
+  const totalRevenue = orders.reduce((s, o) => s + (o.total ?? 0), 0);
+  const totalOrders = orders.length;
+  const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+  const itemCounts: Record<string, { quantity: number; revenue: number }> = {};
+  orders.forEach((o) => {
+    if (!Array.isArray(o.items_json)) return;
+    o.items_json.forEach((item: any) => {
+      const name = item.name || item.item_name;
+      const qty = Number(item.quantity || item.qty) || 1;
+      const price = Number(item.price) || 0;
+      if (!name || name.startsWith('[')) return;
+      if (!itemCounts[name]) itemCounts[name] = { quantity: 0, revenue: 0 };
+      itemCounts[name].quantity += qty;
+      itemCounts[name].revenue += price * qty;
+    });
+  });
+  const topItems = Object.entries(itemCounts)
+    .map(([name, d]) => ({ name, ...d }))
+    .sort((a, b) => b.quantity - a.quantity)
+    .slice(0, 10);
+
+  const dateGroups: Record<string, { orders: number; revenue: number }> = {};
+  orders.forEach((o) => {
+    const date = new Date(o.order_created_at || o.created_at).toLocaleDateString('en-IN');
+    if (!dateGroups[date]) dateGroups[date] = { orders: 0, revenue: 0 };
+    dateGroups[date].orders++;
+    dateGroups[date].revenue += o.total ?? 0;
+  });
+  const dailySales = Object.entries(dateGroups)
+    .map(([date, d]) => ({ date, ...d }))
+    .reverse();
+
+  // Payment method breakdown (today)
+  const paymentBreakdown: Record<string, { count: number; total: number }> = {};
+  todayOrders.forEach((o) => {
+    const m = o.payment_method || 'unknown';
+    if (!paymentBreakdown[m]) paymentBreakdown[m] = { count: 0, total: 0 };
+    paymentBreakdown[m].count++;
+    paymentBreakdown[m].total += o.total ?? 0;
+  });
+
+  const exportCSV = () => {
+    const rows = [
+      ['Date', 'Order ID', 'Table', 'Payment', 'Total'],
+      ...orders.map((o) => [
+        new Date(o.order_created_at || o.created_at).toLocaleDateString('en-IN'),
+        o.order_id ?? '',
+        o.table_no ?? '',
+        o.payment_method ?? '',
+        (o.total ?? 0).toFixed(2),
+      ]),
+    ];
+    const csv = rows.map((r) => r.join(',')).join('\n');
+    const a = Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })),
+      download: `sales-${period}-${new Date().toISOString().slice(0, 10)}.csv`,
+    });
     a.click();
-    
-    toast({ title: 'Exported', description: 'Report downloaded successfully' });
+    toast({ title: 'Exported', description: 'CSV downloaded' });
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-heading font-bold">Reports</h1>
-          <p className="text-muted-foreground">Analyze your sales and performance</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-36">
-              <Calendar className="h-4 w-4 mr-2" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="week">Last 7 Days</SelectItem>
-              <SelectItem value="month">Last 30 Days</SelectItem>
-              <SelectItem value="year">Last Year</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" onClick={exportReport}>
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-        </div>
-      </div>
+      <h1 className="text-3xl font-bold">Reports</h1>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Revenue</p>
-                <p className="text-3xl font-bold mt-1">₹{summary.totalRevenue.toFixed(0)}</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                <IndianRupee className="h-6 w-6 text-emerald-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="summary">
+        <TabsList>
+          <TabsTrigger value="summary"><TrendingUp className="h-4 w-4 mr-2" />Summary</TabsTrigger>
+          <TabsTrigger value="history"><Calendar className="h-4 w-4 mr-2" />History</TabsTrigger>
+          <TabsTrigger value="dayclose"><MoonStar className="h-4 w-4 mr-2" />Day Close</TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Orders</p>
-                <p className="text-3xl font-bold mt-1">{summary.totalOrders}</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-blue-500/20 flex items-center justify-center">
-                <ShoppingBag className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* ── Summary ────────────────────────────────────────────────── */}
+        <TabsContent value="summary" className="space-y-6 mt-6">
+          <div className="flex items-center justify-between">
+            <Select value={period} onValueChange={setPeriod}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="week">Last 7 days</SelectItem>
+                <SelectItem value="month">Last 30 days</SelectItem>
+                <SelectItem value="year">Last year</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" onClick={exportCSV} disabled={orders.length === 0}>
+              <Download className="h-4 w-4 mr-2" />Export CSV
+            </Button>
+          </div>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Avg Order Value</p>
-                <p className="text-3xl font-bold mt-1">₹{summary.avgOrderValue.toFixed(0)}</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-purple-500/20 flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Items Sold</p>
-                <p className="text-3xl font-bold mt-1">{summary.totalItems}</p>
-              </div>
-              <div className="h-12 w-12 rounded-full bg-amber-500/20 flex items-center justify-center">
-                <Users className="h-6 w-6 text-amber-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Daily Sales */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Daily Sales</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {salesData.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                No sales data for this period
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {salesData.slice(0, 7).map((day, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+          {loading ? (
+            <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                  <CardContent className="p-6 flex items-center justify-between">
                     <div>
-                      <p className="font-medium">{day.date}</p>
-                      <p className="text-sm text-muted-foreground">{day.orders} orders</p>
+                      <p className="text-sm text-muted-foreground">Revenue</p>
+                      <p className="text-3xl font-bold mt-1">₹{totalRevenue.toFixed(0)}</p>
                     </div>
-                    <p className="font-bold text-lg">₹{day.revenue.toFixed(0)}</p>
-                  </div>
-                ))}
+                    <div className="h-12 w-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                      <IndianRupee className="h-6 w-6 text-emerald-600" />
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-6 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Orders</p>
+                      <p className="text-3xl font-bold mt-1">{totalOrders}</p>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-blue-500/20 flex items-center justify-center">
+                      <ShoppingBag className="h-6 w-6 text-blue-600" />
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-6 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Avg Order Value</p>
+                      <p className="text-3xl font-bold mt-1">₹{avgOrderValue.toFixed(0)}</p>
+                    </div>
+                    <div className="h-12 w-12 rounded-full bg-purple-500/20 flex items-center justify-center">
+                      <TrendingUp className="h-6 w-6 text-purple-600" />
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Top Selling Items */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Selling Items</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {topItems.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                No items sold in this period
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader><CardTitle>Daily Sales</CardTitle></CardHeader>
+                  <CardContent>
+                    {dailySales.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-12">No sales in this period</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {dailySales.slice(0, 7).map((d) => (
+                          <div key={d.date} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                            <div>
+                              <p className="font-medium">{d.date}</p>
+                              <p className="text-sm text-muted-foreground">{d.orders} orders</p>
+                            </div>
+                            <p className="font-bold text-lg">₹{d.revenue.toFixed(0)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader><CardTitle>Top Items</CardTitle></CardHeader>
+                  <CardContent>
+                    {topItems.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-12">No items in this period</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {topItems.map((item, idx) => (
+                          <div key={item.name} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <Badge variant="secondary" className="w-7 h-7 rounded-full flex items-center justify-center text-xs shrink-0">
+                                {idx + 1}
+                              </Badge>
+                              <div>
+                                <p className="font-medium">{item.name}</p>
+                                <p className="text-sm text-muted-foreground">{item.quantity} sold</p>
+                              </div>
+                            </div>
+                            <p className="font-bold">₹{item.revenue.toFixed(0)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {topItems.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Badge variant="secondary" className="w-8 h-8 rounded-full flex items-center justify-center">
-                        {idx + 1}
-                      </Badge>
+            </>
+          )}
+        </TabsContent>
+
+        {/* ── History ────────────────────────────────────────────────── */}
+        <TabsContent value="history" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Completed Orders</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /></div>
+              ) : orders.length === 0 ? (
+                <p className="text-center text-muted-foreground py-12">No completed orders in this period</p>
+              ) : (
+                <div className="space-y-2">
+                  {orders.map((o) => (
+                    <div key={o.id} className="flex items-center justify-between p-3 bg-muted/40 rounded-lg text-sm">
                       <div>
-                        <p className="font-medium">{item.name}</p>
-                        <p className="text-sm text-muted-foreground">{item.quantity} sold</p>
+                        <p className="font-medium">{o.order_id ?? o.id.slice(0, 8)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {o.table_no ? `Table ${o.table_no}` : 'Takeaway'} &bull;{' '}
+                          {new Date(o.order_created_at || o.created_at).toLocaleString('en-IN')}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold">₹{(o.total ?? 0).toFixed(0)}</p>
+                        <p className="text-xs text-muted-foreground capitalize">{o.payment_method ?? '—'}</p>
                       </div>
                     </div>
-                    <p className="font-bold">₹{item.revenue.toFixed(0)}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* Performance Indicators */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Performance Summary</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center p-6 bg-muted/50 rounded-lg">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <TrendingUp className="h-5 w-5 text-emerald-600" />
-                <span className="text-emerald-600 font-medium">+15%</span>
-              </div>
-              <p className="text-sm text-muted-foreground">vs previous period</p>
-              <p className="font-medium mt-1">Revenue Growth</p>
-            </div>
-            <div className="text-center p-6 bg-muted/50 rounded-lg">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <TrendingUp className="h-5 w-5 text-blue-600" />
-                <span className="text-blue-600 font-medium">+8%</span>
-              </div>
-              <p className="text-sm text-muted-foreground">vs previous period</p>
-              <p className="font-medium mt-1">Order Growth</p>
-            </div>
-            <div className="text-center p-6 bg-muted/50 rounded-lg">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <TrendingDown className="h-5 w-5 text-red-600" />
-                <span className="text-red-600 font-medium">-2%</span>
-              </div>
-              <p className="text-sm text-muted-foreground">vs previous period</p>
-              <p className="font-medium mt-1">Avg Order Value</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        {/* ── Day Close ──────────────────────────────────────────────── */}
+        <TabsContent value="dayclose" className="mt-6 space-y-6">
+          {dayCloseLoading ? (
+            <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+          ) : (
+            <>
+              {/* Open orders warning */}
+              {openOrders.length > 0 && (
+                <Card className="border-amber-500">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-amber-600">
+                      <AlertTriangle className="h-5 w-5" />
+                      {openOrders.length} Open Order{openOrders.length > 1 ? 's' : ''}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {openOrders.map((o) => (
+                        <div key={o.id} className="flex justify-between text-sm p-2 bg-muted/50 rounded">
+                          <span>{o.order_id ?? o.id.slice(0, 8)} {o.table_no ? `· Table ${o.table_no}` : ''}</span>
+                          <Badge variant="outline" className="capitalize">{o.status}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Today's payment breakdown */}
+              <Card>
+                <CardHeader><CardTitle>Today's Takings</CardTitle></CardHeader>
+                <CardContent>
+                  {todayOrders.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">No completed orders today yet.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {Object.entries(paymentBreakdown).map(([method, d]) => (
+                        <div key={method} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                          <div>
+                            <p className="font-medium capitalize">{method}</p>
+                            <p className="text-sm text-muted-foreground">{d.count} order{d.count !== 1 ? 's' : ''}</p>
+                          </div>
+                          <p className="text-lg font-bold">₹{d.total.toFixed(0)}</p>
+                        </div>
+                      ))}
+                      <Separator />
+                      <div className="flex justify-between items-center px-3 font-bold text-lg">
+                        <span>Total</span>
+                        <span>₹{todayOrders.reduce((s, o) => s + (o.total ?? 0), 0).toFixed(0)}</span>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Close day button */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Close Day</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Marks all open orders (new, preparing, ready, served) as completed. Run this at end of service.
+                  </p>
+                  <Button
+                    variant="destructive"
+                    onClick={handleCloseDay}
+                    disabled={closing}
+                  >
+                    {closing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    <MoonStar className="h-4 w-4 mr-2" />
+                    Close Day
+                  </Button>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -92,23 +92,6 @@ export function PaymentModal({ cart, total, orderId, tableId, tableNumber, onClo
 
       if (paymentError) throw paymentError;
 
-      // Sync PAID status to Google Sheets
-      if (orderData?.order_id) {
-        try {
-          const { error: sheetError } = await supabase.functions.invoke('update-order-status-sheet', {
-            body: { 
-              sessionId: orderData.order_id, 
-              status: 'PAID' 
-            }
-          });
-          if (sheetError) {
-            console.error('Failed to update sheet status:', sheetError);
-          }
-        } catch (sheetErr) {
-          console.error('Error syncing to sheet:', sheetErr);
-        }
-      }
-
       // Reset table status to 'available' (Free/green) and clear order reference
       if (tableId) {
         await supabase
