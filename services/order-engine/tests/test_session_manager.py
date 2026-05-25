@@ -17,20 +17,20 @@ from src.loader import load_menu
 from voice_agent.restaurant_config import RestaurantConfig
 from voice_agent.session_manager import SessionManager, VoiceSession
 
-_MENU_PATH = Path(__file__).parent.parent / "menus" / "roast-ccx-hyd.json"
+_MENU_PATH = Path(__file__).parent.parent / "menus" / "silver-ssc-hyd.json"
 _MENU_DATA = json.loads(_MENU_PATH.read_text(encoding="utf-8"))
 _MENU_INDEX = load_menu(_MENU_PATH)
 
 _CONFIGS = {
-    "roast-ccx-hyd": RestaurantConfig(
-        name="Roast CCx Hyderabad",
+    "silver-ssc-hyd": RestaurantConfig(
+        name="Silver Specialty Coffee Hyderabad",
         language_code="hi-IN",
         speaker="meera",
-        menu_path="menus/roast-ccx-hyd.json",
+        menu_path="menus/silver-ssc-hyd.json",
     )
 }
 
-_MENUS = {"roast-ccx-hyd": (_MENU_DATA, _MENU_INDEX)}
+_MENUS = {"silver-ssc-hyd": (_MENU_DATA, _MENU_INDEX)}
 
 
 # ---------------------------------------------------------------------------
@@ -64,11 +64,11 @@ async def test_create_session_returns_voicesession():
 
         with patch("voice_agent.session_manager.create_provider") as mock_create:
             mock_create.return_value = MagicMock()
-            session = await mgr.create_session("T-01", "roast-ccx-hyd")
+            session = await mgr.create_session("T-01", "silver-ssc-hyd")
 
     assert isinstance(session, VoiceSession)
     assert session.table_id == "T-01"
-    assert session.restaurant_id == "roast-ccx-hyd"
+    assert session.restaurant_id == "silver-ssc-hyd"
     assert len(session.session_id) == 32  # uuid hex
 
 
@@ -94,7 +94,7 @@ async def test_get_session_returns_session_after_create():
         )
         with patch("voice_agent.session_manager.create_provider") as mock_create:
             mock_create.return_value = MagicMock()
-            session = await mgr.create_session("T-01", "roast-ccx-hyd")
+            session = await mgr.create_session("T-01", "silver-ssc-hyd")
 
     found = mgr.get_session(session.session_id)
     assert found is session
@@ -113,7 +113,7 @@ async def test_end_session_removes_from_dict():
         )
         with patch("voice_agent.session_manager.create_provider") as mock_create:
             mock_create.return_value = MagicMock()
-            session = await mgr.create_session("T-01", "roast-ccx-hyd")
+            session = await mgr.create_session("T-01", "silver-ssc-hyd")
 
     await mgr.end_session(session.session_id)
 
@@ -133,7 +133,7 @@ async def test_end_session_calls_tts_close():
         )
         with patch("voice_agent.session_manager.create_provider") as mock_create:
             mock_create.return_value = MagicMock()
-            session = await mgr.create_session("T-01", "roast-ccx-hyd")
+            session = await mgr.create_session("T-01", "silver-ssc-hyd")
 
     await mgr.end_session(session.session_id)
 
@@ -154,9 +154,9 @@ async def test_two_concurrent_sessions_have_independent_ids():
         )
         with patch("voice_agent.session_manager.create_provider") as mock_create:
             mock_create.return_value = MagicMock()
-            s1 = await mgr.create_session("T-01", "roast-ccx-hyd")
+            s1 = await mgr.create_session("T-01", "silver-ssc-hyd")
             mock_create.return_value = MagicMock()
-            s2 = await mgr.create_session("T-02", "roast-ccx-hyd")
+            s2 = await mgr.create_session("T-02", "silver-ssc-hyd")
 
     assert s1.session_id != s2.session_id
     assert s1.orchestrator is not s2.orchestrator

@@ -13,6 +13,16 @@ Right now, adding a new restaurant requires editing `restaurants.json` and redep
 
 Blocked on: none. Do this before onboarding a second pilot restaurant.
 
+### Migrate dish images to Supabase Storage
+**Where:** `menu_items.image_url`, Supabase Storage bucket.
+
+Currently `image_url` holds Unsplash placeholder URLs (nullable; kiosk falls back to category gradients). Before the second restaurant, move images to a Supabase Storage bucket (`dish-images` or similar) so images are:
+- Served from the same infrastructure as the DB (no external dependency on Unsplash or any CDN)
+- Organised per restaurant (`silver-ssc-hyd/cold-brew.jpg`, etc.)
+- Manageable from the POS admin (image upload in Menu page)
+
+Post-pilot work: create the bucket, upload Silver SSC images, update `menu_items.image_url` to use Supabase Storage URLs, add file upload to the POS Menu form instead of a URL text field.
+
 ### Multi-table support for kiosk
 **Where:** `apps/kiosk/src/lib/orderSubmission.ts`
 
@@ -32,25 +42,10 @@ Start order-engine with `--host 0.0.0.0`. Restart Vite after changing env vars.
 
 ## Kiosk (`apps/kiosk`)
 
-### POS-driven session end via table status (Phase 2 Option A)
-**Where:** `apps/kiosk/src/components/screens/WaitingView.tsx`
-
-Currently session end is triggered by long-pressing "End Session" on WaitingView (Option B). Option A is cleaner: subscribe to `restaurant_tables.status` via Supabase Realtime; when the POS marks the table `available` (after payment), the kiosk auto-resets to idle. Blocked on: defining the table status lifecycle in the POS.
-
-### session_id rotation on browser refresh
+### session_id rotation on browser refresh *(partially resolved)*
 **Where:** `apps/kiosk/src/lib/orderSubmission.ts`
 
-`sessionStorage.removeItem("tt_session_id")` is called on End Session. But a mid-session browser refresh generates a new UUID, splitting one physical session across two `session_id` values. Acceptable for pilot; fix before multi-session analytics.
-
-### Regenerate Supabase types for apps/pos after migration 0013
-**Where:** `apps/pos/`
-
-Run `supabase gen types typescript --local > src/integrations/supabase/types.ts` in `apps/pos` after migration 0013 is applied. Kiosk types are already regenerated.
-
-### VoiceAssistantOverlay — dead code
-**Where:** `apps/kiosk/src/components/VoiceAssistantOverlay.tsx`
-
-This file is unused — it was the pre-redesign full-screen overlay. Delete once confirmed nothing imports it.
+`startSession()` uses upsert with `ignoreDuplicates: true`, so a refresh within the same tab correctly reuses the existing session row and resumes appending to the same `orders` row via `tt_order_id`. Remaining gap: a hard tab close wipes `sessionStorage` — the next open generates a new `tt_session_id`, orphaning the previous session row in the DB. For pilot this is acceptable; the orphaned session remains `active` until POS closes it. Fix before multi-session analytics.
 
 ### ListeningScreen — max-recording timeout guard
 **Where:** `apps/kiosk/src/components/screens/ListeningScreen.tsx`
@@ -60,7 +55,7 @@ Add a 30s max-recording guard so the sheet doesn't hang indefinitely if the back
 ### Seed image_url from Unsplash
 **Where:** Supabase `menu_items` table
 
-`menu_items.image_url` is nullable; DishCard, CartView, and WaitingView fall back to category-gradient placeholders. The `tabletot-redesign.html` prototype has Unsplash placeholder URLs per dish. Seed via Supabase Studio or a one-off migration once URLs are confirmed.
+`menu_items.image_url` is nullable; DishCard, CartView, and WaitingView fall back to category-gradient placeholders. Seed via Supabase Studio or a one-off migration once URLs are confirmed. See also: "Migrate dish images to Supabase Storage" above for the post-pilot permanent solution.
 
 ### Populate meal_completion_rules (owner session)
 **Where:** Supabase `meal_completion_rules` table
@@ -70,11 +65,6 @@ The CompletionNudge fires only when a matching rule exists. The table is empty u
 ---
 
 ## POS (`apps/pos`)
-
-### BillSummaryScreen — sessionTotal scoping
-**Where:** `apps/pos/src/components/screens/BillSummaryScreen.tsx`
-
-`sessionTotal` currently sums across all tables (wrong). Fix is blocked on the owner conversation about the POS tablet's role at Roast CCx — need to decide whether the POS shows per-table or all-table totals before scoping the query.
 
 ### Petpooja adapter + external_id_mapping
 **Where:** `supabase/`, `services/`
@@ -94,10 +84,20 @@ The examples in `_INTENT_ROLE_AND_FORMAT` use full-meal Indian restaurant items 
 
 ## Pilot Launch Sequence (ordered)
 
-1. Apply migrations 0009 → 0010 (fix cold-brew pairing first) → 0011
-2. Set `VITE_RESTAURANT_ID` to Silver UUID; set `VITE_TABLE_ID`
-3. Seed `image_url` from Unsplash placeholders
-4. ADRs 0004–0008 (solo)
-5. Manual E2E test on Android tablet
+1. ~~Apply migrations 0009–0021~~ ✅ Done — all 21 migrations applied on clean DB reset
+2. ~~Set `VITE_RESTAURANT_ID` to Silver UUID; set `VITE_TABLE_ID`~~ ✅ Done — pinned in migration 0014
+3. Seed `image_url` from Unsplash placeholders (or skip and use gradients for pilot)
+4. ADRs 0004–0008 (solo writeup)
+5. Manual E2E test on Android tablet (LAN setup above)
 6. Owner session — populate `meal_completion_rules`
 7. Pilot launch
+
+---
+
+## Closed / Resolved
+
+- ~~**POS-driven session end via table status**~~ — Implemented. Kiosk subscribes to `sessions` Realtime; POS closes the session on payment or "End Service"; kiosk auto-resets.
+- ~~**Regenerate Supabase types after migration 0013**~~ — Done. Types regenerated after migrations 0017, 0019, 0020, 0021. Both apps current.
+- ~~**VoiceAssistantOverlay dead code**~~ — Deleted.
+- ~~**BillSummaryScreen sessionTotal scoping**~~ — `BillSummaryScreen.tsx` removed in POS refactor. New `Billing.tsx` computes totals per-table from the active order's `items_json`.
+- ~~**Menu.tsx 400 on save**~~ — `item_id` (non-existent column) removed from PATCH payload; `description` column added via migration 0021; import order fixed.

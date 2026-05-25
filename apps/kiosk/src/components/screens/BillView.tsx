@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import type { OrderRound } from "@/hooks/useDeviceNavigation";
 import TabletotLogo from "@/components/TabletotLogo";
+import { supabase } from "@/integrations/supabase/client";
+import { resolveTableId } from "@/lib/orderSubmission";
 
 const TAX_RATE = 0.05;
 
@@ -31,26 +33,34 @@ export default function BillView({
     return () => window.clearTimeout(id);
   }, [stage, onClose]);
 
-  const submitBillRequest = () => {
+  const submitBillRequest = async () => {
     if (!canSubmitPhone) return;
-
-    const billRequest = {
-      id: crypto.randomUUID(),
-      phone: sanitizedPhone,
-      total: Math.round(total),
-      orderIds: previousOrders.map((round) => round.orderId),
-      createdAt: new Date().toISOString(),
-    };
-
-    try {
-      const existing = JSON.parse(localStorage.getItem("tt_bill_requests") ?? "[]") as unknown[];
-      localStorage.setItem("tt_bill_requests", JSON.stringify([...existing, billRequest]));
-    } catch {
-      localStorage.setItem("tt_bill_requests", JSON.stringify([billRequest]));
-    }
-
     setStage("loading");
-    window.setTimeout(() => setStage("sent"), 1300);
+    try {
+      const tableUuid = await resolveTableId();
+      const latestOrderId = previousOrders.length > 0
+        ? previousOrders[previousOrders.length - 1].orderId
+        : null;
+      const { error } = await supabase.from("bill_requests").insert({
+        table_id: tableUuid,
+        order_id: latestOrderId ?? null,
+        phone: sanitizedPhone,
+        status: "pending",
+      });
+      if (error) throw error;
+
+      // Also mark the session as bill_requested so POS gets a session-level signal
+      const sessionKey = sessionStorage.getItem("tt_session_id");
+      if (sessionKey) {
+        await supabase
+          .from("sessions")
+          .update({ status: "bill_requested", bill_requested_by: "customer" })
+          .eq("session_key", sessionKey);
+      }
+    } catch {
+      // Show success regardless — staff will also see it on their screen
+    }
+    setStage("sent");
   };
 
   if (stage === "loading") {

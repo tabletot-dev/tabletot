@@ -45,7 +45,14 @@ export default function Kitchen() {
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'kot_tickets' },
-        () => fetchTickets()
+        (payload) => {
+          const updated = payload.new as KOTTicket;
+          if (updated.status === 'completed') {
+            setTickets((prev) => prev.filter((t) => t.id !== updated.id));
+          } else {
+            setTickets((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+          }
+        }
       )
       .on(
         'postgres_changes',
@@ -83,8 +90,8 @@ export default function Kitchen() {
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Updated', description: `Order marked as ${status}` });
-      fetchTickets();
+      toast({ title: 'Updated', description: `Ticket marked as ${status}` });
+      // Realtime UPDATE handler updates state; trigger also syncs orders.status
     }
   };
 

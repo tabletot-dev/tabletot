@@ -15,7 +15,7 @@ from src.models import (
 )
 from src.resolver import resolve
 
-MENU_PATH = Path(__file__).parent.parent / "menus" / "roast-ccx-hyd.json"
+MENU_PATH = Path(__file__).parent.parent / "menus" / "silver-ssc-hyd.json"
 
 
 @pytest.fixture(scope="module")

@@ -9,7 +9,7 @@ type PressStatus = "idle" | "pressing" | "processing";
 
 export default function App() {
   const [tableId, setTableId] = useState("T-01");
-  const [restaurantId, setRestaurantId] = useState("roast-ccx-hyd");
+  const [restaurantId, setRestaurantId] = useState("silver-ssc-hyd");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [pageStatus, setPageStatus] = useState<PageStatus>("idle");
   const [pressStatus, setPressStatus] = useState<PressStatus>("idle");

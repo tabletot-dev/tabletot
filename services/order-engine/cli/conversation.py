@@ -30,7 +30,7 @@ from src.models import (
 )
 from src.orchestrator import Orchestrator, ResolverCall, TurnResult
 
-MENU_PATH = Path(__file__).parent.parent / "menus" / "roast-ccx-hyd.json"
+MENU_PATH = Path(__file__).parent.parent / "menus" / "silver-ssc-hyd.json"
 
 HELP_TEXT = """
 Commands:

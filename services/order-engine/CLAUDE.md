@@ -1,4 +1,4 @@
-# CLAUDE.md — Roast CCx Voice Kiosk
+# CLAUDE.md — Tabletot Voice Engine
 
 This file is the source of truth for the project. Read it fully before making any changes.
 
@@ -6,7 +6,7 @@ This file is the source of truth for the project. Read it fully before making an
 
 ## What This Is
 
-A voice-first, tablet-based self-ordering system for **Roast CCx**, a casual dine-in restaurant in Hyderabad. Customers speak their order in Hindi, Telugu, or English at a tablet mounted at their table. The system processes, confirms, and routes orders to a KDS (Kitchen Display System).
+A voice-first, tablet-based self-ordering system for **Silver Specialty Coffee**, a specialty coffee bar in Hyderabad. Customers speak their order in Hindi, Telugu, or English at a tablet mounted at their table. The system processes, confirms, and routes orders to a KDS (Kitchen Display System).
 
 **Pilot scope:** 1–2 outlets, ~21-day timeline, no POS integration.
 
@@ -186,8 +186,8 @@ Builds the LLM system prompt. Must include:
 Per-restaurant TTS configuration:
 ```json
 {
-  "roast-ccx-hyd": {
-    "name": "Roast CCx Hyderabad",
+  "silver-ssc-hyd": {
+    "name": "Silver Specialty Coffee Hyderabad",
     "language_code": "hi-IN",
     "speaker": "meera",
     "fallback_language_code": "en-IN",

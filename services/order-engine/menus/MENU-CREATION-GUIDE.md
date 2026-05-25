@@ -1,6 +1,6 @@
 # Menu Creation Guide
 
-This file is a prompt reference for creating a new `menu.json` compatible with the Roast CCx voice kiosk system.
+This file is a prompt reference for creating a new `menu.json` compatible with the Tabletot voice engine.
 
 **How to use:** Share this file with an LLM, then provide your raw dish list. The LLM will produce a valid JSON file ready to drop into this folder.
 
@@ -35,7 +35,7 @@ Available speakers: `rohan`, `meera`, `ishita`, `arjun`, `maya` (Sarvam `bulbul:
 
 - Format: `kebab-case`
 - Pattern: `{brand}-{location-short}` 
-- Examples: `roast-ccx-hyd`, `sozo-cakery-banjara`, `the-grid-jubilee`
+- Examples: `silver-ssc-hyd`, `sozo-cakery-banjara`, `the-grid-jubilee`
 - Must be unique across all restaurants in `restaurants.json`
 
 ---
@@ -341,7 +341,7 @@ Aliases map a **natural spoken shorthand** to an item or variant `id`. They powe
 - Alias entries are one per line
 - Use 2-space indentation throughout
 
-Reference files: [`roast-ccx-hyd.json`](roast-ccx-hyd.json) and [`sozo-cakery-banjara.json`](sozo-cakery-banjara.json)
+Reference files: [`silver-ssc-hyd.json`](silver-ssc-hyd.json) and [`sozo-cakery-banjara.json`](sozo-cakery-banjara.json)
 
 ---
 

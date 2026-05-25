@@ -19,13 +19,20 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 
+const VOICE_ENGINE_URL = (import.meta.env.VITE_VOICE_ENGINE_URL as string | undefined) || '';
+
+function refreshVoiceMenu() {
+  if (!VOICE_ENGINE_URL) return;
+  fetch(`${VOICE_ENGINE_URL}/admin/refresh-menu`, { method: 'POST' }).catch(() => {});
+}
+
 interface MenuItem {
   id: string;
-  item_id: string;
   name: string;
   price: number;
-  category: string;
+  category: string | null;
   description: string | null;
+  image_url: string | null;
   active: boolean;
 }
 
@@ -39,6 +46,7 @@ export default function Menu() {
     price: '',
     category: '',
     description: '',
+    image_url: '',
     active: true,
   });
 
@@ -50,17 +58,13 @@ export default function Menu() {
     try {
       const { data, error } = await supabase
         .from('menu_items')
-        .select('*')
+        .select('id, name, price, category, description, image_url, active')
         .order('category', { ascending: true });
 
       if (error) throw error;
       setMenuItems(data || []);
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to load menu items.',
-      });
+    } catch {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to load menu items.' });
     } finally {
       setLoading(false);
     }
@@ -68,41 +72,32 @@ export default function Menu() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     try {
       const itemData = {
-        item_id: editingItem?.item_id || `ITEM-${Date.now()}`,
         name: formData.name,
         price: parseFloat(formData.price),
-        category: formData.category,
+        category: formData.category || null,
         description: formData.description || null,
+        image_url: formData.image_url || null,
         active: formData.active,
       };
 
       if (editingItem) {
-        const { error } = await supabase
-          .from('menu_items')
-          .update(itemData)
-          .eq('id', editingItem.id);
-
+        const { error } = await supabase.from('menu_items').update(itemData).eq('id', editingItem.id);
         if (error) throw error;
         toast({ title: 'Item updated successfully' });
       } else {
         const { error } = await supabase.from('menu_items').insert(itemData);
-
         if (error) throw error;
         toast({ title: 'Item added successfully' });
       }
 
+      refreshVoiceMenu();
       setDialogOpen(false);
       resetForm();
       fetchMenuItems();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to save item.',
-      });
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to save item.' });
     }
   };
 
@@ -111,8 +106,9 @@ export default function Menu() {
     setFormData({
       name: item.name,
       price: item.price.toString(),
-      category: item.category,
+      category: item.category || '',
       description: item.description || '',
+      image_url: item.image_url || '',
       active: item.active,
     });
     setDialogOpen(true);
@@ -120,34 +116,22 @@ export default function Menu() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this item?')) return;
-
     try {
       const { error } = await supabase.from('menu_items').delete().eq('id', id);
-
       if (error) throw error;
       toast({ title: 'Item deleted successfully' });
       fetchMenuItems();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to delete item.',
-      });
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to delete item.' });
     }
   };
 
   const resetForm = () => {
     setEditingItem(null);
-    setFormData({
-      name: '',
-      price: '',
-      category: '',
-      description: '',
-      active: true,
-    });
+    setFormData({ name: '', price: '', category: '', description: '', image_url: '', active: true });
   };
 
-  const categories = [...new Set(menuItems.map(item => item.category))];
+  const categories = [...new Set(menuItems.map(item => item.category).filter(Boolean))];
 
   if (loading) {
     return (
@@ -187,7 +171,7 @@ export default function Menu() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Price ($)</Label>
+                  <Label htmlFor="price">Price (₹)</Label>
                   <Input
                     id="price"
                     type="number"
@@ -213,7 +197,16 @@ export default function Menu() {
                   id="description"
                   value={formData.description}
                   onChange={e => setFormData({ ...formData, description: e.target.value })}
-                  rows={3}
+                  rows={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="image_url">Image URL</Label>
+                <Input
+                  id="image_url"
+                  value={formData.image_url}
+                  onChange={e => setFormData({ ...formData, image_url: e.target.value })}
+                  placeholder="https://..."
                 />
               </div>
               <div className="flex items-center justify-between">
@@ -242,35 +235,22 @@ export default function Menu() {
               {menuItems
                 .filter(item => item.category === category)
                 .map(item => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between p-4 border border-border rounded-lg"
-                  >
+                  <div key={item.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold">{item.name}</h3>
-                        {!item.active && (
-                          <Badge variant="secondary">Unavailable</Badge>
-                        )}
+                        {!item.active && <Badge variant="secondary">Unavailable</Badge>}
                       </div>
                       {item.description && (
                         <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
                       )}
-                      <p className="text-lg font-bold mt-2">${item.price.toFixed(2)}</p>
+                      <p className="text-lg font-bold mt-2">₹{item.price.toFixed(0)}</p>
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handleEdit(item)}
-                      >
+                      <Button variant="outline" size="icon" onClick={() => handleEdit(item)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handleDelete(item.id)}
-                      >
+                      <Button variant="outline" size="icon" onClick={() => handleDelete(item.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

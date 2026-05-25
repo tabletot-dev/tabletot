@@ -70,7 +70,6 @@ Every restaurant needs two things:
 
 Current restaurants in DB:
 - `silver-ssc-hyd` — Silver Specialty Coffee, Hyderabad (pilot)
-- `roast-ccx-hyd` — Roast CCx, Hyderabad (seeded, not pilot)
 
 ## Key rules
 

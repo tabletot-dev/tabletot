@@ -85,8 +85,8 @@ export function useDeviceNavigation() {
     setOrder([]);
     setPreviousOrders([]);
     setCurrentScreen("idle");
-    // Clear the kiosk session ID so the next session gets a fresh grouping key
     sessionStorage.removeItem("tt_session_id");
+    sessionStorage.removeItem("tt_order_id");
   }, []);
 
   const totalBill = order.reduce((sum, o) => sum + o.price * o.quantity, 0);

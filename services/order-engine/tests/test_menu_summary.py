@@ -7,7 +7,7 @@ from src.llm.prompts.menu_summary import generate_menu_summary
 
 
 def _load_menu() -> dict:
-    return json.loads(Path("menus/roast-ccx-hyd.json").read_text(encoding="utf-8"))
+    return json.loads(Path("menus/silver-ssc-hyd.json").read_text(encoding="utf-8"))
 
 
 def test_no_prices_in_summary():

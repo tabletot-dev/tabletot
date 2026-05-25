@@ -26,7 +26,7 @@ from pydantic import BaseModel
 _SSL_CTX = ssl.create_default_context(cafile=certifi.where())
 
 from src.models import Ambiguous, ConfidentMatch, NeedsVariantSelection, NoMatch, Unavailable
-from src.orchestrator import ResolverCall
+from src.orchestrator import ResolverCall, TurnResult
 from voice_agent.session_manager import SessionManager, TURN_END
 from voice_agent.stt_handler import SarvamSTTHandler
 
@@ -158,6 +158,63 @@ def _serialize_resolver_results(calls: list[ResolverCall]) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Voice turn analytics (fire-and-forget, non-blocking)
+# ---------------------------------------------------------------------------
+
+
+async def _record_voice_turn(
+    db_url: str | None,
+    session_key: str | None,
+    restaurant_id: str,
+    table_number: str,
+    resolver_results: list[ResolverCall],
+) -> None:
+    """Write one voice_turns row to Supabase. Fails silently — never blocks voice response."""
+    if not db_url:
+        return
+
+    resolved = [
+        {"raw": c.raw_name, "item": c.result.item_name}
+        for c in resolver_results
+        if isinstance(c.result, ConfidentMatch) and c.applied_to_order
+    ]
+    unresolved = [c.raw_name for c in resolver_results if isinstance(c.result, NoMatch)]
+
+    # Skip turns with no ordering intent (e.g. greeting, question)
+    if not resolved and not unresolved:
+        return
+
+    import json as _json
+
+    import psycopg2
+
+    def _write() -> None:
+        conn = psycopg2.connect(db_url)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO voice_turns (session_key, restaurant_id, table_number, resolved_items, unresolved_phrases)
+            VALUES (%s, %s, %s, %s::jsonb, %s)
+            """,
+            (
+                session_key,
+                restaurant_id,
+                table_number,
+                _json.dumps(resolved),
+                unresolved or None,
+            ),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+
+    try:
+        await asyncio.to_thread(_write)
+    except Exception as exc:
+        logger.debug("voice_turns write skipped: %s", exc)
+
+
+# ---------------------------------------------------------------------------
 # STT WebSocket — per PTT press
 # ---------------------------------------------------------------------------
 
@@ -276,6 +333,15 @@ async def voice_stt(ws: WebSocket, session_id: str) -> None:
         if result is None:
             logger.error("process_turn_streaming yielded no TurnResult session=%s", session_id)
             return
+
+        # Record turn analytics asynchronously — does not block the voice response
+        asyncio.create_task(_record_voice_turn(
+            ws.app.state.db_url,
+            session.client_session_id,
+            session.restaurant_id,
+            session.table_id,
+            result.resolver_results,
+        ))
 
         done_message = {
             "type": "done",

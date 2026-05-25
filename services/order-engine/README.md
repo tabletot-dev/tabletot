@@ -1,6 +1,6 @@
-# Roast CCx Voice Kiosk
+# Tabletot Voice Engine
 
-Voice-first self-ordering system for Roast CCx (Hyderabad). Customers speak their order in Hindi, Telugu, or English at a tablet mounted at their table. The system processes, confirms, and routes orders to a KDS.
+Voice-first self-ordering system for Silver Specialty Coffee (Hyderabad). Customers speak their order in Hindi, Telugu, or English at a tablet mounted at their table. The system processes, confirms, and routes orders to a KDS.
 
 ## Stage Status
 

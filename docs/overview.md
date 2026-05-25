@@ -11,7 +11,7 @@ The system's distinctive claim is **measurable AOV lift through curated,
 contextual recommendations** — acting like a trained 5-star server,
 tunable per restaurant.
 
-Pilot 1: **Roast CCx, Hyderabad.**
+Pilot 1: **Silver Specialty Coffee, Hyderabad.**
 
 ## Product positioning
 
@@ -35,7 +35,7 @@ Three stages already shipped (in `services/order-engine/`). Detailed history: (i
   FastAPI backend, voice CLI, voice-test-page React frontend.
 
 Tests: 136/136 unit, 98/98 batch, 46/48 natural speech (96%).
-Menu (Roast CCx): 285 items, 66 variants, ~440 index entries, 191 aliases,
+Menu (Silver SSC): 49 items in DB (migration 0009); voice engine index entry count TBD — run `python -m cli.interactive` to verify,
 38 categories.
 
 ## What's next (Stage 4)

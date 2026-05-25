@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """
-Import Roast CCx menu from menus/roast-ccx-hyd.json into menu_items + external_id_mapping.
+Import Silver Specialty Coffee menu from menus/silver-ssc-hyd.json into menu_items + external_id_mapping.
 
 Usage:
     python scripts/import_menu.py
 
 Reads DATABASE_URL from environment (falls back to local Supabase default).
 Safe to re-run: uses ON CONFLICT DO NOTHING.
+
+Note: Silver SSC menu items are already seeded by migration 0009. Run this script
+only if you need to re-populate menu_items from the voice engine JSON (e.g. after
+a db reset that needs Petpooja-style external_id_mapping entries for the overlay).
 """
 
 import json
@@ -29,7 +33,7 @@ DATABASE_URL = os.getenv(
     "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
 )
 
-MENU_FILE = ORDER_ENGINE_DIR / "menus" / "roast-ccx-hyd.json"
+MENU_FILE = ORDER_ENGINE_DIR / "menus" / "silver-ssc-hyd.json"
 PROVIDER = "petpooja"
 
 

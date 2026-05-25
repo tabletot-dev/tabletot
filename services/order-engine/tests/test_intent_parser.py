@@ -34,7 +34,7 @@ NONE_ACTION = """
 <intents>
 [{"action": "none", "raw_name": "", "quantity": 0, "modifiers": [], "special_notes": ""}]
 </intents>
-<response>Hello! Roast CCx mein welcome hai.</response>
+<response>Hello! Silver mein aapka swagat hai.</response>
 <language>hi</language>
 """
 

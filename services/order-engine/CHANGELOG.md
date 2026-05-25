@@ -8,6 +8,23 @@ All notable changes to the Menu Resolver project.
 
 ### Added
 
+- **Voice turns analytics** (`backend/routers/voice.py`, `supabase/migrations/0020`) — after each STT turn, a `voice_turns` row is written fire-and-forget to Supabase. Captures `resolved_items` (items successfully added/removed) and `unresolved_phrases` (NoMatch inputs). No raw transcript stored — DPDP compliance for pilot. Silent turns (greeting, question, no ordering intent) are skipped. Write failure never blocks the voice response.
+- **`_record_voice_turn()` helper** (`backend/routers/voice.py`) — async function that translates `ResolverCall` results into the analytics schema and calls psycopg2 in a thread pool. Logs at `DEBUG` on failure.
+
+### Changed
+
+- **Menu overlay uses `restaurant_id` + normalised name** (`src/loader.py`) — `load_menu_overlay_from_db` now accepts a `restaurant_id` parameter and queries `menu_items` directly without a JOIN to `external_id_mapping`. Overlay keys are `normalize(item_name)` instead of Petpooja `external_id`. `apply_overlay` builds a `name_to_id` translation map before mutating the index. Silver SSC price/active changes in the POS now propagate to the voice engine within 5 minutes. See ADR 0012.
+- **Per-restaurant overlay in `_load_restaurant_menus` and `_refresh_loop`** (`backend/main.py`) — `load_menu_overlay_from_db` called inside the per-restaurant loop with `cfg.db_restaurant_id`, matching the fix in `_refresh_loop` and `/admin/refresh-menu`. Previously fetched a shared cross-restaurant overlay before the loop.
+- **`/admin/refresh-menu` per-restaurant loop** (`backend/main.py`) — overlay load moved inside the restaurant loop with `db_restaurant_id`. Previously loaded a global overlay outside the loop.
+- **Zero-match log level** (`src/loader.py`) — `apply_overlay` logs `WARNING` (not `DEBUG`) when no DB items match JSON menu entries, ensuring misconfiguration is visible under the default `INFO` log level.
+- **`restaurants.json`** — `roast-ccx-hyd` entry removed. Silver Specialty Coffee is the sole active restaurant for the pilot.
+- **App title** (`backend/main.py`) — changed from `"Roast CCx Voice Backend"` to `"Tabletot Voice Engine"`.
+- **Test fixtures** — all 6 unit test files updated from `roast-ccx-hyd.json` to `silver-ssc-hyd.json`. `test_session_manager.py` `db_restaurant_id` updated to Silver's UUID.
+- **CLI defaults** — all 4 CLI files and `scripts/test_voice_pipeline.py` updated from `--restaurant roast-ccx-hyd` to `silver-ssc-hyd`.
+- **Import scripts** (`scripts/import_menu.py`, `scripts/import_aliases.py`) — `MENU_FILE` updated to `silver-ssc-hyd.json`; `import_aliases.py` `RESTAURANT_ID` updated to Silver's UUID. Running either script no longer silently imports Roast CCx data.
+
+### Added
+
 - **Silver UUID aligned** (`backend/config/restaurants.json`) — `db_restaurant_id` for `silver-ssc-hyd` updated from `73a32fde...` to `b22b5d53-6dd8-4f5b-8276-2e828cd1ab91` to match the pinned value in migration 0014 and the kiosk `.env.local`. The mismatch caused every `/voice/session/start` call to return 404 ("Restaurant not found in config").
 
 - **Per-restaurant voice persona** (`backend/config/restaurants.json`, `src/llm/prompts/system_prompt.py`, `src/orchestrator.py`, `src/llm/base.py`, all three providers, `voice_agent/restaurant_config.py`, `voice_agent/session_manager.py`) — Pass 2 (response generation) now uses a per-restaurant `voice_persona` field from `restaurants.json` instead of a hardcoded "Roast CCx" identity. Pass 1 (intent extraction) is fully generic — no restaurant name anywhere. Adding a new restaurant persona = one JSON field, no code change. Falls back to a neutral generic persona if the field is absent.

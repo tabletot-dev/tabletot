@@ -37,11 +37,11 @@ def _load_restaurant_menus(project_root: Path, restaurant_configs: dict, db_url:
         load_menu,
         load_menu_overlay_from_db,
     )
-    overlay = load_menu_overlay_from_db(db_url)
     menus = {}
     for rid, cfg in restaurant_configs.items():
         menu_path = project_root / cfg.menu_path
         menu_data = json.loads(menu_path.read_text(encoding="utf-8"))
+        overlay = load_menu_overlay_from_db(db_url, getattr(cfg, "db_restaurant_id", None))
         index = apply_overlay(load_menu(menu_path), overlay)
         db_aliases = load_aliases_from_db(db_url, getattr(cfg, "db_restaurant_id", None))
         index = apply_aliases_overlay(index, db_aliases)
@@ -62,10 +62,12 @@ async def _refresh_loop(session_manager: SessionManager, restaurant_configs: dic
     while True:
         await asyncio.sleep(_MENU_REFRESH_INTERVAL)
         try:
-            overlay = await asyncio.to_thread(load_menu_overlay_from_db, db_url)
             for rid, cfg in restaurant_configs.items():
                 menu_path = _PROJECT_ROOT / cfg.menu_path
                 menu_data, _ = session_manager._menus[rid]
+                overlay = await asyncio.to_thread(
+                    load_menu_overlay_from_db, db_url, getattr(cfg, "db_restaurant_id", None)
+                )
                 index = apply_overlay(load_menu(menu_path), overlay)
                 db_aliases = await asyncio.to_thread(
                     load_aliases_from_db, db_url, getattr(cfg, "db_restaurant_id", None)
@@ -138,10 +140,16 @@ async def lifespan(app: FastAPI):
     logger.info("Voice backend shut down")
 
 
-app = FastAPI(title="Roast CCx Voice Backend", lifespan=lifespan)
+_raw_origins = os.environ.get(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080,http://127.0.0.1:8080",
+)
+_allow_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
+app = FastAPI(title="Tabletot Voice Engine", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:8080", "http://127.0.0.1:8080"],
+    allow_origins=_allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -168,11 +176,11 @@ async def refresh_menu() -> dict:
     restaurant_configs: dict = app.state.restaurant_configs
     db_url: str | None = app.state.db_url
 
-    overlay = await asyncio.to_thread(load_menu_overlay_from_db, db_url)
     total_entries = 0
     for rid, cfg in restaurant_configs.items():
         menu_path = _PROJECT_ROOT / cfg.menu_path
         menu_data, _ = session_manager._menus[rid]
+        overlay = await asyncio.to_thread(load_menu_overlay_from_db, db_url, getattr(cfg, "db_restaurant_id", None))
         index = apply_overlay(load_menu(menu_path), overlay)
         db_aliases = await asyncio.to_thread(
             load_aliases_from_db, db_url, getattr(cfg, "db_restaurant_id", None)

@@ -274,10 +274,11 @@ def apply_aliases_overlay(index: MenuIndex, db_aliases: dict[str, str]) -> MenuI
     return new_index
 
 
-def load_menu_overlay_from_db(db_url: str | None = None) -> dict[str, dict]:
+def load_menu_overlay_from_db(db_url: str | None = None, restaurant_id: str | None = None) -> dict[str, dict]:
     """Query Supabase for current price and active state of every menu item.
 
-    Returns a mapping from Petpooja external_id → {"price": int|None, "active": bool}.
+    Returns a mapping from normalize(item_name) → {"price": int|None, "active": bool}.
+    Filters by restaurant_id when provided so overlays are per-restaurant.
     Returns an empty dict (with a warning) if the DB is unreachable — callers
     treat an empty overlay as "use menu.json data as-is".
     """
@@ -287,22 +288,31 @@ def load_menu_overlay_from_db(db_url: str | None = None) -> dict[str, dict]:
     try:
         conn = psycopg2.connect(url)
         cur = conn.cursor()
-        cur.execute(
-            """
-            SELECT e.external_id, m.price, m.active
-            FROM menu_items m
-            JOIN external_id_mapping e ON m.id = e.internal_item_id
-            WHERE e.provider = 'petpooja'
-            """
-        )
+        if restaurant_id:
+            cur.execute(
+                """
+                SELECT m.name, m.price, m.active
+                FROM menu_items m
+                WHERE m.restaurant_id = %s
+                """,
+                (restaurant_id,),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT m.name, m.price, m.active
+                FROM menu_items m
+                """
+            )
         rows = cur.fetchall()
         cur.close()
         conn.close()
         result = {
-            ext_id: {"price": int(price) if price is not None else None, "active": bool(active)}
-            for ext_id, price, active in rows
+            normalize(name): {"price": int(price) if price is not None else None, "active": bool(active)}
+            for name, price, active in rows
+            if name
         }
-        logger.info("Menu overlay loaded from DB: %d items", len(result))
+        logger.info("Menu overlay loaded from DB: %d items (restaurant_id=%s)", len(result), restaurant_id)
         return result
     except Exception as exc:
         logger.warning("DB unavailable, using local menu.json cache: %s", exc)
@@ -312,14 +322,27 @@ def load_menu_overlay_from_db(db_url: str | None = None) -> dict[str, dict]:
 def apply_overlay(index: MenuIndex, overlay: dict[str, dict]) -> MenuIndex:
     """Return a new MenuIndex with DB prices/active status applied.
 
-    Items/variants where active=False in the overlay are pruned from entries,
-    lookups, and aliases. Prices for active items are updated in-place on the
-    deep-copied index.
+    The overlay maps normalize(item_name) → {"price": int|None, "active": bool}.
+    Items/variants where active=False are pruned from entries, lookups, and aliases.
+    Prices for active items are updated in-place on the deep-copied index.
 
-    If overlay is empty (DB unavailable fallback), returns the original index
-    unchanged.
+    If overlay is empty (DB unavailable fallback), returns the original index unchanged.
     """
     if not overlay:
+        return index
+
+    # Translate overlay keys (normalised names) to JSON item IDs used internally.
+    # overlay: {normalize(db_name) → {price, active}}
+    # translated: {json_item_id → {price, active}}
+    name_to_id = {normalize(item.name): item_id for item_id, item in index.items_by_id.items()}
+    translated: dict[str, dict] = {}
+    for norm_name, ov_data in overlay.items():
+        item_id = name_to_id.get(norm_name)
+        if item_id:
+            translated[item_id] = ov_data
+
+    if not translated:
+        logger.warning("apply_overlay: no DB items matched JSON menu entries — overlay skipped (misconfiguration?)")
         return index
 
     new_index = copy.deepcopy(index)
@@ -327,9 +350,9 @@ def apply_overlay(index: MenuIndex, overlay: dict[str, dict]) -> MenuIndex:
 
     # Update / prune items
     for item_id in list(new_index.items_by_id):
-        if item_id not in overlay:
+        if item_id not in translated:
             continue
-        ov = overlay[item_id]
+        ov = translated[item_id]
         if not ov["active"]:
             inactive_ids.add(item_id)
             del new_index.items_by_id[item_id]
@@ -338,9 +361,9 @@ def apply_overlay(index: MenuIndex, overlay: dict[str, dict]) -> MenuIndex:
 
     # Update / prune variants
     for var_id in list(new_index.variants_by_id):
-        if var_id not in overlay:
+        if var_id not in translated:
             continue
-        ov = overlay[var_id]
+        ov = translated[var_id]
         if not ov["active"]:
             inactive_ids.add(var_id)
             del new_index.variants_by_id[var_id]
@@ -352,8 +375,8 @@ def apply_overlay(index: MenuIndex, overlay: dict[str, dict]) -> MenuIndex:
     for entry in new_index.entries:
         if entry.item_id in inactive_ids:
             continue
-        if entry.item_id in overlay:
-            ov = overlay[entry.item_id]
+        if entry.item_id in translated:
+            ov = translated[entry.item_id]
             if ov["price"] is not None:
                 entry.price = ov["price"]
         kept.append(entry)
@@ -361,5 +384,6 @@ def apply_overlay(index: MenuIndex, overlay: dict[str, dict]) -> MenuIndex:
 
     # Prune aliases pointing to deactivated items
     new_index.aliases = {k: v for k, v in new_index.aliases.items() if v not in inactive_ids}
+    logger.info("apply_overlay: %d items matched, %d deactivated", len(translated), len(inactive_ids))
 
     return new_index

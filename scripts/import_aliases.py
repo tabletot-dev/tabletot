@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Import menu item aliases from menus/roast-ccx-hyd.json into menu_item_aliases.
+Import menu item aliases from menus/silver-ssc-hyd.json into menu_item_aliases.
 
 Usage:
     python scripts/import_aliases.py
@@ -27,8 +27,8 @@ DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
 )
-MENU_FILE = ORDER_ENGINE_DIR / "menus" / "roast-ccx-hyd.json"
-RESTAURANT_ID = "cccccccc-cccc-cccc-cccc-cccccccccccc"
+MENU_FILE = ORDER_ENGINE_DIR / "menus" / "silver-ssc-hyd.json"
+RESTAURANT_ID = "b22b5d53-6dd8-4f5b-8276-2e828cd1ab91"  # Silver Specialty Coffee (migration 0014)
 PROVIDER = "petpooja"
 
 

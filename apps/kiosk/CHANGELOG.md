@@ -8,6 +8,20 @@ Customer-facing tablet ordering app (React + Vite, Android Chrome kiosk mode).
 
 ### Added
 
+- **Session lifecycle — DB-backed** (`lib/orderSubmission.ts`, `pages/Index.tsx`, `hooks/useDeviceNavigation.ts`) — "Start Ordering" tap now INSERTs a `sessions` row before navigating to the menu. A DB trigger marks the table as occupied immediately; no POS action required. Session key (`tt_session_id`) is stored in `sessionStorage` and written to every `orders` and `kot_tickets` row. See ADR 0010.
+- **Single orders row per session** (`lib/orderSubmission.ts`) — first "Send to Kitchen" INSERTs an `orders` row and caches its UUID as `tt_order_id` in `sessionStorage`. Subsequent rounds UPDATE that same row (append to `items_json`, recalculate totals). Each round still INSERTs a new `kot_tickets` row so the kitchen sees rounds separately. See ADR 0011.
+- **Bidirectional session close** (`pages/Index.tsx`) — kiosk subscribes to its `sessions` row via Supabase Realtime. When POS staff mark the session as `closed` (after payment or manual end-service), the kiosk screen resets to idle automatically with no customer action.
+- **Bill request → DB** (`components/screens/BillView.tsx`) — bill request INSERTs into `bill_requests` table (replaces localStorage write) and sets `sessions.status = 'bill_requested'`. POS Billing receives this via Realtime and highlights the table card with a pulsing bell.
+- **Water request → DB** (`pages/Index.tsx`) — water request button INSERTs into `table_requests` table. POS Billing receives via Realtime and shows a blue droplet badge on the table card.
+- **`resolveTableId` exported** (`lib/orderSubmission.ts`) — used by `BillView` and `Index.tsx` to get the table UUID without duplicating the lookup logic.
+- **`clearSession()` exported** (`lib/orderSubmission.ts`) — clears `tt_session_id`, `tt_order_id`, and the cached table UUID. Called by `endSession()` in `useDeviceNavigation`.
+
+### Fixed
+
+- **`endSession` did not clear `tt_order_id`** (`hooks/useDeviceNavigation.ts`) — `sessionStorage.removeItem('tt_order_id')` added so the next session starts with a clean slate and doesn't accidentally append to the previous session's orders row.
+
+### Added
+
 - **VoiceConversationPanel — real backend wiring** (`components/VoiceConversationPanel.tsx`, `components/VoiceOrderButton.tsx`, `pages/Index.tsx`) — panel now runs real PTT using the session owned by `VoiceOrderButton`. Each completed turn appends the user transcript and AI response to a live conversation history. Items matched by the resolver (`type: "match"`) are shown as tappable cards below the AI turn. `VoiceOrderButton` gained `onSessionReady` callback; `Index.tsx` threads `voiceSessionId` to the panel.
 - **Migration 0015** (`supabase/migrations/0015_seed_silver_tables.sql`) — seeds a T1 row in `restaurant_tables` for Silver Specialty Coffee. Superseded in practice by 0016 but kept for audit trail.
 - **Migration 0016** (`supabase/migrations/0016_fix_table_number_unique.sql`) — drops the global `UNIQUE` constraint on `restaurant_tables.table_number` and replaces it with a composite `UNIQUE (restaurant_id, table_number)`, enabling two restaurants to both have a T1. Inserts Silver's T1 cleanly after the constraint fix.

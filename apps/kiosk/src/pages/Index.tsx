@@ -19,13 +19,17 @@ import VoiceConversationPanel from "@/components/VoiceConversationPanel";
 import AppShell from "@/components/AppShell";
 import { RestaurantProvider, useRestaurant } from "@/lib/restaurantContext";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveTableId, startSession } from "@/lib/orderSubmission";
 import { findMatchingRule, type CompletionRule, type MatchedSuggestion } from "@/lib/completionRules";
 import { useMenu, MenuProvider } from "@/lib/menuStore";
 import type { DoneMessage, OrderSnapshot } from "@/lib/voice/types";
 import { MenuItem } from "@/data/menu";
 
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
-const TABLE_ID = (import.meta.env.VITE_TABLE_ID as string) || "T1";
+const TABLE_ID =
+  new URLSearchParams(window.location.search).get("table") ||
+  (import.meta.env.VITE_TABLE_ID as string) ||
+  "T1";
 
 function normalizeName(name: string): string {
   return name.toLowerCase().replace(/[-–—]/g, " ").replace(/\s+/g, " ").trim();
@@ -60,17 +64,42 @@ const IndexInner = () => {
     selectedItem,
     setSelectedItem,
     order,
-    setOrder,
     addToOrder,
     updateQuantity,
     removeItem,
     confirmOrder,
+    endSession,
     totalBill,
     sessionTotal,
     currentRoundOrderId,
     previousOrders,
-    setPreviousOrders,
   } = useDeviceNavigation();
+
+  const [activeSessionKey, setActiveSessionKey] = useState<string | null>(null);
+
+  // When POS staff close the session (status → 'closed'), reset the kiosk screen.
+  useEffect(() => {
+    if (!activeSessionKey) return;
+    const channel = supabase
+      .channel(`session-status-${activeSessionKey}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "sessions",
+          filter: `session_key=eq.${activeSessionKey}`,
+        },
+        (payload) => {
+          if ((payload.new as { status: string }).status === "closed") {
+            endSession();
+            setActiveSessionKey(null);
+          }
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [activeSessionKey, endSession]);
 
   const { items: menuItems, pairingsByItemId, anchors } = useMenu();
 
@@ -209,7 +238,11 @@ const IndexInner = () => {
       case "home":
         return (
           <HomeView
-            onStartOrdering={() => setCurrentScreen("menu")}
+            onStartOrdering={async () => {
+              await startSession();
+              setActiveSessionKey(sessionStorage.getItem("tt_session_id"));
+              setCurrentScreen("menu");
+            }}
             onSelectItem={(item) => {
               setSelectedItem(item);
               setCurrentScreen("item-detail");
@@ -347,7 +380,19 @@ const IndexInner = () => {
             onRequestBill={() => setCurrentScreen("bill-summary")}
             onGames={() => setCurrentScreen("games")}
             onConversationStarters={() => setCurrentScreen("conversation-starters")}
-            onRequestWater={() => setToast("Water requested")}
+            onRequestWater={async () => {
+              try {
+                const tableUuid = await resolveTableId();
+                await supabase.from("table_requests").insert({
+                  table_id: tableUuid,
+                  request_type: "water",
+                  status: "pending",
+                });
+              } catch {
+                // non-blocking — toast still shows
+              }
+              setToast("Water requested");
+            }}
           />
         );
       case "games":
@@ -360,10 +405,8 @@ const IndexInner = () => {
             previousOrders={previousOrders}
             sessionTotal={sessionTotal}
             onClose={() => {
-              setOrder([]);
-              setPreviousOrders([]);
-              sessionStorage.removeItem("tt_session_id");
-              setCurrentScreen("idle");
+              endSession();
+              setActiveSessionKey(null);
             }}
             onContinueOrdering={() => setCurrentScreen("menu")}
           />

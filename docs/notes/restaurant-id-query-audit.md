@@ -6,7 +6,7 @@ Added `VITE_RESTAURANT_ID` env var and scoped all Supabase queries to the active
 
 `VITE_RESTAURANT_ID` — UUID matching `restaurants.id` in Supabase for this deployment.
 
-- Set in `apps/kiosk/.env.local`: `cccccccc-cccc-cccc-cccc-cccccccccccc` (Roast CCx Hyd)
+- Set in `apps/kiosk/.env.local`: `b22b5d53-6dd8-4f5b-8276-2e828cd1ab91 (Silver Specialty Coffee Hyderabad — pinned in migration 0014))
 - Template in `apps/kiosk/.env.example` with comment
 
 Each file reads it as a module-level constant:

@@ -1,4 +1,3 @@
-Connecting to db 5432
 export type Json =
   | string
   | number
@@ -103,6 +102,48 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      bill_requests: {
+        Row: {
+          created_at: string
+          id: string
+          order_id: string | null
+          phone: string | null
+          status: string
+          table_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          phone?: string | null
+          status?: string
+          table_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_id?: string | null
+          phone?: string | null
+          status?: string
+          table_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bill_requests_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bill_requests_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_tables"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       discount_types: {
         Row: {
@@ -804,6 +845,38 @@ export type Database = {
           },
         ]
       }
+      restaurant_settings: {
+        Row: {
+          created_at: string
+          id: string
+          key: string
+          restaurant_id: string | null
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key: string
+          restaurant_id?: string | null
+          value: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key?: string
+          restaurant_id?: string | null
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_settings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       restaurant_tables: {
         Row: {
           area_id: string | null
@@ -892,6 +965,57 @@ export type Database = {
         }
         Relationships: []
       }
+      sessions: {
+        Row: {
+          bill_requested_by: string | null
+          ended_at: string | null
+          id: string
+          restaurant_id: string | null
+          session_key: string
+          started_at: string
+          status: string
+          table_id: string
+          table_number: string
+        }
+        Insert: {
+          bill_requested_by?: string | null
+          ended_at?: string | null
+          id?: string
+          restaurant_id?: string | null
+          session_key: string
+          started_at?: string
+          status?: string
+          table_id: string
+          table_number: string
+        }
+        Update: {
+          bill_requested_by?: string | null
+          ended_at?: string | null
+          id?: string
+          restaurant_id?: string | null
+          session_key?: string
+          started_at?: string
+          status?: string
+          table_id?: string
+          table_number?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff: {
         Row: {
           created_at: string
@@ -922,6 +1046,38 @@ export type Database = {
         }
         Relationships: []
       }
+      table_requests: {
+        Row: {
+          created_at: string
+          id: string
+          request_type: string
+          status: string
+          table_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          request_type: string
+          status?: string
+          table_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          request_type?: string
+          status?: string
+          table_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_requests_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -937,6 +1093,36 @@ export type Database = {
           created_at?: string
           role?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      voice_turns: {
+        Row: {
+          created_at: string
+          id: string
+          resolved_items: Json | null
+          restaurant_id: string | null
+          session_key: string | null
+          table_number: string | null
+          unresolved_phrases: string[] | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          resolved_items?: Json | null
+          restaurant_id?: string | null
+          session_key?: string | null
+          table_number?: string | null
+          unresolved_phrases?: string[] | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          resolved_items?: Json | null
+          restaurant_id?: string | null
+          session_key?: string | null
+          table_number?: string | null
+          unresolved_phrases?: string[] | null
         }
         Relationships: []
       }
@@ -1095,5 +1281,3 @@ export const Constants = {
   },
 } as const
 
-A new version of Supabase CLI is available: v2.98.2 (currently installed v2.95.4)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

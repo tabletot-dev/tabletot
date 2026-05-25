@@ -32,7 +32,7 @@ from src.models import (
 from src.normalizer import normalize
 from src.resolver import resolve
 
-MENU_PATH = Path(__file__).parent.parent / "menus" / "roast-ccx-hyd.json"
+MENU_PATH = Path(__file__).parent.parent / "menus" / "silver-ssc-hyd.json"
 
 
 class TestCase:
