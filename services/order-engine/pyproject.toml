@@ -1,7 +1,7 @@
 [project]
-name = "menu-resolver"
+name = "tabletot-order-engine"
 version = "0.3.0"
-description = "Deterministic menu item matching engine + LLM intent extraction for voice ordering kiosk"
+description = "Tabletot voice order engine — STT/LLM/TTS pipeline and menu resolver for dine-in kiosks"
 requires-python = ">=3.11"
 dependencies = [
     "rapidfuzz>=3.0.0",

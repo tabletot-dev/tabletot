@@ -4,6 +4,11 @@ import { categoryGradient } from "@/lib/categoryGradients";
 const PHOTO_OVERLAY =
   "linear-gradient(180deg, rgba(4,7,7,0) 0%, rgba(4,7,7,0.06) 48%, rgba(4,7,7,0.34) 100%), radial-gradient(circle at 78% 12%, rgba(243,108,49,0.1), transparent 34%)";
 
+// Images are served from Supabase Storage. Paths in the map below are relative
+// to the bucket root (strip the leading /images/ when uploading).
+const _STORAGE_BASE = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/menu-images`;
+const _toUrl = (path: string) => `${_STORAGE_BASE}${path.replace("/images", "")}`;
+
 const SILVER_MENU_IMAGES: Record<string, string> = {
   "affogato": "/images/silver/affogato.png",
   "aglio e olio": "/images/silver/aglio-e-oilio.jpg",
@@ -102,10 +107,9 @@ export function normalizeMenuName(name: string): string {
 
 export function menuImageForName(name: string): string | undefined {
   const normalized = normalizeMenuName(name);
-  if (SILVER_MENU_IMAGES[normalized]) return SILVER_MENU_IMAGES[normalized];
-
-  const compact = normalized.replace(/\b(pancakes|bowl|sandwich|burger|card)\b/g, "").replace(/\s+/g, " ").trim();
-  return SILVER_MENU_IMAGES[compact];
+  const path = SILVER_MENU_IMAGES[normalized]
+    ?? SILVER_MENU_IMAGES[normalized.replace(/\b(pancakes|bowl|sandwich|burger|card)\b/g, "").replace(/\s+/g, " ").trim()];
+  return path ? _toUrl(path) : undefined;
 }
 
 export function hydrateMenuItemImage<T extends { name: string; image?: string | null }>(item: T): T & { image?: string } {

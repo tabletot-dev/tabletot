@@ -39,7 +39,7 @@ _SARVAM_STT_URL = (
     "&input_audio_codec=pcm_s16le"
     "&sample_rate=16000"
 )
-_FINALIZE_TIMEOUT = 10.0
+_FINALIZE_TIMEOUT = 20.0
 
 
 class SarvamSTTHandler:

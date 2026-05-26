@@ -1,7 +1,9 @@
 {
-  "name": "dashboard",
+  "name": "tabletot-dashboard",
+  "description": "Tabletot recommendation curation and AOV measurement dashboard",
+  "author": "Tabletot",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
