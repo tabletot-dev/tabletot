@@ -52,10 +52,15 @@ Start order-engine with `--host 0.0.0.0`. Restart Vite after changing env vars.
 
 Add a 30s max-recording guard so the sheet doesn't hang indefinitely if the backend stalls. Currently there's no client-side timeout.
 
-### Seed image_url from Unsplash
-**Where:** Supabase `menu_items` table
+### ~~Seed image_url from Unsplash~~ → Done via migration 0026
+**Where:** Supabase `menu_items` table, `apps/kiosk/src/lib/menuImages.ts`
 
-`menu_items.image_url` is nullable; DishCard, CartView, and WaitingView fall back to category-gradient placeholders. Seed via Supabase Studio or a one-off migration once URLs are confirmed. See also: "Migrate dish images to Supabase Storage" above for the post-pilot permanent solution.
+46 of 49 items seeded with Supabase Storage URLs (migration 0026). 3 Fries items left null (category gradient fallback). `menuStore.tsx` already reads `image_url` and passes it through `hydrateMenuItemImage` — static map in `menuImages.ts` now serves as fallback only for null items.
+
+### Assign images for Fries + identify silver3540 / silver3621
+**Where:** Supabase Storage `menu-images/silver/`, migration after 0026
+
+Two unidentified files in the bucket — `silver3540.webp` and `silver3621.webp` — may be fries images. Identify them, then seed `image_url` for Chilli Lime Fries, Classic Fries, and Peri Peri Fries. If those two files aren't fries images, upload dedicated fries photos.
 
 ### Populate meal_completion_rules (owner session)
 **Where:** Supabase `meal_completion_rules` table
@@ -86,7 +91,7 @@ The examples in `_INTENT_ROLE_AND_FORMAT` use full-meal Indian restaurant items 
 
 1. ~~Apply migrations 0009–0021~~ ✅ Done — all 21 migrations applied on clean DB reset
 2. ~~Set `VITE_RESTAURANT_ID` to Silver UUID; set `VITE_TABLE_ID`~~ ✅ Done — pinned in migration 0014
-3. Seed `image_url` from Unsplash placeholders (or skip and use gradients for pilot)
+3. ~~Seed `image_url` from Unsplash placeholders~~ ✅ Done — seeded from Supabase Storage via migration 0026 (46/49 items; 3 fries deferred)
 4. ADRs 0004–0008 (solo writeup)
 5. Manual E2E test on Android tablet (LAN setup above)
 6. Owner session — populate `meal_completion_rules`
