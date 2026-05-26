@@ -41,6 +41,13 @@ export default function TableManagement() {
 
   useEffect(() => {
     fetchData();
+
+    const channel = supabase
+      .channel('tables-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurant_tables' }, fetchData)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchData = async () => {

@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 _PROJECT_ROOT = Path(__file__).parent.parent
 _RESTAURANTS_PATH = _PROJECT_ROOT / "backend" / "config" / "restaurants.json"
-_MENU_REFRESH_INTERVAL = 300  # seconds
+_MENU_REFRESH_INTERVAL = 6 * 60 * 60  # 6 hours
 
 
 def _load_restaurant_menus(project_root: Path, restaurant_configs: dict, db_url: str | None) -> dict:
