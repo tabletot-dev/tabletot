@@ -1,10 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Sidebar } from '@/components/Sidebar';
 import AnchorItems from '@/pages/AnchorItems';
 import ItemPairings from '@/pages/ItemPairings';
 import CompletionRules from '@/pages/CompletionRules';
 import AovView from '@/pages/AovView';
+import Login from '@/pages/Login';
 import './index.css';
 
 function Layout({ children }: { children: React.ReactNode }) {
@@ -19,16 +22,28 @@ function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <BrowserRouter>
-      <Toaster richColors position="top-right" />
-      <Layout>
+      <AuthProvider>
+        <Toaster richColors position="top-right" />
         <Routes>
-          <Route path="/" element={<Navigate to="/curation/anchors" replace />} />
-          <Route path="/curation/anchors" element={<AnchorItems />} />
-          <Route path="/curation/pairings" element={<ItemPairings />} />
-          <Route path="/curation/rules" element={<CompletionRules />} />
-          <Route path="/curation/aov" element={<AovView />} />
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/*"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<Navigate to="/curation/anchors" replace />} />
+                    <Route path="/curation/anchors" element={<AnchorItems />} />
+                    <Route path="/curation/pairings" element={<ItemPairings />} />
+                    <Route path="/curation/rules" element={<CompletionRules />} />
+                    <Route path="/curation/aov" element={<AovView />} />
+                  </Routes>
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
         </Routes>
-      </Layout>
+      </AuthProvider>
     </BrowserRouter>
   );
 }
