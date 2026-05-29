@@ -99,6 +99,27 @@ The examples in `_INTENT_ROLE_AND_FORMAT` use full-meal Indian restaurant items 
 
 ---
 
+### Remove all Roast CCx references
+**Where:** `supabase/migrations/`, `services/order-engine/backend/config/restaurants.json`, `docs/`
+
+Roast CCx is no longer a planned pilot. Scrub all references:
+- `restaurants.json` — remove the `roast-ccx` entry
+- `supabase/migrations/0012_ab_measurement.sql` — seeds `voice_enabled=false` for Roast CCx (can't edit; write a new migration to delete the row if it exists)
+- Any docs or comments that mention "Roast CCx" as an upcoming pilot
+
+---
+
+## Analytics & Measurement
+
+### DishCard recommendation_events: wire table_id
+**Where:** `apps/kiosk/src/components/DishCard.tsx` (lines 64, 79)
+
+`DishCard.tsx` hardcodes `table_id: null` when writing `recommendation_events` for pairing impressions and acceptances. This doesn't break the AOV A/B measurement (cohort function uses `orders.table_id`), but it prevents per-table acceptance-rate analysis.
+
+Post-pilot fix: add a `resolveTableId()` call in DishCard (same pattern as `orderSubmission.ts`) and pass the resolved UUID instead of null. Requires a small migration to make the column non-null, or keep nullable and just populate it going forward.
+
+---
+
 ## Closed / Resolved
 
 - ~~**POS-driven session end via table status**~~ — Implemented. Kiosk subscribes to `sessions` Realtime; POS closes the session on payment or "End Service"; kiosk auto-resets.

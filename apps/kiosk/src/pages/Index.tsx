@@ -140,12 +140,21 @@ const IndexInner = () => {
       prevVoiceOrderRef.current = next;
 
       for (const nextItem of next.items) {
-        const prevQty = prev?.items.find((i) => i.item_id === nextItem.item_id)?.quantity ?? 0;
+        const normalizedNextName = normalizeName(nextItem.item_name);
+        // Match by item_name (normalised) — item_id format differs between the
+        // cart_sync resolver path and the voice resolver path on the backend.
+        // When prev is null (first press), fall back to the kiosk touch cart so
+        // that items already added via touch don't get double-counted.
+        const prevQty = prev
+          ? (prev.items.find((i) => normalizeName(i.item_name) === normalizedNextName)?.quantity ?? 0)
+          : (order.find((o) => {
+              const m = menuItems.find((mi) => mi.id === o.id);
+              return m !== undefined && normalizeName(m.name) === normalizedNextName;
+            })?.quantity ?? 0);
         const delta = nextItem.quantity - prevQty;
         if (delta === 0) continue;
 
-        const normalized = normalizeName(nextItem.item_name);
-        const kioskItem = menuItems.find((m) => normalizeName(m.name) === normalized);
+        const kioskItem = menuItems.find((m) => normalizeName(m.name) === normalizedNextName);
         if (!kioskItem) continue;
 
         if (delta > 0) {
@@ -162,10 +171,13 @@ const IndexInner = () => {
 
       if (prev) {
         for (const prevItem of prev.items) {
-          const stillExists = next.items.find((i) => i.item_id === prevItem.item_id);
+          // Use item_name matching here too for consistency with the add loop above.
+          const normalizedPrevName = normalizeName(prevItem.item_name);
+          const stillExists = next.items.find(
+            (i) => normalizeName(i.item_name) === normalizedPrevName,
+          );
           if (!stillExists) {
-            const normalized = normalizeName(prevItem.item_name);
-            const kioskItem = menuItems.find((m) => normalizeName(m.name) === normalized);
+            const kioskItem = menuItems.find((m) => normalizeName(m.name) === normalizedPrevName);
             if (kioskItem) removeItem(kioskItem.id);
           }
         }
