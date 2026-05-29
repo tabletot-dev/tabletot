@@ -70,3 +70,10 @@ supabase/.branches
 *.key
 *.cert
 .gstack/
+
+# mtime-based, breaks after git clone
+graphify-out/manifest.json    
+# local only
+graphify-out/cost.json        
+# optional: commit for speed, skip to keep repo small
+graphify-out/cache/         

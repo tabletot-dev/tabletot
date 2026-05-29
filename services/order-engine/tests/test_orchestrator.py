@@ -1,12 +1,12 @@
 """Tests for Orchestrator — uses MockProvider, no API calls."""
 
-import json
-from pathlib import Path
-
 from src.llm.base import LLMProvider, LLMResponse
-from src.loader import load_menu
+from src.loader import load_menu_data_from_db, load_menu_from_db
 from src.models import ConfidentMatch
 from src.orchestrator import Orchestrator
+
+_DB_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+_RESTAURANT_ID = "b22b5d53-6dd8-4f5b-8276-2e828cd1ab91"
 
 
 class MockProvider(LLMProvider):
@@ -83,8 +83,8 @@ def _make_response(intents: list[dict], text: str = "ok") -> LLMResponse:
 
 
 def _build_orchestrator(responses: list[LLMResponse]) -> tuple[Orchestrator, MockProvider]:
-    menu_data = json.loads(Path("menus/silver-ssc-hyd.json").read_text(encoding="utf-8"))
-    index = load_menu("menus/silver-ssc-hyd.json")
+    menu_data = load_menu_data_from_db(_DB_URL, _RESTAURANT_ID)
+    index = load_menu_from_db(_DB_URL, _RESTAURANT_ID)
     provider = MockProvider(responses)
     orch = Orchestrator(provider, index, menu_data)
     return orch, provider
@@ -92,28 +92,28 @@ def _build_orchestrator(responses: list[LLMResponse]) -> tuple[Orchestrator, Moc
 
 def test_single_item_add():
     resp = _make_response(
-        [{"action": "add_item", "raw_name": "butter chicken", "quantity": 1, "modifiers": [], "special_notes": ""}],
-        "Butter chicken, done!",
+        [{"action": "add_item", "raw_name": "cappuccino", "quantity": 1, "modifiers": [], "special_notes": ""}],
+        "Cappuccino, done!",
     )
     orch, _ = _build_orchestrator([resp])
-    result = orch.process_turn("one butter chicken please")
+    result = orch.process_turn("one cappuccino please")
 
     assert len(result.resolver_results) == 1
     assert result.resolver_results[0].applied_to_order is True
     assert isinstance(result.resolver_results[0].result, ConfidentMatch)
     items = result.order_state_snapshot["items"]
     assert len(items) == 1
-    assert items[0]["item_name"] == "Butter Chicken"
+    assert items[0]["item_name"] == "Cappuccino"
     assert items[0]["quantity"] == 1
 
 
 def test_multi_item_add():
     resp = _make_response([
-        {"action": "add_item", "raw_name": "butter chicken", "quantity": 1, "modifiers": [], "special_notes": ""},
-        {"action": "add_item", "raw_name": "garlic naan", "quantity": 2, "modifiers": [], "special_notes": ""},
+        {"action": "add_item", "raw_name": "cappuccino", "quantity": 1, "modifiers": [], "special_notes": ""},
+        {"action": "add_item", "raw_name": "classic fries", "quantity": 2, "modifiers": [], "special_notes": ""},
     ])
     orch, _ = _build_orchestrator([resp])
-    result = orch.process_turn("butter chicken aur do garlic naan")
+    result = orch.process_turn("cappuccino aur do classic fries")
 
     assert len(result.resolver_results) == 2
     assert all(r.applied_to_order for r in result.resolver_results)
@@ -122,12 +122,12 @@ def test_multi_item_add():
 
 def test_ambiguous_generates_feedback():
     resp = _make_response(
-        [{"action": "add_item", "raw_name": "coffee", "quantity": 1, "modifiers": [], "special_notes": ""}],
+        [{"action": "add_item", "raw_name": "iced", "quantity": 1, "modifiers": [], "special_notes": ""}],
     )
     orch, _ = _build_orchestrator([resp])
-    result = orch.process_turn("ek coffee")
+    result = orch.process_turn("ek iced")
 
-    # "coffee" should be ambiguous (many coffee items on menu)
+    # "iced" is ambiguous — matches iced_long_black, iced_latte, iced_mocha
     assert len(result.resolver_results) == 1
     assert result.resolver_results[0].applied_to_order is False
     assert result.pending_feedback is not None
@@ -138,17 +138,17 @@ def test_ambiguous_generates_feedback():
 
 def test_ambiguity_feedback_sent_to_llm_on_next_turn():
     resp1 = _make_response(
-        [{"action": "add_item", "raw_name": "coffee", "quantity": 1, "modifiers": [], "special_notes": ""}],
+        [{"action": "add_item", "raw_name": "iced", "quantity": 1, "modifiers": [], "special_notes": ""}],
     )
     resp2 = _make_response(
-        [{"action": "select_variant", "raw_name": "filter coffee", "quantity": 1, "modifiers": [], "special_notes": ""}],
+        [{"action": "add_item", "raw_name": "iced latte", "quantity": 1, "modifiers": [], "special_notes": ""}],
     )
     orch, provider = _build_orchestrator([resp1, resp2])
 
-    orch.process_turn("ek coffee")
-    orch.process_turn("filter coffee")
+    orch.process_turn("ek iced")
+    orch.process_turn("iced latte")
 
-    # Second LLM call should have received the feedback
+    # Second LLM call should have received the ambiguity feedback from turn 1
     assert provider.last_inputs[1]["resolver_feedback"] is not None
 
 

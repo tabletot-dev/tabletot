@@ -14,10 +14,12 @@ Customer-facing tablet ordering app (React + Vite, Android Chrome kiosk mode).
 - **Bill request → DB** (`components/screens/BillView.tsx`) — bill request INSERTs into `bill_requests` table (replaces localStorage write) and sets `sessions.status = 'bill_requested'`. POS Billing receives this via Realtime and highlights the table card with a pulsing bell.
 - **Water request → DB** (`pages/Index.tsx`) — water request button INSERTs into `table_requests` table. POS Billing receives via Realtime and shows a blue droplet badge on the table card.
 - **`resolveTableId` exported** (`lib/orderSubmission.ts`) — used by `BillView` and `Index.tsx` to get the table UUID without duplicating the lookup logic.
-- **`clearSession()` exported** (`lib/orderSubmission.ts`) — clears `tt_session_id`, `tt_order_id`, and the cached table UUID. Called by `endSession()` in `useDeviceNavigation`.
+- **`clearSession()` exported** (`lib/orderSubmission.ts`) — clears `tt_session_id`, `tt_order_id`, and the cached table UUID. Single source of truth for all session storage cleanup.
 
 ### Fixed
 
+- **`endSession` now delegates storage cleanup to `clearSession`** (`hooks/useDeviceNavigation.ts`) — previously removed `tt_session_id` and `tt_order_id` manually, duplicating the logic in `clearSession()` and guaranteeing drift on any future key addition. `endSession` now calls `clearSession()` directly; the manual removes are gone.
+- **Kiosk-initiated session close left `sessions` row active in Supabase** (`pages/Index.tsx`) — when the customer closed the bill view from the kiosk side, the `sessions` table row stayed `status = 'active'`, making the table appear occupied in POS until staff manually closed it. `BillView.onClose` now fires a fire-and-forget `sessions` UPDATE to `closed` before resetting local state. The POS-triggered close path (Realtime) is unchanged.
 - **`endSession` did not clear `tt_order_id`** (`hooks/useDeviceNavigation.ts`) — `sessionStorage.removeItem('tt_order_id')` added so the next session starts with a clean slate and doesn't accidentally append to the previous session's orders row.
 
 ### Added

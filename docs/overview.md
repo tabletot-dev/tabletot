@@ -1,7 +1,7 @@
 # tabletot-pilot — overview
 
 > Living document. Update when the state of the project changes meaningfully.
-> Last updated: 2026-04-28
+> Last updated: 2026-05-29
 
 ## What this is
 
@@ -30,7 +30,7 @@ Three stages already shipped (in `services/order-engine/`). Detailed history: (i
 - **Stage 1** — Menu resolver: deterministic 5-step matching cascade,
   time-of-day availability, alias support.
 - **Stage 2** — LLM intent extraction: two-pass flow (intents → resolver
-  → response generation), Claude Sonnet, prompt-driven.
+  → response generation), Gemini (gemini-3.1-flash-lite), prompt-driven.
 - **Stage 3** — Voice pipeline: Sarvam STT (saaras:v3) + TTS (bulbul:v3),
   FastAPI backend, voice CLI, voice-test-page React frontend.
 
@@ -67,7 +67,7 @@ underneath, two render paths on top.
 - **STT:** Sarvam saaras:v3 (WebSocket, `language_code=unknown` auto-detect)
 - **TTS:** Sarvam bulbul:v3 (WebSocket streaming, persistent per session,
   codec `linear16`, message type `text`, completion event `final`)
-- **LLM:** Claude Sonnet (intent extraction + response generation, two-pass)
+- **LLM:** Gemini gemini-3.1-flash-lite (intent extraction + response generation, two-pass)
 - **Backend:** FastAPI (Python), Supabase Postgres (ap-south-1)
 - **Frontend:** React PWA, Vite, evolving from tabletot frontend PoC
 - **Infra:** Monorepo + Docker Compose, local-first dev

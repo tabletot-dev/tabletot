@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { MenuItem, OrderItem } from "@/data/menu";
-import { submitOrder } from "@/lib/orderSubmission";
+import { submitOrder, clearSession } from "@/lib/orderSubmission";
 
 export type ScreenType =
   | "idle"
@@ -85,8 +85,7 @@ export function useDeviceNavigation() {
     setOrder([]);
     setPreviousOrders([]);
     setCurrentScreen("idle");
-    sessionStorage.removeItem("tt_session_id");
-    sessionStorage.removeItem("tt_order_id");
+    clearSession();
   }, []);
 
   const totalBill = order.reduce((sum, o) => sum + o.price * o.quantity, 0);

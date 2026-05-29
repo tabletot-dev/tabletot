@@ -57,7 +57,7 @@ function wait(ms: number) {
 }
 
 const IndexInner = () => {
-  const { voiceEnabled } = useRestaurant();
+  const { voiceEnabled, isTreatment } = useRestaurant();
   const {
     currentScreen,
     setCurrentScreen,
@@ -210,24 +210,26 @@ const IndexInner = () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      try {
-        const { data: rules } = await withTimeout(
-          supabase
-            .from("meal_completion_rules")
-            .select("rule_name, condition, suggestion")
-            .eq("restaurant_id", RESTAURANT_ID)
-            .eq("active", true)
-            .order("priority", { ascending: false }),
-          700,
-        );
+      if (isTreatment) {
+        try {
+          const { data: rules } = await withTimeout(
+            supabase
+              .from("meal_completion_rules")
+              .select("rule_name, condition, suggestion")
+              .eq("restaurant_id", RESTAURANT_ID)
+              .eq("active", true)
+              .order("priority", { ascending: false }),
+            700,
+          );
 
-        const match = findMatchingRule((rules ?? []) as CompletionRule[], order);
-        if (match) {
-          setCompletionSuggestion(match);
-          return;
+          const match = findMatchingRule((rules ?? []) as CompletionRule[], order);
+          if (match) {
+            setCompletionSuggestion(match);
+            return;
+          }
+        } catch {
+          // DB error — fall through to submit
         }
-      } catch {
-        // DB error — fall through to submit
       }
       await wait(1150);
       await confirmOrder();
@@ -417,6 +419,14 @@ const IndexInner = () => {
             previousOrders={previousOrders}
             sessionTotal={sessionTotal}
             onClose={() => {
+              if (activeSessionKey) {
+                supabase
+                  .from("sessions")
+                  .update({ status: "closed" })
+                  .eq("session_key", activeSessionKey)
+                  .then(() => {})
+                  .catch(() => {});
+              }
               endSession();
               setActiveSessionKey(null);
             }}

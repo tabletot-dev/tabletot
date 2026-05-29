@@ -948,23 +948,41 @@ export type Database = {
         Row: {
           config: Json
           created_at: string | null
+          fallback_language_code: string | null
+          fallback_speaker: string | null
           id: string
+          language_code: string | null
           name: string
           pos_provider: string | null
+          slug: string | null
+          speaker: string | null
+          voice_persona: string | null
         }
         Insert: {
           config?: Json
           created_at?: string | null
+          fallback_language_code?: string | null
+          fallback_speaker?: string | null
           id?: string
+          language_code?: string | null
           name: string
           pos_provider?: string | null
+          slug?: string | null
+          speaker?: string | null
+          voice_persona?: string | null
         }
         Update: {
           config?: Json
           created_at?: string | null
+          fallback_language_code?: string | null
+          fallback_speaker?: string | null
           id?: string
+          language_code?: string | null
           name?: string
           pos_provider?: string | null
+          slug?: string | null
+          speaker?: string | null
+          voice_persona?: string | null
         }
         Relationships: []
       }

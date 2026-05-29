@@ -21,14 +21,11 @@ Run from: services/order-engine/
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
-
-import json
 
 import pytest
 
 from src.llm.base import LLMProvider, LLMResponse
-from src.loader import load_menu
+from src.loader import load_menu_data_from_db, load_menu_from_db
 from src.models import Ambiguous, ConfidentMatch, NoMatch
 from src.orchestrator import Orchestrator
 
@@ -93,12 +90,13 @@ def _intent(action: str, raw_name: str, quantity: int = 1,
     }
 
 
-MENU_PATH = "menus/silver-ssc-hyd.json"
+_DB_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+_RESTAURANT_ID = "b22b5d53-6dd8-4f5b-8276-2e828cd1ab91"
 
 
 def _build(responses: list[LLMResponse]) -> Orchestrator:
-    menu_data = json.loads(Path(MENU_PATH).read_text(encoding="utf-8"))
-    index = load_menu(MENU_PATH)
+    menu_data = load_menu_data_from_db(_DB_URL, _RESTAURANT_ID)
+    index = load_menu_from_db(_DB_URL, _RESTAURANT_ID)
     return Orchestrator(MockProvider(responses), index, menu_data)
 
 

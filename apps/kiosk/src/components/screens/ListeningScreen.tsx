@@ -59,6 +59,13 @@ const ListeningScreen = ({
     [onVoiceDone, onDone],
   );
 
+  // 30s safety timeout — closes the sheet if the user doesn't speak or finish
+  useEffect(() => {
+    if (phase !== "recording") return;
+    const t = setTimeout(onDone, 30_000);
+    return () => clearTimeout(t);
+  }, [phase, onDone]);
+
   // Auto-start: open session + TTS + STT on mount
   useEffect(() => {
     let cancelled = false;

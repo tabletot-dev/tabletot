@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { MenuItem, OrderItem } from "@/data/menu";
 import type { OrderRound } from "@/hooks/useDeviceNavigation";
 import { useMenu } from "@/lib/menuStore";
+import { useRestaurant } from "@/lib/restaurantContext";
 import { itemImageBackground } from "@/lib/menuImages";
 import DietMark from "@/components/DietMark";
 
@@ -30,6 +31,7 @@ export default function MiniCartSidebar({
   onGoToCart,
 }: MiniCartSidebarProps) {
   const { anchors } = useMenu();
+  const { isTreatment } = useRestaurant();
   const isEmpty = order.length === 0;
   const total = order.reduce((s, o) => s + o.price * o.quantity, 0);
   const itemCount = order.reduce((s, o) => s + o.quantity, 0);
@@ -181,7 +183,7 @@ export default function MiniCartSidebar({
         )}
       </section>
 
-      {signalItems.length > 0 && (
+      {isTreatment && signalItems.length > 0 && (
         <section className="order-signals">
           <div className="order-signals-header">
             <p className="eyebrow">House Specials</p>

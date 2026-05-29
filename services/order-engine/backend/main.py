@@ -7,11 +7,9 @@ Run from the project root:
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -24,57 +22,35 @@ from voice_agent.session_manager import SessionManager
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-_PROJECT_ROOT = Path(__file__).parent.parent
-_RESTAURANTS_PATH = _PROJECT_ROOT / "backend" / "config" / "restaurants.json"
 _MENU_REFRESH_INTERVAL = 6 * 60 * 60  # 6 hours
 
 
-def _load_restaurant_menus(project_root: Path, restaurant_configs: dict, db_url: str | None) -> dict:
-    from src.loader import (
-        apply_aliases_overlay,
-        apply_overlay,
-        load_aliases_from_db,
-        load_menu,
-        load_menu_overlay_from_db,
-    )
+def _load_restaurant_menus(restaurant_configs: dict, db_url: str) -> dict:
+    from src.loader import load_menu_data_from_db, load_menu_from_db
+
     menus = {}
     for rid, cfg in restaurant_configs.items():
-        menu_path = project_root / cfg.menu_path
-        menu_data = json.loads(menu_path.read_text(encoding="utf-8"))
-        overlay = load_menu_overlay_from_db(db_url, getattr(cfg, "db_restaurant_id", None))
-        index = apply_overlay(load_menu(menu_path), overlay)
-        db_aliases = load_aliases_from_db(db_url, getattr(cfg, "db_restaurant_id", None))
-        index = apply_aliases_overlay(index, db_aliases)
+        db_rid = getattr(cfg, "db_restaurant_id", None)
+        menu_data = load_menu_data_from_db(db_url, db_rid)
+        index = load_menu_from_db(db_url, db_rid)
         menus[rid] = (menu_data, index)
-        logger.info("Menu loaded: %d entries for %s", len(index.entries), rid)
+        logger.info("Menu loaded: %d items for %s", len(index.items_by_id), rid)
     return menus
 
 
-async def _refresh_loop(session_manager: SessionManager, restaurant_configs: dict, db_url: str | None) -> None:
-    """Background task: reload menu overlay and aliases from DB every 5 minutes."""
-    from src.loader import (
-        apply_aliases_overlay,
-        apply_overlay,
-        load_aliases_from_db,
-        load_menu,
-        load_menu_overlay_from_db,
-    )
+async def _refresh_loop(session_manager: SessionManager, restaurant_configs: dict, db_url: str) -> None:
+    """Background task: reload menu from DB every 6 hours."""
+    from src.loader import load_menu_data_from_db, load_menu_from_db
+
     while True:
         await asyncio.sleep(_MENU_REFRESH_INTERVAL)
         try:
             for rid, cfg in restaurant_configs.items():
-                menu_path = _PROJECT_ROOT / cfg.menu_path
-                menu_data, _ = session_manager._menus[rid]
-                overlay = await asyncio.to_thread(
-                    load_menu_overlay_from_db, db_url, getattr(cfg, "db_restaurant_id", None)
-                )
-                index = apply_overlay(load_menu(menu_path), overlay)
-                db_aliases = await asyncio.to_thread(
-                    load_aliases_from_db, db_url, getattr(cfg, "db_restaurant_id", None)
-                )
-                index = apply_aliases_overlay(index, db_aliases)
+                db_rid = getattr(cfg, "db_restaurant_id", None)
+                menu_data = await asyncio.to_thread(load_menu_data_from_db, db_url, db_rid)
+                index = await asyncio.to_thread(load_menu_from_db, db_url, db_rid)
                 session_manager._menus[rid] = (menu_data, index)
-                logger.info("Menu refreshed: %d entries for %s", len(index.entries), rid)
+                logger.info("Menu refreshed: %d items for %s", len(index.items_by_id), rid)
         except Exception as exc:
             logger.warning("Menu refresh failed: %s", exc)
 
@@ -102,8 +78,12 @@ async def lifespan(app: FastAPI):
         logger.warning("SARVAM_API_KEY not set — voice calls will fail")
     logger.info("LLM provider: %s  model: %s", provider_name, provider_model or "(default)")
 
-    restaurant_configs = load_restaurant_config(_RESTAURANTS_PATH)
-    menus = _load_restaurant_menus(_PROJECT_ROOT, restaurant_configs, db_url)
+    if not db_url:
+        raise RuntimeError(
+            "DATABASE_URL is not set — required for restaurant config and menu loading."
+        )
+    restaurant_configs = load_restaurant_config(db_url)
+    menus = _load_restaurant_menus(restaurant_configs, db_url)
 
     session_manager = SessionManager(
         restaurant_configs=restaurant_configs,
@@ -159,35 +139,24 @@ app.include_router(voice_router, prefix="/voice")
 
 @app.post("/admin/refresh-menu")
 async def refresh_menu() -> dict:
-    """Immediately reload menu prices and active flags from DB.
+    """Immediately reload menu from DB.
 
     Call this from POS admin after editing menu items to propagate changes
-    without waiting for the 5-minute background cycle.
+    without waiting for the 6-hour background cycle.
     """
-    from src.loader import (
-        apply_aliases_overlay,
-        apply_overlay,
-        load_aliases_from_db,
-        load_menu,
-        load_menu_overlay_from_db,
-    )
+    from src.loader import load_menu_data_from_db, load_menu_from_db
 
     session_manager: SessionManager = app.state.session_manager
     restaurant_configs: dict = app.state.restaurant_configs
-    db_url: str | None = app.state.db_url
+    db_url: str = app.state.db_url
 
-    total_entries = 0
+    total_items = 0
     for rid, cfg in restaurant_configs.items():
-        menu_path = _PROJECT_ROOT / cfg.menu_path
-        menu_data, _ = session_manager._menus[rid]
-        overlay = await asyncio.to_thread(load_menu_overlay_from_db, db_url, getattr(cfg, "db_restaurant_id", None))
-        index = apply_overlay(load_menu(menu_path), overlay)
-        db_aliases = await asyncio.to_thread(
-            load_aliases_from_db, db_url, getattr(cfg, "db_restaurant_id", None)
-        )
-        index = apply_aliases_overlay(index, db_aliases)
+        db_rid = getattr(cfg, "db_restaurant_id", None)
+        menu_data = await asyncio.to_thread(load_menu_data_from_db, db_url, db_rid)
+        index = await asyncio.to_thread(load_menu_from_db, db_url, db_rid)
         session_manager._menus[rid] = (menu_data, index)
-        total_entries += len(index.entries)
-        logger.info("Menu refreshed via /admin/refresh-menu: %d entries for %s", len(index.entries), rid)
+        total_items += len(index.items_by_id)
+        logger.info("Menu refreshed via /admin/refresh-menu: %d items for %s", len(index.items_by_id), rid)
 
-    return {"status": "ok", "item_count": total_entries}
+    return {"status": "ok", "item_count": total_items}

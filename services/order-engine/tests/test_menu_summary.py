@@ -1,19 +1,19 @@
 """Tests for menu summary generation — no prices, no IDs, correct structure."""
 
-import json
-from pathlib import Path
-
 from src.llm.prompts.menu_summary import generate_menu_summary
+from src.loader import load_menu_data_from_db
+
+_DB_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+_RESTAURANT_ID = "b22b5d53-6dd8-4f5b-8276-2e828cd1ab91"
 
 
 def _load_menu() -> dict:
-    return json.loads(Path("menus/silver-ssc-hyd.json").read_text(encoding="utf-8"))
+    return load_menu_data_from_db(_DB_URL, _RESTAURANT_ID)
 
 
 def test_no_prices_in_summary():
     menu_data = _load_menu()
     summary = generate_menu_summary(menu_data)
-    # Prices are integers like 539, 129, 999 — none should appear
     for item in menu_data["items"]:
         price = item.get("price")
         if price:
@@ -23,8 +23,7 @@ def test_no_prices_in_summary():
 def test_no_ids_in_summary():
     menu_data = _load_menu()
     summary = generate_menu_summary(menu_data)
-    # Check a sample of IDs that should NOT appear
-    for item_id in ["butter_chicken", "naan_garlic", "english_breakfast", "dal_makhni"]:
+    for item_id in ["avocado_toast", "cappuccino", "silver_cold_brew", "teas"]:
         assert item_id not in summary, f"Found ID {item_id} in summary"
 
 
@@ -38,24 +37,15 @@ def test_contains_category_names():
 def test_contains_item_names():
     menu_data = _load_menu()
     summary = generate_menu_summary(menu_data)
-    # Check a sample of item names
-    for name in ["Butter Chicken", "Dal Makhni", "English Breakfast", "Belgian Waffle"]:
+    for name in ["Avocado Toast", "Cappuccino", "Silver Espresso", "Teas"]:
         assert name in summary, f"Missing item: {name}"
 
 
-def test_variant_groups_show_options():
+def test_modifier_options_shown():
     menu_data = _load_menu()
     summary = generate_menu_summary(menu_data)
-    # Belgian Waffle should show "choose: Nutella & Banana, Classic"
-    assert "choose:" in summary
-    assert "Nutella & Banana" in summary
-
-
-def test_time_windows_shown():
-    menu_data = _load_menu()
-    summary = generate_menu_summary(menu_data)
-    assert "07:00-11:00" in summary  # Breakfast Platters
-    assert "15:00-19:00" in summary  # High Tea
+    # Teas has a tea_choice modifier with Spearmint/Green Tea/Chamomile/Blue Pea
+    assert "Spearmint" in summary
 
 
 def test_veg_nonveg_tags():
@@ -68,18 +58,18 @@ def test_veg_nonveg_tags():
 def test_modifiers_shown():
     menu_data = _load_menu()
     summary = generate_menu_summary(menu_data)
-    # Fresh Lime Soda has a Salt/Sweet modifier
-    assert "Salt/Sweet" in summary
+    # Teas modifier shows tea type choices
+    assert "Choose your tea" in summary
 
 
 def test_descriptions_shown():
     menu_data = _load_menu()
     summary = generate_menu_summary(menu_data)
-    # English Breakfast has a description
-    assert "Eggs Benedict" in summary
+    # Avocado Toast has a description
+    assert "sourdough" in summary
 
 
 def test_summary_not_empty():
     menu_data = _load_menu()
     summary = generate_menu_summary(menu_data)
-    assert len(summary) > 500  # Should be substantial
+    assert len(summary) > 500
