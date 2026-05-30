@@ -132,7 +132,7 @@ const STATUS_LABEL: Record<string, string> = {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function Billing() {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
 
   // Config
   const [gstRate, setGstRate] = useState(5);

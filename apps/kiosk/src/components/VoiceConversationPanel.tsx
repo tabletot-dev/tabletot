@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import DietMark from "@/components/DietMark";
 import { itemImageBackground } from "@/lib/menuImages";
 import type { MenuItem } from "@/data/menu";
-import type { DoneMessage } from "@/lib/voice/types";
+import type { DoneMessage, Turn } from "@/lib/voice/types";
 import { startSttPress, type SttPressHandle } from "@/lib/voice/sttClient";
 
 interface CartItem {
@@ -13,17 +13,13 @@ interface CartItem {
   quantity: number;
 }
 
-interface Turn {
-  role: "user" | "ai";
-  text: string;
-  matchedItems?: MenuItem[];
-}
-
 type PressStatus = "idle" | "recording" | "processing";
 
 interface VoiceConversationPanelProps {
   sessionId: string | null;
-  items: MenuItem[];
+  // The conversation thread is owned by Index.tsx so it persists across the
+  // modal closing — see docs/notes/voice-conversation-continuity.md.
+  turns: Turn[];
   order: CartItem[];
   getQuantity: (itemId: string) => number;
   onClose: () => void;
@@ -33,13 +29,9 @@ interface VoiceConversationPanelProps {
   onSelectItem: (item: MenuItem) => void;
 }
 
-function normalizeName(name: string) {
-  return name.toLowerCase().replace(/[-–—]/g, " ").replace(/\s+/g, " ").trim();
-}
-
 export default function VoiceConversationPanel({
   sessionId,
-  items,
+  turns,
   order,
   getQuantity,
   onClose,
@@ -48,7 +40,6 @@ export default function VoiceConversationPanel({
   onUpdateQuantity,
   onSelectItem,
 }: VoiceConversationPanelProps) {
-  const [turns, setTurns] = useState<Turn[]>([]);
   const [pressStatus, setPressStatus] = useState<PressStatus>("idle");
   const [levels, setLevels] = useState<number[]>(() =>
     Array.from({ length: 18 }, (_, i) => 0.28 + (i % 4) * 0.08),
@@ -98,25 +89,14 @@ export default function VoiceConversationPanel({
   const handleSttMessage = useCallback(
     (msg: Parameters<Parameters<typeof startSttPress>[1]>[0]) => {
       if (msg.type === "done") {
-        const matchedNames = msg.resolver
-          .filter((r): r is Extract<typeof r, { type: "match" }> => r.type === "match")
-          .map((r) => normalizeName(r.item));
-        const matchedItems = items.filter((item) =>
-          matchedNames.some((n) => n === normalizeName(item.name)),
-        );
-
-        setTurns((prev) => [
-          ...prev,
-          { role: "user", text: msg.transcript },
-          { role: "ai", text: msg.response, matchedItems },
-        ]);
+        // Index.tsx appends this exchange to the persistent thread.
         onDone(msg);
         setPressStatus("idle");
       } else if (msg.type === "no_speech" || msg.type === "error") {
         setPressStatus("idle");
       }
     },
-    [items, onDone],
+    [onDone],
   );
 
   const handleToggle = useCallback(async () => {

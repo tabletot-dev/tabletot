@@ -12,6 +12,18 @@ pre-submit completion nudges. Touch is the primary ordering path. Voice is an
 add-on feature. The internal canonical menu model is Tabletot's own; Petpooja
 and Tabletot POS are peer adapters.
 
+## Codebase exploration
+
+**IMPORTANT: Use `/graphify` BEFORE using Grep/Glob/Read to explore the codebase.**
+The knowledge graph is faster, cheaper (fewer tokens), and gives structural context
+(callers, dependents, relationships) that file scanning cannot.
+
+- **Exploring code, finding symbols**: `/graphify` first, grep as fallback
+- **Understanding impact of a change**: `/graphify`
+- **Architecture questions**: `/graphify`
+
+Fall back to Grep/Glob/Read **only** when graphify doesn't cover what you need.
+
 ## Read these before making changes
 
 1. `docs/overview.md` — current state of the project, what's in scope right now.

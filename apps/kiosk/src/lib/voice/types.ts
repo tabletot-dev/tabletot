@@ -1,3 +1,16 @@
+import type { MenuItem } from "@/data/menu";
+
+/**
+ * One rendered line in the voice conversation thread. Owned by Index.tsx (the
+ * voice session lifecycle owner) so the thread survives the conversation modal
+ * being closed and reopened — see docs/notes/voice-conversation-continuity.md.
+ */
+export interface Turn {
+  role: "user" | "ai";
+  text: string;
+  matchedItems?: MenuItem[];
+}
+
 export type ResolverCall =
   | {
       type: "match";

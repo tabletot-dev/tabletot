@@ -22,7 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { resolveTableId, startSession } from "@/lib/orderSubmission";
 import { findMatchingRule, type CompletionRule, type MatchedSuggestion } from "@/lib/completionRules";
 import { useMenu, MenuProvider } from "@/lib/menuStore";
-import type { DoneMessage, OrderSnapshot } from "@/lib/voice/types";
+import type { DoneMessage, OrderSnapshot, Turn } from "@/lib/voice/types";
 import { MenuItem } from "@/data/menu";
 
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
@@ -94,6 +94,7 @@ const IndexInner = () => {
           if ((payload.new as { status: string }).status === "closed") {
             endSession();
             setActiveSessionKey(null);
+            setVoiceTurns([]);
           }
         },
       )
@@ -107,6 +108,15 @@ const IndexInner = () => {
   const [completionSuggestion, setCompletionSuggestion] = useState<MatchedSuggestion | null>(null);
   const [voiceConversationOpen, setVoiceConversationOpen] = useState(false);
   const [voiceSessionId, setVoiceSessionId] = useState<string | null>(null);
+  // Voice transcript lives here, not inside VoiceConversationPanel, so it
+  // survives the modal closing/reopening. Reset only when the voice session
+  // itself changes or ends — see docs/notes/voice-conversation-continuity.md.
+  const [voiceTurns, setVoiceTurns] = useState<Turn[]>([]);
+
+  // A new backend session means a fresh thread.
+  useEffect(() => {
+    setVoiceTurns([]);
+  }, [voiceSessionId]);
 
   const prevVoiceOrderRef = useRef<OrderSnapshot | null>(null);
 
@@ -135,6 +145,21 @@ const IndexInner = () => {
 
   const handleVoiceDone = useCallback(
     (msg: DoneMessage) => {
+      // Record the exchange in the persistent thread. Built here (not in the
+      // panel) so presses made from the dock while the modal is closed are also
+      // captured, and so the thread outlives the modal.
+      const matchedNames = msg.resolver
+        .filter((r): r is Extract<typeof r, { type: "match" }> => r.type === "match")
+        .map((r) => normalizeName(r.item));
+      const matchedItems = menuItems.filter((item) =>
+        matchedNames.some((n) => n === normalizeName(item.name)),
+      );
+      setVoiceTurns((prev) => [
+        ...prev,
+        { role: "user", text: msg.transcript },
+        { role: "ai", text: msg.response, matchedItems },
+      ]);
+
       const prev = prevVoiceOrderRef.current;
       const next = msg.order;
       prevVoiceOrderRef.current = next;
@@ -303,7 +328,7 @@ const IndexInner = () => {
                     voiceEnabled && voiceConversationOpen ? (
                       <VoiceConversationPanel
                         sessionId={voiceSessionId}
-                        items={menuItems}
+                        turns={voiceTurns}
                         order={order}
                         getQuantity={getOrderQuantity}
                         onClose={() => setVoiceConversationOpen(false)}
@@ -429,6 +454,7 @@ const IndexInner = () => {
               }
               endSession();
               setActiveSessionKey(null);
+              setVoiceTurns([]);
             }}
             onContinueOrdering={() => setCurrentScreen("menu")}
           />
