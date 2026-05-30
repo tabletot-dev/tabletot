@@ -21,21 +21,21 @@ interface KOTTicket {
 export default function Kitchen() {
   const [tickets, setTickets] = useState<KOTTicket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'preparing' | 'ready'>('all');
+  const [filter, setFilter] = useState<'all' | 'accepted' | 'preparing' | 'ready'>('all');
 
   useEffect(() => {
     fetchTickets();
 
     const channel = supabase
       .channel('kot_tickets')
-      // New pending tickets appended directly — no round-trip fetch needed.
+      // New accepted tickets appended directly — no round-trip fetch needed.
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'kot_tickets',
-          filter: 'status=eq.pending',
+          filter: 'status=eq.accepted',
         },
         (payload) => {
           setTickets((prev) => [...prev, payload.new as KOTTicket]);
@@ -47,7 +47,7 @@ export default function Kitchen() {
         { event: 'UPDATE', schema: 'public', table: 'kot_tickets' },
         (payload) => {
           const updated = payload.new as KOTTicket;
-          if (updated.status === 'completed') {
+          if (updated.status === 'archived') {
             setTickets((prev) => prev.filter((t) => t.id !== updated.id));
           } else {
             setTickets((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
@@ -70,7 +70,7 @@ export default function Kitchen() {
     const { data, error } = await supabase
       .from('kot_tickets')
       .select('*')
-      .in('status', ['pending', 'preparing', 'ready'])
+      .in('status', ['accepted', 'preparing', 'ready'])
       .order('printed_at', { ascending: true });
 
     if (error) {
@@ -91,13 +91,12 @@ export default function Kitchen() {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Updated', description: `Ticket marked as ${status}` });
-      // Realtime UPDATE handler updates state; trigger also syncs orders.status
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'bg-amber-500/20 text-amber-600 border-amber-500';
+      case 'accepted': return 'bg-amber-500/20 text-amber-600 border-amber-500';
       case 'preparing': return 'bg-blue-500/20 text-blue-600 border-blue-500';
       case 'ready': return 'bg-emerald-500/20 text-emerald-600 border-emerald-500';
       default: return 'bg-muted text-muted-foreground';
@@ -111,11 +110,11 @@ export default function Kitchen() {
     return `${mins} mins ago`;
   };
 
-  const filteredTickets = filter === 'all' 
-    ? tickets 
+  const filteredTickets = filter === 'all'
+    ? tickets
     : tickets.filter(t => t.status === filter);
 
-  const pendingCount = tickets.filter(t => t.status === 'pending').length;
+  const acceptedCount = tickets.filter(t => t.status === 'accepted').length;
   const preparingCount = tickets.filter(t => t.status === 'preparing').length;
   const readyCount = tickets.filter(t => t.status === 'ready').length;
 
@@ -141,10 +140,10 @@ export default function Kitchen() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {pendingCount > 0 && (
+          {acceptedCount > 0 && (
             <Badge variant="destructive" className="animate-pulse">
               <Bell className="h-3 w-3 mr-1" />
-              {pendingCount} New
+              {acceptedCount} New
             </Badge>
           )}
         </div>
@@ -160,13 +159,13 @@ export default function Kitchen() {
           >
             All ({tickets.length})
           </Button>
-          <Button 
-            variant={filter === 'pending' ? 'default' : 'outline'} 
+          <Button
+            variant={filter === 'accepted' ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setFilter('pending')}
-            className={filter === 'pending' ? '' : 'border-amber-500 text-amber-600 hover:bg-amber-50'}
+            onClick={() => setFilter('accepted')}
+            className={filter === 'accepted' ? '' : 'border-amber-500 text-amber-600 hover:bg-amber-50'}
           >
-            Pending ({pendingCount})
+            New ({acceptedCount})
           </Button>
           <Button 
             variant={filter === 'preparing' ? 'default' : 'outline'} 
@@ -202,7 +201,7 @@ export default function Kitchen() {
                 key={ticket.id} 
                 className={cn(
                   'overflow-hidden transition-all hover:shadow-lg',
-                  ticket.status === 'pending' && 'border-amber-500 border-2',
+                  ticket.status === 'accepted' && 'border-amber-500 border-2',
                   ticket.status === 'preparing' && 'border-blue-500',
                   ticket.status === 'ready' && 'border-emerald-500'
                 )}
@@ -245,8 +244,8 @@ export default function Kitchen() {
 
                   {/* Action Buttons */}
                   <div className="flex gap-2 pt-2">
-                    {ticket.status === 'pending' && (
-                      <Button 
+                    {ticket.status === 'accepted' && (
+                      <Button
                         className="flex-1 bg-blue-500 hover:bg-blue-600"
                         onClick={() => updateStatus(ticket.id, 'preparing')}
                       >
@@ -266,7 +265,7 @@ export default function Kitchen() {
                       <Button 
                         className="flex-1"
                         variant="outline"
-                        onClick={() => updateStatus(ticket.id, 'completed')}
+                        onClick={() => updateStatus(ticket.id, 'archived')}
                       >
                         Complete & Archive
                       </Button>

@@ -147,7 +147,7 @@ export async function submitOrder(
         table_id: tableUuid,
         order_type: 'dine-in',
         source: 'Tabletot',
-        status: 'pending',
+        status: 'new',
         items_json: newItems,
         subtotal,
         total,
@@ -161,6 +161,16 @@ export async function submitOrder(
     setActiveOrderId(orderId);
   }
 
+  // D2: Block new KOTs if the session is already being settled.
+  const { data: sessionRow } = await supabase
+    .from('sessions')
+    .select('status')
+    .eq('session_key', sessionKey)
+    .single();
+  if (sessionRow?.status === 'bill_requested' || sessionRow?.status === 'closed') {
+    throw new OrderSubmissionError('session', 'Bill has been requested — ordering is closed for this table.');
+  }
+
   // Always create a new KOT row per round — kitchen sees each round separately.
   const { data: kot, error: kotError } = await supabase
     .from('kot_tickets')
@@ -170,7 +180,7 @@ export async function submitOrder(
       kot_number: `KOT-${Date.now()}`,
       table_number: TABLE_NUMBER,
       items: newItems,
-      status: 'pending',
+      status: 'accepted',
       session_id: sessionKey,
     })
     .select('id')

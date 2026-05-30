@@ -193,8 +193,6 @@ export default function Orders() {
                       <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="new">New</SelectItem>
-                        <SelectItem value="preparing">Preparing</SelectItem>
-                        <SelectItem value="ready">Ready</SelectItem>
                         <SelectItem value="served">Served</SelectItem>
                         <SelectItem value="completed">Completed</SelectItem>
                         <SelectItem value="paid">Paid</SelectItem>

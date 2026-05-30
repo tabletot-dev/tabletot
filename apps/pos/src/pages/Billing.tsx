@@ -44,6 +44,9 @@ interface Order {
   total: number;
   status: string;
   created_at: string;
+  bill_generated_at?: string | null;
+  final_discount?: number | null;
+  final_total?: number | null;
 }
 
 interface CartItem {
@@ -303,6 +306,13 @@ export default function Billing() {
     loadActiveOrder(selectedTable);
   }, [selectedTable, loadActiveOrder]);
 
+  // D3: Pre-populate discount from the persisted bill lock when the order loads.
+  useEffect(() => {
+    if (activeOrder?.final_discount != null) {
+      setDiscountAmount(activeOrder.final_discount);
+    }
+  }, [activeOrder?.id]);
+
   // Refresh active order when orders table changes
   useEffect(() => {
     if (!activeOrder?.id) return;
@@ -386,7 +396,7 @@ export default function Billing() {
           kot_number: kotNumber,
           table_number: selectedTable.table_number,
           items: pendingItems as any,
-          status: 'pending',
+          status: 'accepted',
           special_notes: specialNotes || null,
           created_by: user?.id,
         })
@@ -424,12 +434,21 @@ export default function Billing() {
   // ─── Payment complete ──────────────────────────────────────────────────────
 
   const handlePaymentComplete = () => {
+    const orderId = activeOrder?.id;
     setActiveOrder(null);
     setDiscountAmount(0);
     setShowPayment(false);
     setShowBillPreview(false);
     if (billReqForTable) {
       supabase.from('bill_requests').update({ status: 'settled' }).eq('id', billReqForTable.id);
+    }
+    // B2: Archive all KOTs for this order — removes them from the kitchen queue.
+    if (orderId) {
+      supabase
+        .from('kot_tickets')
+        .update({ status: 'archived' })
+        .eq('order_id', orderId)
+        .in('status', ['accepted', 'preparing', 'ready']);
     }
     // Close the session — this resets the kiosk screen via Realtime
     if (selectedTable) {
@@ -519,7 +538,7 @@ export default function Billing() {
           .from('kot_tickets')
           .select('order_id')
           .in('order_id', staleOrderIds)
-          .in('status', ['pending', 'in_progress']);
+          .in('status', ['accepted', 'preparing', 'ready']);
         (openKots || []).forEach((k) => openKotOrderIds.add(k.order_id));
       }
 
@@ -916,7 +935,17 @@ export default function Billing() {
           </div>
           <Button
             className="w-full bg-emerald-600 hover:bg-emerald-700"
-            onClick={() => { setShowBillPreview(false); setShowPayment(true); }}
+            onClick={async () => {
+              if (activeOrder?.id) {
+                await supabase.from('orders').update({
+                  bill_generated_at: new Date().toISOString(),
+                  final_discount: discountAmount,
+                  final_total: billTotal,
+                }).eq('id', activeOrder.id);
+              }
+              setShowBillPreview(false);
+              setShowPayment(true);
+            }}
           >
             <CreditCard className="h-4 w-4 mr-2" />
             Proceed to Settle

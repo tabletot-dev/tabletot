@@ -10,7 +10,7 @@ interface AppShellProps {
   showStatusReturn?: boolean;
 }
 
-const HEADERLESS_SCREENS: ScreenType[] = ["idle", "session-idle"];
+const HEADERLESS_SCREENS: ScreenType[] = ["idle", "session-idle", "bill-summary"];
 
 export default function AppShell({
   children,
