@@ -27,6 +27,10 @@ VALID_ACTIONS = frozenset({
     "accept_upsell",
     "reject_upsell",
     "none",
+    # Track C–E actions
+    "browse_category",
+    "filter",
+    "recommend",
 })
 
 

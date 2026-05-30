@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { OrderRound } from "@/hooks/useDeviceNavigation";
 import TabletotLogo from "@/components/TabletotLogo";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,29 +9,29 @@ const TAX_RATE = 0.05;
 interface BillViewProps {
   previousOrders: OrderRound[];
   sessionTotal: number;
+  alreadyRequested?: boolean;
   onClose: () => void;
+  onBillSubmitted?: () => void;
   onContinueOrdering?: () => void;
 }
 
 export default function BillView({
   previousOrders,
   sessionTotal,
+  alreadyRequested = false,
   onClose,
+  onBillSubmitted,
   onContinueOrdering,
 }: BillViewProps) {
-  const [stage, setStage] = useState<"summary" | "phone" | "loading" | "sent">("summary");
+  const [stage, setStage] = useState<"summary" | "phone" | "loading" | "sent">(
+    alreadyRequested ? "sent" : "summary"
+  );
   const [phone, setPhone] = useState("");
   const subtotal = sessionTotal;
   const tax = subtotal * TAX_RATE;
   const total = subtotal + tax;
   const sanitizedPhone = phone.replace(/[^\d+]/g, "");
   const canSubmitPhone = sanitizedPhone.replace(/\D/g, "").length >= 10;
-
-  useEffect(() => {
-    if (stage !== "sent") return undefined;
-    const id = window.setTimeout(onClose, 5000);
-    return () => window.clearTimeout(id);
-  }, [stage, onClose]);
 
   const submitBillRequest = async () => {
     if (!canSubmitPhone) return;
@@ -61,6 +61,7 @@ export default function BillView({
       // Show success regardless — staff will also see it on their screen
     }
     setStage("sent");
+    onBillSubmitted?.();
   };
 
   if (stage === "loading") {
@@ -80,7 +81,7 @@ export default function BillView({
         <p className="eyebrow">Bill Requested</p>
         <h1>Bill coming your way.</h1>
         <p className="bill-flow-copy">
-          A server will bring the bill to your table. This screen will reset shortly.
+          A server will bring the bill to your table.
         </p>
       </section>
     );

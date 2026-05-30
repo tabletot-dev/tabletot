@@ -1,11 +1,9 @@
-"""Tests for src/resolver.py — the matching cascade."""
+"""Tests for src/resolver.py — the matching cascade against Silver SSC menu."""
 
 from datetime import datetime
-from pathlib import Path
 
 import pytest
 
-from src.loader import load_menu
 from src.models import (
     Ambiguous,
     ConfidentMatch,
@@ -15,100 +13,85 @@ from src.models import (
 )
 from src.resolver import resolve
 
-MENU_PATH = Path(__file__).parent.parent / "menus" / "silver-ssc-hyd.json"
+from src.loader import load_menu_from_db
+
+_DB_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+_RESTAURANT_ID = "b22b5d53-6dd8-4f5b-8276-2e828cd1ab91"
 
 
 @pytest.fixture(scope="module")
 def index():
-    return load_menu(MENU_PATH)
+    return load_menu_from_db(_DB_URL, _RESTAURANT_ID)
 
 
 class TestStep1Exact:
-    def test_dal_makhni(self, index):
-        r = resolve("dal makhni", index)
+    def test_avocado_toast(self, index):
+        r = resolve("avocado toast", index)
         assert isinstance(r, ConfidentMatch)
-        assert r.item_id == "dal_makhni"
+        assert r.item_id == "avocado_toast"
         assert r.match_method == "exact"
         assert r.score == 100.0
 
-    def test_butter_chicken(self, index):
-        r = resolve("butter chicken", index)
+    def test_cappuccino(self, index):
+        r = resolve("cappuccino", index)
         assert isinstance(r, ConfidentMatch)
-        assert r.item_id == "butter_chicken"
+        assert r.item_id == "cappuccino"
 
     def test_with_filler_words(self, index):
-        r = resolve("ek butter chicken please", index)
+        r = resolve("ek cappuccino please", index)
         assert isinstance(r, ConfidentMatch)
-        assert r.item_id == "butter_chicken"
+        assert r.item_id == "cappuccino"
 
 
 class TestStep2Alias:
     def test_alias_to_simple_item(self, index):
-        r = resolve("black dal", index)
+        r = resolve("avo toast", index)
         assert isinstance(r, ConfidentMatch)
-        assert r.item_id == "dal_makhni"
+        assert r.item_id == "avocado_toast"
         assert r.match_method == "alias"
 
-    def test_alias_to_variant(self, index):
-        r = resolve("garlic naan", index)
+    def test_cold_brew_alias(self, index):
+        r = resolve("cold brew", index)
         assert isinstance(r, ConfidentMatch)
-        assert r.item_id == "naan_garlic"
+        assert r.item_id == "silver_cold_brew"
 
-    def test_alias_to_variant_group(self, index):
-        # 'naan' alone is in the index as a group entry — should ask for variant
-        r = resolve("naan", index)
-        assert isinstance(r, NeedsVariantSelection)
-        assert r.group_id == "naan"
+    def test_pancakes_alias(self, index):
+        r = resolve("pancakes", index)
+        assert isinstance(r, ConfidentMatch)
+        assert r.item_id == "original_pancakes"
 
 
 class TestStep3Fuzzy:
-    def test_misspelled_dal(self, index):
-        r = resolve("dal makhani", index)
+    def test_misspelled_cappuccino(self, index):
+        r = resolve("cappucino", index)
         assert isinstance(r, ConfidentMatch)
-        assert r.item_id == "dal_makhni"
+        assert r.item_id == "cappuccino"
 
-    def test_misspelled_spaghetti(self, index):
-        r = resolve("spagheti arrabbiata", index)
+    def test_misspelled_nashville(self, index):
+        r = resolve("nasvhille chicken", index)
         assert isinstance(r, ConfidentMatch)
-        assert r.item_id == "spaghetti_arrabbiata"
-
-
-class TestVariantHandling:
-    def test_waffle_alone_returns_variants(self, index):
-        r = resolve("waffle", index)
-        assert isinstance(r, NeedsVariantSelection)
-        assert r.group_id == "belgian_waffle"
-        assert len(r.variants) >= 2
-
-    def test_specific_variant(self, index):
-        r = resolve("nutella waffle", index)
-        assert isinstance(r, ConfidentMatch)
-        assert r.item_id == "belgian_waffle_nutella_banana"
+        assert r.item_id == "nashville_chicken_burger"
 
 
 class TestAmbiguous:
+    def test_iced(self, index):
+        r = resolve("iced", index)
+        # "iced" matches iced_long_black, iced_latte, iced_mocha → always ambiguous
+        assert isinstance(r, Ambiguous)
+        assert len(r.candidates) >= 2
+
     def test_coffee(self, index):
         r = resolve("coffee", index)
-        # Could be alias hit too — accept either ambiguous or a specific cluster.
+        # Accept any resolved result — Silver SSC has many coffee items
         assert isinstance(r, (Ambiguous, ConfidentMatch, NeedsVariantSelection))
         if isinstance(r, Ambiguous):
             assert len(r.candidates) >= 2
 
-    def test_chicken(self, index):
-        r = resolve("chicken", index)
-        assert isinstance(r, (Ambiguous, ConfidentMatch))
-
 
 class TestNoMatch:
-    def test_pizza_hut(self, index):
-        r = resolve("pizza hut", index)
-        # Note: 'pizza' is in the menu so this might fuzzy-match to a pizza item.
-        # The test_battery flagged this as NoMatch — accept either NoMatch or pizza match.
-        assert isinstance(r, (NoMatch, ConfidentMatch, Ambiguous))
-
-    def test_coca_cola(self, index):
-        r = resolve("coca cola", index)
-        assert isinstance(r, (NoMatch, Ambiguous))
+    def test_masala_dosa(self, index):
+        r = resolve("masala dosa", index)
+        assert isinstance(r, NoMatch)
 
     def test_empty_input(self, index):
         r = resolve("", index)
@@ -120,28 +103,53 @@ class TestNoMatch:
 
 
 class TestModifiers:
-    def test_fresh_lime_soda_has_modifier(self, index):
-        r = resolve("nimbu soda", index)
+    def test_teas_has_modifier(self, index):
+        r = resolve("tea", index)
         assert isinstance(r, ConfidentMatch)
-        assert r.item_id == "fresh_lime_soda"
+        assert r.item_id == "teas"
         assert r.requires_modifier is not None
-        assert "style" in r.requires_modifier
+        assert "tea_choice" in r.requires_modifier
 
 
 class TestUnavailable:
-    def test_breakfast_at_two_pm(self, index):
-        r = resolve("english breakfast", index, datetime(2026, 4, 14, 14, 0))
-        assert isinstance(r, Unavailable)
-        assert "07:00-11:00" in r.reason
+    def test_all_items_always_available(self, index):
+        # Silver SSC has no time windows — every item is available at all hours
+        afternoon = datetime(2026, 4, 14, 14, 0)
+        for item_id, item in index.items_by_id.items():
+            r = resolve(item.name, index, afternoon)
+            assert not isinstance(r, Unavailable), f"{item_id} should be available at 14:00"
 
-    def test_breakfast_at_eight_am(self, index):
-        r = resolve("english breakfast", index, datetime(2026, 4, 14, 8, 0))
+
+class TestPluralSingular:
+    """B1 — plural/singular robustness (normalizer step 7 + alias fuzzy pool)."""
+
+    def test_pancake_singular_resolves(self, index):
+        # "pancake" (singular) must not NoMatch — alias "pancakes" normalizes
+        # to "pancake" via step 7, so Step 2 exact alias lookup fires.
+        r = resolve("pancake", index)
+        assert not isinstance(r, NoMatch)
+
+    def test_omelette_alias(self, index):
+        r = resolve("omelette", index)
         assert isinstance(r, ConfidentMatch)
+        assert r.item_id == "french_omelette"
+
+    def test_omelettes_plural(self, index):
+        # "omelettes" → normalize → "omelette" → alias → French Omelette
+        r = resolve("omelettes", index)
+        assert isinstance(r, ConfidentMatch)
+        assert r.item_id == "french_omelette"
+
+    def test_pancakes_alias_unchanged(self, index):
+        # Existing alias behavior must not regress
+        r = resolve("pancakes", index)
+        assert isinstance(r, ConfidentMatch)
+        assert r.item_id == "original_pancakes"
 
 
 class TestPureFunction:
     def test_no_state_between_calls(self, index):
-        r1 = resolve("dal makhni", index)
-        r2 = resolve("dal makhni", index)
+        r1 = resolve("avocado toast", index)
+        r2 = resolve("avocado toast", index)
         assert r1.item_id == r2.item_id  # type: ignore[union-attr]
         assert r1.score == r2.score  # type: ignore[union-attr]

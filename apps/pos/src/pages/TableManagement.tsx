@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, Loader2, Users } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { RESTAURANT_ID } from '@/lib/restaurant';
 
 interface RestaurantTable {
   id: string;
@@ -117,7 +118,9 @@ export default function TableManagement() {
     } else {
       const { error } = await supabase
         .from('restaurant_tables')
-        .insert(tableData);
+        // Scope to this deployment's restaurant. Without this the row lands
+        // with restaurant_id = NULL and the kiosk can't resolve it (406).
+        .insert({ ...tableData, restaurant_id: RESTAURANT_ID });
 
       if (error) {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });

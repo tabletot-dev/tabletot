@@ -79,6 +79,28 @@ class TestFillers:
         assert normalize("bhaiya ek butter chicken please") == "butter chicken"
 
 
+class TestPluralStripping:
+    def test_strips_trailing_s(self):
+        assert normalize("pancakes") == "pancake"
+
+    def test_strips_trailing_s_multiword(self):
+        assert normalize("smoothie bowls") == "smoothie bowl"
+
+    def test_does_not_strip_when_result_too_short(self):
+        # "yes" → "ye" is only 2 chars — no strip
+        assert normalize("yes") == "yes"
+
+    def test_does_not_strip_non_plural_s(self):
+        # "espresso" ends in 'o' — untouched
+        assert normalize("espresso") == "espresso"
+
+    def test_strips_omelettes(self):
+        assert normalize("omelettes") == "omelette"
+
+    def test_strips_eggs(self):
+        assert normalize("turkish eggs") == "turkish egg"
+
+
 class TestNormalizeForIndex:
     def test_single_word(self):
         assert normalize_for_index("Espresso") == ["espresso"]

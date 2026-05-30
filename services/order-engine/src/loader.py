@@ -1,13 +1,14 @@
 """Menu loader and search index builder.
 
-Reads menu.json once at startup and produces a MenuIndex containing flat
-match entries, an alias dictionary, and lookup tables for items, variants,
-and categories.
+Primary path: `load_menu_from_db` builds a MenuIndex from the `menu_items`
+and `menu_item_aliases` DB tables. `load_menu_data_from_db` builds the raw
+menu_data dict used by `generate_menu_summary`.
 
-`load_menu_overlay_from_db` and `apply_overlay` extend this with a DB-sourced
-price/active layer: prices are updated from `menu_items`, inactive items are
-pruned. The file-loaded index is the structural source of truth; the DB is
-the runtime override.
+Legacy path: `load_menu` reads from a JSON file (kept for CLI tooling and
+fallback reference; not used by the voice backend in production).
+
+`load_menu_overlay_from_db` and `apply_overlay` are used when mixing the
+JSON-backed legacy path with live DB prices.
 """
 
 from __future__ import annotations
@@ -22,6 +23,13 @@ logger = logging.getLogger(__name__)
 
 from src.models import Category, IndexEntry, MenuItem, VariantItem
 from src.normalizer import normalize, normalize_for_index
+
+# Function words excluded when building description bigrams.
+_DESC_SKIP: frozenset[str] = frozenset({
+    "and", "or", "the", "a", "an", "with", "of", "in", "on", "for",
+    "to", "at", "by", "is", "are", "its", "from", "over", "into",
+    "as", "but", "than", "that", "this", "has", "have",
+})
 
 
 @dataclass
@@ -93,6 +101,7 @@ def load_menu(path: str | Path) -> MenuIndex:
             _add_variant_group_entries(index, item, item_raw.get("variants", []))
         else:  # pragma: no cover - safety net for unknown types
             raise ValueError(f"Unknown item type {item.type!r} for {item.id}")
+        _add_description_aliases(index, item)
 
     # --- Aliases ---
     for raw_alias, target_id in raw.get("aliases", {}).items():
@@ -197,6 +206,24 @@ def _add_variant_group_entries(
             )
 
 
+def _add_description_aliases(index: MenuIndex, item: MenuItem) -> None:
+    """Index meaningful bigrams from item.description as additional aliases.
+
+    Only adds bigrams whose tokens are not function words and are ≥ 3 chars.
+    Curated DB/JSON aliases added later always take priority (they overwrite).
+    """
+    if not item.description:
+        return
+    desc = normalize(item.description)
+    if not desc:
+        return
+    tokens = [t for t in desc.split() if t not in _DESC_SKIP and len(t) >= 3]
+    for i in range(len(tokens) - 1):
+        phrase = f"{tokens[i]} {tokens[i + 1]}"
+        if phrase not in index.aliases:
+            index.aliases[phrase] = item.id
+
+
 # ---------------------------------------------------------------------------
 # DB overlay: price + active sync
 # ---------------------------------------------------------------------------
@@ -207,10 +234,10 @@ _DEFAULT_DB_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
 def load_aliases_from_db(
     db_url: str | None = None, restaurant_id: str | None = None
 ) -> dict[str, str]:
-    """Query menu_item_aliases for this restaurant and return raw alias → json_item_id.
+    """Query menu_item_aliases for this restaurant and return raw alias → json_id.
 
-    The json_item_id is the petpooja external_id (e.g. "south_indian_filter_coffee"),
-    which is the key format MenuIndex.aliases expects.
+    Joins menu_item_aliases with menu_items.json_id to get the voice-resolution
+    slug (e.g. "avocado_toast"). No dependency on external_id_mapping.
 
     Returns an empty dict if the DB is unreachable, the table is empty, or no
     restaurant_id is supplied — callers treat that as "use JSON aliases".
@@ -226,18 +253,18 @@ def load_aliases_from_db(
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT a.alias, e.external_id
+            SELECT a.alias, mi.json_id
             FROM menu_item_aliases a
-            JOIN external_id_mapping e
-              ON e.internal_item_id = a.item_id AND e.provider = 'petpooja'
+            JOIN menu_items mi ON mi.id = a.item_id
             WHERE a.restaurant_id = %s
+              AND mi.json_id IS NOT NULL
             """,
             (restaurant_id,),
         )
         rows = cur.fetchall()
         cur.close()
         conn.close()
-        result = {alias: ext_id for alias, ext_id in rows}
+        result = {alias: json_id for alias, json_id in rows}
         logger.info("Aliases loaded from DB: %d for restaurant %s", len(result), restaurant_id)
         return result
     except Exception as exc:
@@ -387,3 +414,151 @@ def apply_overlay(index: MenuIndex, overlay: dict[str, dict]) -> MenuIndex:
     logger.info("apply_overlay: %d items matched, %d deactivated", len(translated), len(inactive_ids))
 
     return new_index
+
+
+# ---------------------------------------------------------------------------
+# DB-only menu loader (primary path for voice backend)
+# ---------------------------------------------------------------------------
+
+
+def load_menu_from_db(db_url: str | None = None, restaurant_id: str | None = None) -> MenuIndex:
+    """Build a MenuIndex entirely from the DB — no JSON file required.
+
+    Reads menu_items (active rows with json_id set) and menu_item_aliases for
+    the given restaurant. Raises RuntimeError on DB failure so startup fails
+    loudly rather than silently degrading.
+    """
+    if not restaurant_id:
+        raise ValueError("restaurant_id is required for load_menu_from_db")
+
+    import psycopg2  # local import so unit tests can import without psycopg2
+
+    url = db_url or _DEFAULT_DB_URL
+    try:
+        conn = psycopg2.connect(url)
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            SELECT json_id, name, category, price, is_veg, description, modifiers
+            FROM   menu_items
+            WHERE  restaurant_id = %s
+              AND  json_id IS NOT NULL
+              AND  active = true
+            ORDER BY created_at
+            """,
+            (restaurant_id,),
+        )
+        item_rows = cur.fetchall()
+
+        cur.execute(
+            """
+            SELECT a.alias, mi.json_id
+            FROM   menu_item_aliases a
+            JOIN   menu_items mi ON mi.id = a.item_id
+            WHERE  a.restaurant_id = %s
+              AND  mi.json_id IS NOT NULL
+            """,
+            (restaurant_id,),
+        )
+        alias_rows = cur.fetchall()
+
+        cur.close()
+        conn.close()
+    except Exception as exc:
+        raise RuntimeError(f"load_menu_from_db: DB unavailable: {exc}") from exc
+
+    index = MenuIndex()
+
+    for (json_id, name, category, price, is_veg, description, modifiers) in item_rows:
+        tags = ["veg"] if is_veg else ["non-veg"]
+        item = MenuItem(
+            id=json_id,
+            name=name,
+            category=category,
+            type="simple",
+            price=int(price) if price is not None else None,
+            description=description,
+            tags=tags,
+            modifiers=modifiers,
+        )
+        index.items_by_id[json_id] = item
+        if category not in index.categories:
+            index.categories[category] = Category(id=category, name=category)
+        _add_simple_entries(index, item)
+        _add_description_aliases(index, item)  # description bigrams; DB aliases below override
+
+    for alias_text, target_json_id in alias_rows:
+        normalized = normalize(alias_text)
+        if normalized and target_json_id in index.items_by_id:
+            index.aliases[normalized] = target_json_id
+
+    logger.info(
+        "Menu loaded from DB: %d items, %d aliases for restaurant %s",
+        len(index.items_by_id), len(index.aliases), restaurant_id,
+    )
+    return index
+
+
+def load_menu_data_from_db(db_url: str | None = None, restaurant_id: str | None = None) -> dict:
+    """Build the raw menu_data dict from DB for use with generate_menu_summary.
+
+    Returns a dict with keys 'categories', 'items', 'aliases' matching the
+    shape of the menu JSON files. Raises RuntimeError on DB failure.
+    """
+    if not restaurant_id:
+        raise ValueError("restaurant_id is required for load_menu_data_from_db")
+
+    import psycopg2
+
+    url = db_url or _DEFAULT_DB_URL
+    try:
+        conn = psycopg2.connect(url)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT json_id, name, category, price, is_veg, description, modifiers
+            FROM   menu_items
+            WHERE  restaurant_id = %s
+              AND  json_id IS NOT NULL
+              AND  active = true
+            ORDER BY created_at
+            """,
+            (restaurant_id,),
+        )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+    except Exception as exc:
+        raise RuntimeError(f"load_menu_data_from_db: DB unavailable: {exc}") from exc
+
+    seen_cats: list[str] = []
+    cat_set: set[str] = set()
+    items_list: list[dict] = []
+
+    for (json_id, name, category, price, is_veg, description, modifiers) in rows:
+        if category not in cat_set:
+            seen_cats.append(category)
+            cat_set.add(category)
+        items_list.append({
+            "id": json_id,
+            "name": name,
+            "category": category,
+            "type": "simple",
+            "price": int(price) if price is not None else None,
+            "tags": ["veg"] if is_veg else ["non-veg"],
+            "description": description,
+            "modifiers": modifiers or {},
+        })
+
+    categories_list = [{"id": cat, "name": cat} for cat in seen_cats]
+
+    logger.info(
+        "Menu data loaded from DB: %d items, %d categories for restaurant %s",
+        len(items_list), len(categories_list), restaurant_id,
+    )
+    return {
+        "categories": categories_list,
+        "items": items_list,
+        "aliases": {},
+    }

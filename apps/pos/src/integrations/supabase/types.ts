@@ -1,3 +1,4 @@
+Connecting to db 5432
 export type Json =
   | string
   | number
@@ -517,6 +518,8 @@ export type Database = {
           id: string
           image_url: string | null
           is_veg: boolean
+          json_id: string | null
+          modifiers: Json | null
           name: string
           price: number | null
           restaurant_id: string | null
@@ -530,6 +533,8 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_veg?: boolean
+          json_id?: string | null
+          modifiers?: Json | null
           name: string
           price?: number | null
           restaurant_id?: string | null
@@ -543,6 +548,8 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_veg?: boolean
+          json_id?: string | null
+          modifiers?: Json | null
           name?: string
           price?: number | null
           restaurant_id?: string | null
@@ -656,10 +663,13 @@ export type Database = {
       }
       orders: {
         Row: {
+          bill_generated_at: string | null
           created_at: string
           created_by: string | null
           customer_name: string | null
           discount: number
+          final_discount: number | null
+          final_total: number | null
           id: string
           items_json: Json | null
           order_id: string | null
@@ -677,10 +687,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bill_generated_at?: string | null
           created_at?: string
           created_by?: string | null
           customer_name?: string | null
           discount?: number
+          final_discount?: number | null
+          final_total?: number | null
           id?: string
           items_json?: Json | null
           order_id?: string | null
@@ -698,10 +711,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bill_generated_at?: string | null
           created_at?: string
           created_by?: string | null
           customer_name?: string | null
           discount?: number
+          final_discount?: number | null
+          final_total?: number | null
           id?: string
           items_json?: Json | null
           order_id?: string | null
@@ -948,23 +964,41 @@ export type Database = {
         Row: {
           config: Json
           created_at: string | null
+          fallback_language_code: string | null
+          fallback_speaker: string | null
           id: string
+          language_code: string | null
           name: string
           pos_provider: string | null
+          slug: string | null
+          speaker: string | null
+          voice_persona: string | null
         }
         Insert: {
           config?: Json
           created_at?: string | null
+          fallback_language_code?: string | null
+          fallback_speaker?: string | null
           id?: string
+          language_code?: string | null
           name: string
           pos_provider?: string | null
+          slug?: string | null
+          speaker?: string | null
+          voice_persona?: string | null
         }
         Update: {
           config?: Json
           created_at?: string | null
+          fallback_language_code?: string | null
+          fallback_speaker?: string | null
           id?: string
+          language_code?: string | null
           name?: string
           pos_provider?: string | null
+          slug?: string | null
+          speaker?: string | null
+          voice_persona?: string | null
         }
         Relationships: []
       }
@@ -1284,3 +1318,5 @@ export const Constants = {
   },
 } as const
 
+A new version of Supabase CLI is available: v2.102.0 (currently installed v)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

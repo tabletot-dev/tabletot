@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   Loader2, Users, Bell, Droplets, ChefHat, Plus,
-  Receipt, CreditCard, UserCheck, Minus, Wifi, WifiOff,
+  Receipt, CreditCard, UserCheck, Minus, Wifi, WifiOff, Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -44,6 +44,9 @@ interface Order {
   total: number;
   status: string;
   created_at: string;
+  bill_generated_at?: string | null;
+  final_discount?: number | null;
+  final_total?: number | null;
 }
 
 interface CartItem {
@@ -132,7 +135,7 @@ const STATUS_LABEL: Record<string, string> = {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function Billing() {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
 
   // Config
   const [gstRate, setGstRate] = useState(5);
@@ -303,6 +306,13 @@ export default function Billing() {
     loadActiveOrder(selectedTable);
   }, [selectedTable, loadActiveOrder]);
 
+  // D3: Pre-populate discount from the persisted bill lock when the order loads.
+  useEffect(() => {
+    if (activeOrder?.final_discount != null) {
+      setDiscountAmount(activeOrder.final_discount);
+    }
+  }, [activeOrder?.id]);
+
   // Refresh active order when orders table changes
   useEffect(() => {
     if (!activeOrder?.id) return;
@@ -386,7 +396,7 @@ export default function Billing() {
           kot_number: kotNumber,
           table_number: selectedTable.table_number,
           items: pendingItems as any,
-          status: 'pending',
+          status: 'accepted',
           special_notes: specialNotes || null,
           created_by: user?.id,
         })
@@ -424,12 +434,21 @@ export default function Billing() {
   // ─── Payment complete ──────────────────────────────────────────────────────
 
   const handlePaymentComplete = () => {
+    const orderId = activeOrder?.id;
     setActiveOrder(null);
     setDiscountAmount(0);
     setShowPayment(false);
     setShowBillPreview(false);
     if (billReqForTable) {
       supabase.from('bill_requests').update({ status: 'settled' }).eq('id', billReqForTable.id);
+    }
+    // B2: Archive all KOTs for this order — removes them from the kitchen queue.
+    if (orderId) {
+      supabase
+        .from('kot_tickets')
+        .update({ status: 'archived' })
+        .eq('order_id', orderId)
+        .in('status', ['accepted', 'preparing', 'ready']);
     }
     // Close the session — this resets the kiosk screen via Realtime
     if (selectedTable) {
@@ -456,6 +475,102 @@ export default function Billing() {
     fetchTables();
   };
 
+  // ─── Stale session cleanup ─────────────────────────────────────────────────
+
+  const [cleaningUp, setCleaningUp] = useState(false);
+
+  const handleCleanupStaleSessions = async () => {
+    setCleaningUp(true);
+    try {
+      const cutoff = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+
+      // Fetch all open sessions — we determine staleness from order activity below,
+      // not from started_at, so we don't pre-filter by date here.
+      const { data: openSessions, error } = await supabase
+        .from('sessions')
+        .select('id, session_key, started_at')
+        .in('status', ['active', 'bill_requested']);
+
+      if (error) throw error;
+      if (!openSessions?.length) {
+        toast({ title: 'No stale sessions', description: 'Nothing to clean up.' });
+        return;
+      }
+
+      const allSessionKeys = openSessions.map((s) => s.session_key).filter(Boolean);
+
+      // Fetch all orders for these sessions to find last-activity time per session.
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('id, session_id, created_at')
+        .in('session_id', allSessionKeys);
+
+      // Last activity = MAX(orders.created_at) if orders exist; else session.started_at.
+      // A table that ordered dessert 20 min ago is never stale even if started_at is 8h old.
+      const lastActivityByKey = new Map<string, string>();
+      for (const order of orders || []) {
+        const prev = lastActivityByKey.get(order.session_id);
+        if (!prev || order.created_at > prev) {
+          lastActivityByKey.set(order.session_id, order.created_at);
+        }
+      }
+
+      const staleSessions = openSessions.filter((s) => {
+        const lastActivity = s.session_key
+          ? (lastActivityByKey.get(s.session_key) ?? s.started_at)
+          : s.started_at;
+        return lastActivity < cutoff;
+      });
+
+      if (!staleSessions.length) {
+        toast({ title: 'No stale sessions', description: 'Nothing to clean up.' });
+        return;
+      }
+
+      // KOT guard: skip sessions with any open KOT tickets.
+      const staleKeys = new Set(staleSessions.map((s) => s.session_key).filter(Boolean));
+      const staleOrders = (orders || []).filter((o) => staleKeys.has(o.session_id));
+      const staleOrderIds = staleOrders.map((o) => o.id);
+      const openKotOrderIds = new Set<string>();
+
+      if (staleOrderIds.length > 0) {
+        const { data: openKots } = await supabase
+          .from('kot_tickets')
+          .select('order_id')
+          .in('order_id', staleOrderIds)
+          .in('status', ['accepted', 'preparing', 'ready']);
+        (openKots || []).forEach((k) => openKotOrderIds.add(k.order_id));
+      }
+
+      const sessionsWithOpenKots = new Set(
+        staleOrders.filter((o) => openKotOrderIds.has(o.id)).map((o) => o.session_id),
+      );
+
+      const safeIds = staleSessions
+        .filter((s) => !sessionsWithOpenKots.has(s.session_key))
+        .map((s) => s.id);
+
+      if (!safeIds.length) {
+        toast({ title: 'Nothing safe to close', description: 'All stale sessions have open KOTs.' });
+        return;
+      }
+
+      const { error: closeErr } = await supabase
+        .from('sessions')
+        .update({ status: 'closed', ended_at: new Date().toISOString() })
+        .in('id', safeIds);
+
+      if (closeErr) throw closeErr;
+
+      toast({ title: `${safeIds.length} session(s) closed`, description: 'Stale kiosk sessions cleaned up.' });
+      fetchTables();
+    } catch (err: any) {
+      toast({ title: 'Cleanup failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setCleaningUp(false);
+    }
+  };
+
   // ─── Render helpers ────────────────────────────────────────────────────────
 
   const tableHasBillReq = (tableId: string) => billRequests.some((r) => r.table_id === tableId);
@@ -470,11 +585,27 @@ export default function Billing() {
       <div className="w-[340px] shrink-0 border-r bg-card flex flex-col">
         <div className="p-4 border-b flex items-center justify-between">
           <h2 className="font-semibold text-lg">Tables</h2>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            {isConnected
-              ? <Wifi className="h-3.5 w-3.5 text-emerald-500" />
-              : <WifiOff className="h-3.5 w-3.5 text-rose-500" />}
-            <span>{isConnected ? 'Live' : 'Offline'}</span>
+          <div className="flex items-center gap-2">
+            {(userRole === 'manager' || userRole === 'admin') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 text-muted-foreground"
+                disabled={cleaningUp}
+                onClick={handleCleanupStaleSessions}
+                title="Close stale sessions (>6h, no open KOT)"
+              >
+                {cleaningUp
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  : <Trash2 className="h-3.5 w-3.5" />}
+              </Button>
+            )}
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {isConnected
+                ? <Wifi className="h-3.5 w-3.5 text-emerald-500" />
+                : <WifiOff className="h-3.5 w-3.5 text-rose-500" />}
+              <span>{isConnected ? 'Live' : 'Offline'}</span>
+            </div>
           </div>
         </div>
 
@@ -804,7 +935,17 @@ export default function Billing() {
           </div>
           <Button
             className="w-full bg-emerald-600 hover:bg-emerald-700"
-            onClick={() => { setShowBillPreview(false); setShowPayment(true); }}
+            onClick={async () => {
+              if (activeOrder?.id) {
+                await supabase.from('orders').update({
+                  bill_generated_at: new Date().toISOString(),
+                  final_discount: discountAmount,
+                  final_total: billTotal,
+                }).eq('id', activeOrder.id);
+              }
+              setShowBillPreview(false);
+              setShowPayment(true);
+            }}
           >
             <CreditCard className="h-4 w-4 mr-2" />
             Proceed to Settle

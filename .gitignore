@@ -70,3 +70,7 @@ supabase/.branches
 *.key
 *.cert
 .gstack/
+
+# graphify cache — never commit
+graphify-out/
+**/graphify-out/

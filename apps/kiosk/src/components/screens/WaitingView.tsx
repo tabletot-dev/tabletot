@@ -5,6 +5,7 @@ import type { OrderRound } from "@/hooks/useDeviceNavigation";
 interface WaitingViewProps {
   previousOrders: OrderRound[];
   currentRoundOrderId: string | null;
+  billRequested: boolean;
   onOrderMore: () => void;
   onRequestBill: () => void;
   onGames: () => void;
@@ -12,10 +13,10 @@ interface WaitingViewProps {
   onRequestWater?: () => void;
 }
 
-type KitchenStatus = "pending" | "preparing" | "ready" | "served" | "unknown";
+type KitchenStatus = "new" | "preparing" | "ready" | "served" | "unknown";
 
 const STATUS_STAGE: Record<KitchenStatus, { label: string; pct: number }> = {
-  pending:   { label: "Queued",    pct: 28 },
+  new:       { label: "Queued",    pct: 28 },
   preparing: { label: "Cooking",   pct: 60 },
   ready:     { label: "Plating",   pct: 85 },
   served:    { label: "Done",      pct: 100 },
@@ -60,6 +61,7 @@ function WaterIcon() {
 export default function WaitingView({
   previousOrders,
   currentRoundOrderId,
+  billRequested,
   onOrderMore,
   onRequestBill,
   onGames,
@@ -67,7 +69,6 @@ export default function WaitingView({
   onRequestWater,
 }: WaitingViewProps) {
   const [promoIndex, setPromoIndex] = useState(0);
-  const [billRequested, setBillRequested] = useState(false);
   const [kitchenStatus, setKitchenStatus] = useState<KitchenStatus>("unknown");
 
   useEffect(() => {
@@ -198,10 +199,7 @@ export default function WaitingView({
         </button>
         <button
           className="secondary-btn"
-          onClick={() => {
-            setBillRequested(true);
-            onRequestBill();
-          }}
+          onClick={onRequestBill}
         >
           {billRequested ? "Bill Requested" : "Request Bill"}
         </button>

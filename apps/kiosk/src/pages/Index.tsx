@@ -22,7 +22,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { resolveTableId, startSession } from "@/lib/orderSubmission";
 import { findMatchingRule, type CompletionRule, type MatchedSuggestion } from "@/lib/completionRules";
 import { useMenu, MenuProvider } from "@/lib/menuStore";
-import type { DoneMessage, OrderSnapshot } from "@/lib/voice/types";
+import type { DoneMessage, OrderSnapshot, Turn } from "@/lib/voice/types";
+import type { TtsClientHandle } from "@/lib/voice/ttsClient";
 import { MenuItem } from "@/data/menu";
 
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
@@ -36,7 +37,7 @@ function normalizeName(name: string): string {
 }
 
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const id = window.setTimeout(() => reject(new Error("Timed out")), ms);
     promise.then(
@@ -57,7 +58,7 @@ function wait(ms: number) {
 }
 
 const IndexInner = () => {
-  const { voiceEnabled } = useRestaurant();
+  const { voiceEnabled, isTreatment } = useRestaurant();
   const {
     currentScreen,
     setCurrentScreen,
@@ -75,31 +76,57 @@ const IndexInner = () => {
     previousOrders,
   } = useDeviceNavigation();
 
-  const [activeSessionKey, setActiveSessionKey] = useState<string | null>(null);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [billRequested, setBillRequested] = useState(false);
+  const [tableUuid, setTableUuid] = useState<string | null>(null);
 
-  // When POS staff close the session (status → 'closed'), reset the kiosk screen.
+  // Resolve the physical table UUID once on mount — stable for the device's lifetime.
   useEffect(() => {
-    if (!activeSessionKey) return;
+    resolveTableId().then(setTableUuid).catch(() => {});
+  }, []);
+
+  // Reset bill-requested flag when the session fully ends.
+  useEffect(() => {
+    if (currentScreen === "idle") setBillRequested(false);
+  }, [currentScreen]);
+
+  // Track current screen in a ref so the Realtime callback below always sees
+  // the latest value without needing to re-subscribe on every screen change.
+  const currentScreenRef = useRef(currentScreen);
+  useEffect(() => { currentScreenRef.current = currentScreen; }, [currentScreen]);
+
+  // When the POS settles the bill, the DB trigger sets restaurant_tables.status →
+  // 'available'. Watch for that change to show a closing message then reset.
+  // See ADR 0014 for why we watch restaurant_tables rather than sessions.
+  useEffect(() => {
+    if (!tableUuid) return;
     const channel = supabase
-      .channel(`session-status-${activeSessionKey}`)
+      .channel(`table-status-${tableUuid}`)
       .on(
         "postgres_changes",
         {
           event: "UPDATE",
           schema: "public",
-          table: "sessions",
-          filter: `session_key=eq.${activeSessionKey}`,
+          table: "restaurant_tables",
+          filter: `id=eq.${tableUuid}`,
         },
         (payload) => {
-          if ((payload.new as { status: string }).status === "closed") {
-            endSession();
-            setActiveSessionKey(null);
+          if (
+            (payload.new as { status: string }).status === "available" &&
+            currentScreenRef.current !== "idle"
+          ) {
+            setPaymentConfirmed(true);
+            window.setTimeout(() => {
+              setPaymentConfirmed(false);
+              endSession();
+              setVoiceTurns([]);
+            }, 3000);
           }
         },
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [activeSessionKey, endSession]);
+  }, [tableUuid, endSession]);
 
   const { items: menuItems, pairingsByItemId, anchors } = useMenu();
 
@@ -107,8 +134,18 @@ const IndexInner = () => {
   const [completionSuggestion, setCompletionSuggestion] = useState<MatchedSuggestion | null>(null);
   const [voiceConversationOpen, setVoiceConversationOpen] = useState(false);
   const [voiceSessionId, setVoiceSessionId] = useState<string | null>(null);
+  // Voice transcript lives here, not inside VoiceConversationPanel, so it
+  // survives the modal closing/reopening. Reset only when the voice session
+  // itself changes or ends — see docs/notes/voice-conversation-continuity.md.
+  const [voiceTurns, setVoiceTurns] = useState<Turn[]>([]);
+
+  // A new backend session means a fresh thread.
+  useEffect(() => {
+    setVoiceTurns([]);
+  }, [voiceSessionId]);
 
   const prevVoiceOrderRef = useRef<OrderSnapshot | null>(null);
+  const voiceTtsHandleRef = useRef<TtsClientHandle | null>(null);
 
   const handleAddToOrder = useCallback(
     (item: MenuItem) => {
@@ -135,22 +172,38 @@ const IndexInner = () => {
 
   const handleVoiceDone = useCallback(
     (msg: DoneMessage) => {
+      // Record the exchange in the persistent thread. Built here (not in the
+      // panel) so presses made from the dock while the modal is closed are also
+      // captured, and so the thread outlives the modal.
+      const matchedNames = msg.resolver
+        .filter((r): r is Extract<typeof r, { type: "match" }> => r.type === "match")
+        .map((r) => normalizeName(r.item));
+      const matchedItems = menuItems.filter((item) =>
+        matchedNames.some((n) => n === normalizeName(item.name)),
+      );
+      setVoiceTurns((prev) => [
+        ...prev,
+        { role: "user", text: msg.transcript },
+        { role: "ai", text: msg.response, matchedItems },
+      ]);
+
       const prev = prevVoiceOrderRef.current;
       const next = msg.order;
       prevVoiceOrderRef.current = next;
 
       for (const nextItem of next.items) {
         const normalizedNextName = normalizeName(nextItem.item_name);
-        // Match by item_name (normalised) — item_id format differs between the
-        // cart_sync resolver path and the voice resolver path on the backend.
-        // When prev is null (first press), fall back to the kiosk touch cart so
-        // that items already added via touch don't get double-counted.
-        const prevQty = prev
-          ? (prev.items.find((i) => normalizeName(i.item_name) === normalizedNextName)?.quantity ?? 0)
-          : (order.find((o) => {
-              const m = menuItems.find((mi) => mi.id === o.id);
-              return m !== undefined && normalizeName(m.name) === normalizedNextName;
-            })?.quantity ?? 0);
+        // Always use the kiosk touch cart as the quantity baseline, not
+        // prevVoiceOrderRef. The kiosk cart is exactly what cart_sync sent to
+        // the backend at PTT press time, so (next_qty - kiosk_qty) is the pure
+        // voice delta. Using prevVoiceOrderRef instead caused double-counts when
+        // items were added via touch between voice turns: prevVoiceOrderRef
+        // wouldn't know about the touch add, so prevQty was 0 instead of 1,
+        // making delta=2 when it should be 1.
+        const prevQty = order.find((o) => {
+          const m = menuItems.find((mi) => mi.id === o.id);
+          return m !== undefined && normalizeName(m.name) === normalizedNextName;
+        })?.quantity ?? 0;
         const delta = nextItem.quantity - prevQty;
         if (delta === 0) continue;
 
@@ -210,24 +263,26 @@ const IndexInner = () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      try {
-        const { data: rules } = await withTimeout(
-          supabase
-            .from("meal_completion_rules")
-            .select("rule_name, condition, suggestion")
-            .eq("restaurant_id", RESTAURANT_ID)
-            .eq("active", true)
-            .order("priority", { ascending: false }),
-          700,
-        );
+      if (isTreatment) {
+        try {
+          const { data: rules } = await withTimeout(
+            supabase
+              .from("meal_completion_rules")
+              .select("rule_name, condition, suggestion")
+              .eq("restaurant_id", RESTAURANT_ID)
+              .eq("active", true)
+              .order("priority", { ascending: false }),
+            700,
+          );
 
-        const match = findMatchingRule((rules ?? []) as CompletionRule[], order);
-        if (match) {
-          setCompletionSuggestion(match);
-          return;
+          const match = findMatchingRule((rules ?? []) as CompletionRule[], order);
+          if (match) {
+            setCompletionSuggestion(match);
+            return;
+          }
+        } catch {
+          // DB error — fall through to submit
         }
-      } catch {
-        // DB error — fall through to submit
       }
       await wait(1150);
       await confirmOrder();
@@ -252,7 +307,6 @@ const IndexInner = () => {
           <HomeView
             onStartOrdering={async () => {
               await startSession();
-              setActiveSessionKey(sessionStorage.getItem("tt_session_id"));
               setCurrentScreen("menu");
             }}
             onSelectItem={(item) => {
@@ -294,6 +348,7 @@ const IndexInner = () => {
                         tableId={TABLE_ID}
                         onOpenConversation={() => setVoiceConversationOpen(true)}
                         onSessionReady={setVoiceSessionId}
+                        onTtsReady={(h) => { voiceTtsHandleRef.current = h; }}
                       />
                     ) : null
                   }
@@ -301,7 +356,7 @@ const IndexInner = () => {
                     voiceEnabled && voiceConversationOpen ? (
                       <VoiceConversationPanel
                         sessionId={voiceSessionId}
-                        items={menuItems}
+                        turns={voiceTurns}
                         order={order}
                         getQuantity={getOrderQuantity}
                         onClose={() => setVoiceConversationOpen(false)}
@@ -309,6 +364,7 @@ const IndexInner = () => {
                         onAddItem={handleAddToOrder}
                         onUpdateQuantity={updateQuantity}
                         onSelectItem={handleSelectItem}
+                        ttsHandle={voiceTtsHandleRef}
                       />
                     ) : null
                   }
@@ -388,6 +444,7 @@ const IndexInner = () => {
           <WaitingView
             previousOrders={previousOrders}
             currentRoundOrderId={currentRoundOrderId}
+            billRequested={billRequested}
             onOrderMore={() => setCurrentScreen("menu")}
             onRequestBill={() => setCurrentScreen("bill-summary")}
             onGames={() => setCurrentScreen("games")}
@@ -416,9 +473,11 @@ const IndexInner = () => {
           <BillView
             previousOrders={previousOrders}
             sessionTotal={sessionTotal}
+            alreadyRequested={billRequested}
+            onBillSubmitted={() => setBillRequested(true)}
             onClose={() => {
               endSession();
-              setActiveSessionKey(null);
+              setVoiceTurns([]);
             }}
             onContinueOrdering={() => setCurrentScreen("menu")}
           />
@@ -437,6 +496,24 @@ const IndexInner = () => {
     >
       <div style={{ position: "relative", height: "100%" }}>
         {renderScreen()}
+
+        {paymentConfirmed && (
+          <div style={{
+            position: "fixed",
+            inset: 0,
+            background: "var(--color-bg, #fff)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "1rem",
+            zIndex: 9999,
+          }}>
+            <p className="eyebrow">Payment Confirmed</p>
+            <h1>Thank you!</h1>
+            <p>See you again soon.</p>
+          </div>
+        )}
 
         {completionSuggestion && (
           <CompletionNudge

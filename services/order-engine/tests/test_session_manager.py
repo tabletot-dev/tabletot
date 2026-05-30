@@ -7,19 +7,18 @@ The Orchestrator is instantiated with a MockProvider so no LLM calls are made.
 from __future__ import annotations
 
 import asyncio
-import json
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.loader import load_menu
+from src.loader import load_menu_data_from_db, load_menu_from_db
 from voice_agent.restaurant_config import RestaurantConfig
 from voice_agent.session_manager import SessionManager, VoiceSession
 
-_MENU_PATH = Path(__file__).parent.parent / "menus" / "silver-ssc-hyd.json"
-_MENU_DATA = json.loads(_MENU_PATH.read_text(encoding="utf-8"))
-_MENU_INDEX = load_menu(_MENU_PATH)
+_DB_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+_RESTAURANT_ID = "b22b5d53-6dd8-4f5b-8276-2e828cd1ab91"
+_MENU_DATA = load_menu_data_from_db(_DB_URL, _RESTAURANT_ID)
+_MENU_INDEX = load_menu_from_db(_DB_URL, _RESTAURANT_ID)
 
 _CONFIGS = {
     "silver-ssc-hyd": RestaurantConfig(

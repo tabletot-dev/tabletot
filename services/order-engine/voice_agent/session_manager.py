@@ -17,6 +17,7 @@ from pathlib import Path
 
 from src.llm import create_provider
 from src.loader import MenuIndex, load_menu
+from src.menu_graph import MenuGraph
 from src.orchestrator import Orchestrator
 from voice_agent.restaurant_config import RestaurantConfig
 from voice_agent.tts_handler import SarvamTTSHandler
@@ -37,7 +38,8 @@ class VoiceSession:
     tts_handler: SarvamTTSHandler
     orchestrator: Orchestrator
     client_session_id: str | None = None
-    tts_queue: asyncio.Queue = field(default_factory=asyncio.Queue)
+    tts_queue: asyncio.Queue = field(default_factory=lambda: asyncio.Queue(maxsize=20))
+    current_turn_id: int = 0
     keepalive_task: asyncio.Task | None = None
 
 
@@ -57,12 +59,14 @@ class SessionManager:
         provider_name: str = "claude",
         provider_api_key: str = "",
         provider_model: str | None = None,
+        menu_graphs: dict[str, MenuGraph] | None = None,
     ) -> None:
         self._sessions: dict[str, VoiceSession] = {}
         self._configs = restaurant_configs
         self._sarvam_api_key = sarvam_api_key
         self._anthropic_api_key = anthropic_api_key  # kept for backward compat
         self._menus = menus
+        self._menu_graphs: dict[str, MenuGraph] = menu_graphs or {}
         self._provider_name = provider_name
         # Fall back to anthropic_api_key when provider is claude and no explicit key given
         self._provider_api_key = provider_api_key or anthropic_api_key
@@ -97,8 +101,13 @@ class SessionManager:
 
         cfg = self._configs[slug]
         menu_data, menu_index = self._menus[slug]
+        menu_graph = self._menu_graphs.get(slug)
         provider = create_provider(self._provider_name, self._provider_api_key, self._provider_model)
-        orchestrator = Orchestrator(provider, menu_index, menu_data, voice_persona=cfg.voice_persona)
+        orchestrator = Orchestrator(
+            provider, menu_index, menu_data,
+            voice_persona=cfg.voice_persona,
+            menu_graph=menu_graph,
+        )
 
         # TTS handler created but NOT yet configured — lazy init on first TTS WS connect
         tts_handler = SarvamTTSHandler(self._sarvam_api_key)

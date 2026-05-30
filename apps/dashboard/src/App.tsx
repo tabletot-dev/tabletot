@@ -29,7 +29,7 @@ export default function App() {
           <Route
             path="/*"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requireAdmin>
                 <Layout>
                   <Routes>
                     <Route path="/" element={<Navigate to="/curation/anchors" replace />} />
