@@ -120,6 +120,33 @@ class TestUnavailable:
             assert not isinstance(r, Unavailable), f"{item_id} should be available at 14:00"
 
 
+class TestPluralSingular:
+    """B1 — plural/singular robustness (normalizer step 7 + alias fuzzy pool)."""
+
+    def test_pancake_singular_resolves(self, index):
+        # "pancake" (singular) must not NoMatch — alias "pancakes" normalizes
+        # to "pancake" via step 7, so Step 2 exact alias lookup fires.
+        r = resolve("pancake", index)
+        assert not isinstance(r, NoMatch)
+
+    def test_omelette_alias(self, index):
+        r = resolve("omelette", index)
+        assert isinstance(r, ConfidentMatch)
+        assert r.item_id == "french_omelette"
+
+    def test_omelettes_plural(self, index):
+        # "omelettes" → normalize → "omelette" → alias → French Omelette
+        r = resolve("omelettes", index)
+        assert isinstance(r, ConfidentMatch)
+        assert r.item_id == "french_omelette"
+
+    def test_pancakes_alias_unchanged(self, index):
+        # Existing alias behavior must not regress
+        r = resolve("pancakes", index)
+        assert isinstance(r, ConfidentMatch)
+        assert r.item_id == "original_pancakes"
+
+
 class TestPureFunction:
     def test_no_state_between_calls(self, index):
         r1 = resolve("avocado toast", index)

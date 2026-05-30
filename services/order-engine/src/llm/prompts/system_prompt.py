@@ -43,7 +43,10 @@ Do NOT emit a `<response>` tag. Do NOT write a customer-facing reply. That is ge
 - `modify_item` — Customer wants to change quantity or notes on an existing item. Include the item name and new quantity or updated notes.
 - `select_variant` — Customer is responding to a variant/ambiguity question. Extract what they chose.
 - `confirm_order` — Customer says they are done ordering (e.g., "bas", "that's all", "confirm karo", "bill").
-- `ask_menu` — Customer has a question about the menu (not ordering). No item extraction needed.
+- `browse_category` — Customer wants to see what's available in a category (e.g., "coffee mein kya hai?", "what's in the all day breakfast?"). Extract the category name in `raw_name`.
+- `filter` — Customer wants items matching a dietary attribute: "something veg", "non-veg options", "veg pasta". Emit `attribute` as `"veg"` or `"non-veg"` and optional `category` (the category name if the customer scoped it, else `""`). Leave `raw_name` empty.
+- `recommend` — Customer asks for a suggestion WITHOUT committing to an order: "suggest something", "what's good?", "recommend me a pancake", "what should I try?". Extract the item/category they mentioned in `raw_name` (or leave empty for a general suggestion). CRITICAL: use `recommend` (not `add_item`) whenever the customer uses words like "suggest", "recommend", "what's good", "what should I have" — they have NOT ordered yet.
+- `ask_menu` — Customer has a question about a specific item (ingredients, preparation, etc.). Not ordering. No item extraction needed.
 - `accept_upsell` / `reject_upsell` — Customer accepted or declined an upsell suggestion.
 - `none` — Customer said something conversational (greeting, thanks, etc.). No ordering action.
 
@@ -105,6 +108,36 @@ Customer: "bas yahi, order karo"
 Customer: "shakshouka mein kya hota hai?"
 <intents>
 [{{"action": "ask_menu", "raw_name": "shakshouka", "quantity": 0, "modifiers": [], "special_notes": ""}}]
+</intents>
+<language>hi</language>
+
+Customer: "coffee section mein kya kya hai?"
+<intents>
+[{{"action": "browse_category", "raw_name": "coffee", "quantity": 0, "modifiers": [], "special_notes": ""}}]
+</intents>
+<language>hi</language>
+
+Customer: "kuch veg options hain kya pasta mein?"
+<intents>
+[{{"action": "filter", "attribute": "veg", "category": "Pastas", "raw_name": "", "quantity": 0, "modifiers": [], "special_notes": ""}}]
+</intents>
+<language>hi</language>
+
+Customer: "something non veg"
+<intents>
+[{{"action": "filter", "attribute": "non-veg", "category": "", "raw_name": "", "quantity": 0, "modifiers": [], "special_notes": ""}}]
+</intents>
+<language>en</language>
+
+Customer: "suggest me a pancake"
+<intents>
+[{{"action": "recommend", "raw_name": "pancake", "quantity": 0, "modifiers": [], "special_notes": ""}}]
+</intents>
+<language>en</language>
+
+Customer: "kuch recommend karo"
+<intents>
+[{{"action": "recommend", "raw_name": "", "quantity": 0, "modifiers": [], "special_notes": ""}}]
 </intents>
 <language>hi</language>
 
@@ -299,6 +332,27 @@ def _format_turn_outcomes(
 
         elif status == "empty_order":
             issues.append("- Cannot confirm — the order is empty.")
+
+        elif status == "recommend":
+            suggestions = outcome.get("suggestions", [])
+            names = [s.get("name", "?") for s in suggestions]
+            label = ", ".join(names[:3])
+            other.append(
+                f"- Recommendation (NOT added to cart): {label}. "
+                f"Tell the customer about these options warmly. "
+                f"Do NOT say you added anything — they haven't ordered yet."
+            )
+
+        elif status == "choose_from_category":
+            category = outcome.get("category", "")
+            options = outcome.get("options", [])
+            listed = ", ".join(options[:8])
+            suffix = f" (and {len(options) - 8} more)" if len(options) > 8 else ""
+            other.append(
+                f'- Customer browsed the "{category}" category. '
+                f"Items available: {listed}{suffix}. "
+                f"Read them out naturally and invite the customer to choose."
+            )
 
         elif status == "menu_question":
             topic = outcome.get("raw_name", "")

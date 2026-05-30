@@ -22,9 +22,10 @@ export interface VoiceOrderButtonProps {
   onStatusChange?: (status: PressStatus) => void;
   onOpenConversation?: () => void;
   onSessionReady?: (sessionId: string) => void;
+  onTtsReady?: (handle: TtsClientHandle) => void;
 }
 
-const VoiceOrderButton = ({ onDone, order, restaurantId, tableId, onStatusChange, onOpenConversation, onSessionReady }: VoiceOrderButtonProps) => {
+const VoiceOrderButton = ({ onDone, order, restaurantId, tableId, onStatusChange, onOpenConversation, onSessionReady, onTtsReady }: VoiceOrderButtonProps) => {
   const [backendStatus, setBackendStatus] = useState<BackendStatus>("starting");
   const [pressStatus, setPressStatus] = useState<PressStatus>("idle");
   const [micBlocked, setMicBlocked] = useState(false);
@@ -57,6 +58,7 @@ const VoiceOrderButton = ({ onDone, order, restaurantId, tableId, onStatusChange
           if (msg.type === "error") console.warn("TTS error:", msg.message);
         });
         onSessionReady?.(voiceSessionId);
+        onTtsReady?.(ttsRef.current);
         setBackendStatus("ready");
       } catch (err) {
         if (!mounted) return;

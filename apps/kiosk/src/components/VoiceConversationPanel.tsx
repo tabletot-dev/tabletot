@@ -5,6 +5,7 @@ import { itemImageBackground } from "@/lib/menuImages";
 import type { MenuItem } from "@/data/menu";
 import type { DoneMessage, Turn } from "@/lib/voice/types";
 import { startSttPress, type SttPressHandle } from "@/lib/voice/sttClient";
+import type { TtsClientHandle } from "@/lib/voice/ttsClient";
 
 interface CartItem {
   id: string;
@@ -27,6 +28,7 @@ interface VoiceConversationPanelProps {
   onAddItem: (item: MenuItem) => void;
   onUpdateQuantity: (itemId: string, delta: number) => void;
   onSelectItem: (item: MenuItem) => void;
+  ttsHandle?: React.RefObject<TtsClientHandle | null>;
 }
 
 export default function VoiceConversationPanel({
@@ -39,6 +41,7 @@ export default function VoiceConversationPanel({
   onAddItem,
   onUpdateQuantity,
   onSelectItem,
+  ttsHandle,
 }: VoiceConversationPanelProps) {
   const [pressStatus, setPressStatus] = useState<PressStatus>("idle");
   const [levels, setLevels] = useState<number[]>(() =>
@@ -110,6 +113,7 @@ export default function VoiceConversationPanel({
         setPressStatus("idle");
       }
     } else if (pressStatusRef.current === "idle") {
+      ttsHandle?.current?.bargeIn();
       setPressStatus("recording");
       try {
         const cartItems = order.map((item) => ({

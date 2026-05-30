@@ -23,6 +23,7 @@ import { resolveTableId, startSession } from "@/lib/orderSubmission";
 import { findMatchingRule, type CompletionRule, type MatchedSuggestion } from "@/lib/completionRules";
 import { useMenu, MenuProvider } from "@/lib/menuStore";
 import type { DoneMessage, OrderSnapshot, Turn } from "@/lib/voice/types";
+import type { TtsClientHandle } from "@/lib/voice/ttsClient";
 import { MenuItem } from "@/data/menu";
 
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
@@ -119,6 +120,7 @@ const IndexInner = () => {
   }, [voiceSessionId]);
 
   const prevVoiceOrderRef = useRef<OrderSnapshot | null>(null);
+  const voiceTtsHandleRef = useRef<TtsClientHandle | null>(null);
 
   const handleAddToOrder = useCallback(
     (item: MenuItem) => {
@@ -321,6 +323,7 @@ const IndexInner = () => {
                         tableId={TABLE_ID}
                         onOpenConversation={() => setVoiceConversationOpen(true)}
                         onSessionReady={setVoiceSessionId}
+                        onTtsReady={(h) => { voiceTtsHandleRef.current = h; }}
                       />
                     ) : null
                   }
@@ -336,6 +339,7 @@ const IndexInner = () => {
                         onAddItem={handleAddToOrder}
                         onUpdateQuantity={updateQuantity}
                         onSelectItem={handleSelectItem}
+                        ttsHandle={voiceTtsHandleRef}
                       />
                     ) : null
                   }

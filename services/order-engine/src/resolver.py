@@ -240,13 +240,18 @@ def _fuzzy_pass(
     if not index.entries:
         return None
 
-    names = index.normalized_names
+    entry_names = index.normalized_names
+    alias_keys = list(index.aliases.keys())
+    # Include alias keys in the candidate pool so fuzzy steps can match
+    # e.g. "pancake" against alias "pancake" (normalized from "pancakes").
+    combined = entry_names + alias_keys
+    n_entries = len(entry_names)
 
-    # Per-entry combined score: max across requested scorers.
+    # Per-candidate combined score: max across requested scorers.
     scores_by_idx: dict[int, float] = {}
     for scorer_name in scorers:
         scorer = _SCORERS[scorer_name]
-        results = process.extract(normalized, names, scorer=scorer, limit=15)
+        results = process.extract(normalized, combined, scorer=scorer, limit=20)
         for _matched_name, score, idx in results:
             if score > scores_by_idx.get(idx, 0.0):
                 scores_by_idx[idx] = score
@@ -254,14 +259,28 @@ def _fuzzy_pass(
     if not scores_by_idx:
         return None
 
-    # Pick best entry per item_id (an item with several index forms shouldn't
-    # crowd the candidate list with duplicates).
+    # Pick best score per item_id.
+    # Entry hits (idx < n_entries) → look up via index.entries[idx].
+    # Alias hits (idx >= n_entries) → resolve alias key to target item_id,
+    # then use any entry for that item_id (just needed for _entry_to_result).
     best_per_item: dict[str, tuple[float, IndexEntry]] = {}
     for idx, score in scores_by_idx.items():
-        entry = index.entries[idx]
-        existing = best_per_item.get(entry.item_id)
-        if existing is None or score > existing[0]:
-            best_per_item[entry.item_id] = (score, entry)
+        if idx < n_entries:
+            entry = index.entries[idx]
+            existing = best_per_item.get(entry.item_id)
+            if existing is None or score > existing[0]:
+                best_per_item[entry.item_id] = (score, entry)
+        else:
+            alias_key = alias_keys[idx - n_entries]
+            target_id = index.aliases.get(alias_key)
+            if target_id is None:
+                continue
+            target_entry = next((e for e in index.entries if e.item_id == target_id), None)
+            if target_entry is None:
+                continue
+            existing = best_per_item.get(target_id)
+            if existing is None or score > existing[0]:
+                best_per_item[target_id] = (score, target_entry)
 
     ranked = sorted(best_per_item.values(), key=lambda t: t[0], reverse=True)
     if not ranked:

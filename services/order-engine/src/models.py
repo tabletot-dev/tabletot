@@ -108,9 +108,18 @@ class Unavailable:
     reason: str                            # "Available 07:00-11:00" / "Available Mon-Fri 15:00-19:00"
 
 
+@dataclass
+class ChooseFromCategory:
+    category: str
+    options: list["ConfidentMatch"]
+    score: float
+    match_method: str
+
+
 ResolveResult = Union[
     ConfidentMatch,
     NeedsVariantSelection,
+    ChooseFromCategory,
     Ambiguous,
     NoMatch,
     Unavailable,

@@ -19,14 +19,17 @@ from typing import AsyncIterator
 from src.llm.base import LLMProvider, LLMResponse
 from src.llm.prompts.menu_summary import generate_menu_summary
 from src.loader import MenuIndex
+from src.menu_graph import MenuGraph
 from src.models import (
     Ambiguous,
+    ChooseFromCategory,
     ConfidentMatch,
     NeedsVariantSelection,
     NoMatch,
     ResolveResult,
     Unavailable,
 )
+from src.normalizer import normalize
 from src.order_state import OrderState
 from src.resolver import resolve
 
@@ -72,11 +75,13 @@ class Orchestrator:
         menu_index: MenuIndex,
         menu_data: dict,
         voice_persona: str | None = None,
+        menu_graph: MenuGraph | None = None,
     ) -> None:
         self.provider = provider
         self.menu_index = menu_index
         self.menu_context = generate_menu_summary(menu_data)
         self.voice_persona = voice_persona
+        self.menu_graph = menu_graph
         self.order_state = OrderState()
         self.conversation_history: list[dict] = []
         self.pending_feedback: list[dict] | None = None
@@ -124,6 +129,12 @@ class Orchestrator:
                 else:
                     self.order_state.confirm()
                     turn_outcomes.append({"status": "confirmed", "raw_name": ""})
+            elif action == "browse_category":
+                self._handle_browse(intent, current_time, resolver_results, new_feedback, turn_outcomes)
+            elif action == "filter":
+                self._handle_filter(intent, current_time, resolver_results, new_feedback, turn_outcomes)
+            elif action == "recommend":
+                self._handle_recommend(intent, current_time, resolver_results, new_feedback, turn_outcomes)
             elif action == "ask_menu":
                 turn_outcomes.append({"status": "menu_question", "raw_name": intent.get("raw_name", "")})
             elif action in ("none", "accept_upsell", "reject_upsell"):
@@ -407,6 +418,177 @@ class Orchestrator:
         else:
             self._handle_add(intent, current_time, resolver_results, new_feedback, turn_outcomes)
 
+    def _handle_filter(
+        self,
+        intent: dict,
+        current_time: datetime | None,
+        resolver_results: list[ResolverCall],
+        new_feedback: list[dict],
+        turn_outcomes: list[dict],
+    ) -> None:
+        attribute = intent.get("attribute", "").strip().lower()
+        category_hint = intent.get("category", "").strip()
+
+        # Map attribute to is_veg flag
+        is_veg: bool | None = None
+        if attribute in ("veg", "vegetarian"):
+            is_veg = True
+        elif attribute.startswith("non"):
+            is_veg = False
+
+        # Optional category narrowing
+        cat_name: str | None = None
+        if category_hint:
+            found = _find_category(category_hint, self.menu_index)
+            if found:
+                cat_name = found[0]
+
+        # Build filtered item list
+        options: list[ConfidentMatch] = [
+            ConfidentMatch(
+                item_id=item.id,
+                item_name=item.name,
+                price=item.price or 0,
+                category=item.category,
+                score=100.0,
+                match_method="filter",
+                requires_modifier=item.modifiers if item.modifiers else None,
+            )
+            for item in self.menu_index.items_by_id.values()
+            if (is_veg is None or ("veg" in item.tags) == is_veg)
+            and (cat_name is None or item.category == cat_name)
+        ]
+
+        if not options:
+            turn_outcomes.append({"status": "no_match", "raw_name": attribute, "suggestions": []})
+            return
+
+        label = attribute or "matching"
+        if cat_name:
+            label = f"{attribute} in {cat_name}" if attribute else cat_name
+
+        result = ChooseFromCategory(
+            category=label,
+            options=options,
+            score=100.0,
+            match_method="filter",
+        )
+        resolver_results.append(
+            ResolverCall(intent, attribute, result, applied_to_order=False, feedback_generated=None)
+        )
+        turn_outcomes.append({
+            "status": "choose_from_category",
+            "category": label,
+            "options": [o.item_name for o in options],
+        })
+
+    def _handle_browse(
+        self,
+        intent: dict,
+        current_time: datetime | None,
+        resolver_results: list[ResolverCall],
+        new_feedback: list[dict],
+        turn_outcomes: list[dict],
+    ) -> None:
+        raw_name = intent.get("raw_name", "")
+        found = _find_category(raw_name, self.menu_index)
+
+        if found is not None:
+            cat_name, options = found
+            result = ChooseFromCategory(
+                category=cat_name,
+                options=options,
+                score=100.0,
+                match_method="browse",
+            )
+            resolver_results.append(
+                ResolverCall(intent, raw_name, result, applied_to_order=False, feedback_generated=None)
+            )
+            turn_outcomes.append({
+                "status": "choose_from_category",
+                "category": cat_name,
+                "options": [o.item_name for o in options],
+            })
+        else:
+            # No matching category found — treat as a general menu question.
+            turn_outcomes.append({"status": "menu_question", "raw_name": raw_name})
+
+
+    def _handle_recommend(
+        self,
+        intent: dict,
+        current_time: datetime | None,
+        resolver_results: list[ResolverCall],
+        new_feedback: list[dict],
+        turn_outcomes: list[dict],
+    ) -> None:
+        raw_name = intent.get("raw_name", "").strip()
+        graph = self.menu_graph
+
+        candidates: list[ConfidentMatch] = []
+
+        # 1. Named item: suggest it without adding, or browse its category.
+        if raw_name:
+            result = resolve(raw_name, self.menu_index, current_time)
+            if isinstance(result, ConfidentMatch):
+                candidates.append(result)
+            elif isinstance(result, ChooseFromCategory):
+                candidates = result.options[:3]
+
+        # 2. No specific item: try pairings for items already in the cart.
+        if not candidates and graph and not self.order_state.is_empty():
+            seen: set[str] = set()
+            for order_item in self.order_state.items[:3]:
+                for pair_id in graph.pairs_for(order_item.item_id)[:2]:
+                    if pair_id in self.menu_index.items_by_id and pair_id not in seen:
+                        seen.add(pair_id)
+                        item = self.menu_index.items_by_id[pair_id]
+                        candidates.append(ConfidentMatch(
+                            item_id=item.id,
+                            item_name=item.name,
+                            price=item.price or 0,
+                            category=item.category,
+                            score=100.0,
+                            match_method="recommend_pairing",
+                            requires_modifier=item.modifiers if item.modifiers else None,
+                        ))
+
+        # 3. Fall back to anchor items (chef picks, then bestsellers).
+        if not candidates and graph:
+            seen = set()
+            for anchor in graph.top_anchors:
+                if anchor.item_id in self.menu_index.items_by_id and anchor.item_id not in seen:
+                    seen.add(anchor.item_id)
+                    item = self.menu_index.items_by_id[anchor.item_id]
+                    candidates.append(ConfidentMatch(
+                        item_id=item.id,
+                        item_name=item.name,
+                        price=item.price or 0,
+                        category=item.category,
+                        score=100.0,
+                        match_method="recommend_anchor",
+                        requires_modifier=item.modifiers if item.modifiers else None,
+                    ))
+
+        if not candidates:
+            # MenuGraph not loaded or anchors empty — graceful degradation.
+            turn_outcomes.append({"status": "menu_question", "raw_name": raw_name or "recommendations"})
+            return
+
+        result_obj = ChooseFromCategory(
+            category="recommendations",
+            options=candidates[:3],
+            score=100.0,
+            match_method="recommend",
+        )
+        resolver_results.append(
+            ResolverCall(intent, raw_name, result_obj, applied_to_order=False, feedback_generated=None)
+        )
+        turn_outcomes.append({
+            "status": "recommend",
+            "suggestions": [{"name": c.item_name, "category": c.category} for c in candidates[:3]],
+        })
+
 
 def _candidate_name(c: ConfidentMatch | NeedsVariantSelection) -> dict:
     if isinstance(c, ConfidentMatch):
@@ -418,3 +600,51 @@ def _candidate_name(c: ConfidentMatch | NeedsVariantSelection) -> dict:
 
 def _merge_raw(pass1_raw: str, pass2_raw: str) -> str:
     return f"{pass1_raw}\n---PASS2---\n{pass2_raw}"
+
+
+def _find_category(
+    raw_name: str, index: MenuIndex
+) -> tuple[str, list[ConfidentMatch]] | None:
+    """Find the best-matching menu category for raw_name.
+
+    Returns (display_category_name, list[ConfidentMatch]) or None.
+    Tries exact normalized match first, then fuzzy (token_sort_ratio ≥ 75).
+    """
+    from rapidfuzz import fuzz
+    from rapidfuzz import process as rfprocess
+
+    norm = normalize(raw_name)
+    if not norm or not index.categories:
+        return None
+
+    # normalized_key → display name
+    cat_map: dict[str, str] = {
+        normalize(cat.name): cat.name for cat in index.categories.values()
+    }
+
+    cat_name: str | None = cat_map.get(norm)
+
+    if cat_name is None:
+        result = rfprocess.extractOne(
+            norm, list(cat_map.keys()), scorer=fuzz.token_sort_ratio
+        )
+        if result and result[1] >= 75:
+            cat_name = cat_map[result[0]]
+
+    if cat_name is None:
+        return None
+
+    options = [
+        ConfidentMatch(
+            item_id=item.id,
+            item_name=item.name,
+            price=item.price or 0,
+            category=item.category,
+            score=100.0,
+            match_method="browse",
+            requires_modifier=item.modifiers if item.modifiers else None,
+        )
+        for item in index.items_by_id.values()
+        if item.category == cat_name
+    ]
+    return (cat_name, options)

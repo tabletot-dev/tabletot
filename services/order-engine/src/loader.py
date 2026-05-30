@@ -24,6 +24,13 @@ logger = logging.getLogger(__name__)
 from src.models import Category, IndexEntry, MenuItem, VariantItem
 from src.normalizer import normalize, normalize_for_index
 
+# Function words excluded when building description bigrams.
+_DESC_SKIP: frozenset[str] = frozenset({
+    "and", "or", "the", "a", "an", "with", "of", "in", "on", "for",
+    "to", "at", "by", "is", "are", "its", "from", "over", "into",
+    "as", "but", "than", "that", "this", "has", "have",
+})
+
 
 @dataclass
 class MenuIndex:
@@ -94,6 +101,7 @@ def load_menu(path: str | Path) -> MenuIndex:
             _add_variant_group_entries(index, item, item_raw.get("variants", []))
         else:  # pragma: no cover - safety net for unknown types
             raise ValueError(f"Unknown item type {item.type!r} for {item.id}")
+        _add_description_aliases(index, item)
 
     # --- Aliases ---
     for raw_alias, target_id in raw.get("aliases", {}).items():
@@ -196,6 +204,24 @@ def _add_variant_group_entries(
                     requires_modifier=group.modifiers if group.modifiers else None,
                 )
             )
+
+
+def _add_description_aliases(index: MenuIndex, item: MenuItem) -> None:
+    """Index meaningful bigrams from item.description as additional aliases.
+
+    Only adds bigrams whose tokens are not function words and are ≥ 3 chars.
+    Curated DB/JSON aliases added later always take priority (they overwrite).
+    """
+    if not item.description:
+        return
+    desc = normalize(item.description)
+    if not desc:
+        return
+    tokens = [t for t in desc.split() if t not in _DESC_SKIP and len(t) >= 3]
+    for i in range(len(tokens) - 1):
+        phrase = f"{tokens[i]} {tokens[i + 1]}"
+        if phrase not in index.aliases:
+            index.aliases[phrase] = item.id
 
 
 # ---------------------------------------------------------------------------
@@ -460,6 +486,7 @@ def load_menu_from_db(db_url: str | None = None, restaurant_id: str | None = Non
         if category not in index.categories:
             index.categories[category] = Category(id=category, name=category)
         _add_simple_entries(index, item)
+        _add_description_aliases(index, item)  # description bigrams; DB aliases below override
 
     for alias_text, target_json_id in alias_rows:
         normalized = normalize(alias_text)

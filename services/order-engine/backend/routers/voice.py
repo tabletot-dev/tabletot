@@ -292,6 +292,11 @@ async def voice_stt(ws: WebSocket, session_id: str) -> None:
     except asyncio.TimeoutError:
         pass
 
+    # Bump turn counter before STT starts — any in-flight sentences from the
+    # previous press that are still in tts_queue will be stale and discarded.
+    session.current_turn_id += 1
+    turn_id = session.current_turn_id
+
     stt_handler = SarvamSTTHandler(mgr._sarvam_api_key)
 
     t_stt_start = time.perf_counter()
@@ -313,8 +318,8 @@ async def voice_stt(ws: WebSocket, session_id: str) -> None:
                 final_transcript, datetime.now()
             ):
                 if isinstance(item, str):
-                    # Sentence chunk: pipe to TTS immediately
-                    await session.tts_queue.put(item)
+                    # Sentence chunk: tag with turn_id so stale turns can be discarded
+                    await session.tts_queue.put((item, turn_id))
                     if first_sentence:
                         logger.info("[TIMING] first sentence queued session=%s %.3fs", session_id, time.perf_counter() - t_llm_start)
                         first_sentence = False
@@ -327,7 +332,7 @@ async def voice_stt(ws: WebSocket, session_id: str) -> None:
             return
 
         # Signal TTS loop that this turn's sentences are all queued
-        await session.tts_queue.put(TURN_END)
+        await session.tts_queue.put((TURN_END, turn_id))
         logger.info("[TIMING] LLM+stream session=%s %.3fs", session_id, time.perf_counter() - t_llm_start)
 
         if result is None:
@@ -408,7 +413,15 @@ async def voice_tts(ws: WebSocket, session_id: str) -> None:
                 # Shutdown sentinel from end_session()
                 break
 
-            if item is TURN_END:
+            if not isinstance(item, tuple):
+                continue
+
+            payload, item_turn_id = item
+            if item_turn_id < session.current_turn_id:
+                # Stale sentence from a superseded turn — discard without speaking
+                continue
+
+            if payload is TURN_END:
                 # All sentences for this turn have been spoken — notify client
                 try:
                     await ws.send_json({"type": "speech_complete"})
@@ -418,7 +431,7 @@ async def voice_tts(ws: WebSocket, session_id: str) -> None:
                 continue
 
             # Regular sentence string — speak it
-            text: str = item
+            text: str = payload
             try:
                 async for audio_chunk in session.tts_handler.speak(text):
                     try:

@@ -38,9 +38,25 @@ def _load_restaurant_menus(restaurant_configs: dict, db_url: str) -> dict:
     return menus
 
 
+def _load_menu_graphs(restaurant_configs: dict, db_url: str) -> dict:
+    from src.menu_graph import load_menu_graph_from_db
+
+    graphs = {}
+    for rid, cfg in restaurant_configs.items():
+        db_rid = getattr(cfg, "db_restaurant_id", None)
+        graph = load_menu_graph_from_db(db_url, db_rid)
+        graphs[rid] = graph
+        logger.info(
+            "MenuGraph loaded: %d anchors, %d pairing sources for %s",
+            len(graph.anchors), len(graph.pairings), rid,
+        )
+    return graphs
+
+
 async def _refresh_loop(session_manager: SessionManager, restaurant_configs: dict, db_url: str) -> None:
-    """Background task: reload menu from DB every 6 hours."""
+    """Background task: reload menu and graph from DB every 6 hours."""
     from src.loader import load_menu_data_from_db, load_menu_from_db
+    from src.menu_graph import load_menu_graph_from_db
 
     while True:
         await asyncio.sleep(_MENU_REFRESH_INTERVAL)
@@ -49,7 +65,9 @@ async def _refresh_loop(session_manager: SessionManager, restaurant_configs: dic
                 db_rid = getattr(cfg, "db_restaurant_id", None)
                 menu_data = await asyncio.to_thread(load_menu_data_from_db, db_url, db_rid)
                 index = await asyncio.to_thread(load_menu_from_db, db_url, db_rid)
+                graph = await asyncio.to_thread(load_menu_graph_from_db, db_url, db_rid)
                 session_manager._menus[rid] = (menu_data, index)
+                session_manager._menu_graphs[rid] = graph
                 logger.info("Menu refreshed: %d items for %s", len(index.items_by_id), rid)
         except Exception as exc:
             logger.warning("Menu refresh failed: %s", exc)
@@ -84,6 +102,7 @@ async def lifespan(app: FastAPI):
         )
     restaurant_configs = load_restaurant_config(db_url)
     menus = _load_restaurant_menus(restaurant_configs, db_url)
+    menu_graphs = _load_menu_graphs(restaurant_configs, db_url)
 
     session_manager = SessionManager(
         restaurant_configs=restaurant_configs,
@@ -93,6 +112,7 @@ async def lifespan(app: FastAPI):
         provider_name=provider_name,
         provider_api_key=provider_api_key,
         provider_model=provider_model,
+        menu_graphs=menu_graphs,
     )
     app.state.session_manager = session_manager
     app.state.restaurant_configs = restaurant_configs

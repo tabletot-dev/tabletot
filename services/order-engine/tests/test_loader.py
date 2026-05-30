@@ -18,8 +18,8 @@ class TestLoaderBasics:
         assert len(index.items_by_id) == 49
 
     def test_loads_aliases(self, index: MenuIndex):
-        # 77 aliases seeded in migration 0029; allow a small delta for normalization collisions
-        assert 70 <= len(index.aliases) <= 80
+        # 77 curated aliases (migration 0029) + ~66 description bigrams; allow small delta
+        assert 130 <= len(index.aliases) <= 160
 
     def test_loads_categories(self, index: MenuIndex):
         assert len(index.categories) == 14
@@ -50,14 +50,15 @@ class TestAliases:
         assert index.aliases.get("cold brew") == "silver_cold_brew"
 
     def test_multiple_aliases_same_target(self, index: MenuIndex):
-        # "pancakes", "classic pancakes", "original pancakes" all → original_pancakes
-        assert index.aliases.get("pancakes") == "original_pancakes"
-        assert index.aliases.get("classic pancakes") == "original_pancakes"
-        assert index.aliases.get("original pancakes") == "original_pancakes"
+        # "pancakes" normalizes to "pancake" (step 7 plural strip); same target
+        assert index.aliases.get("pancake") == "original_pancakes"
+        assert index.aliases.get("classic pancake") == "original_pancakes"
+        assert index.aliases.get("original pancake") == "original_pancakes"
 
 
 class TestModifiers:
     def test_item_with_modifier_in_index(self, index: MenuIndex):
-        matches = index.entry_by_normalized("teas")
+        # "Teas" item normalizes to "tea" after plural stripping (step 7)
+        matches = index.entry_by_normalized("tea")
         assert matches
         assert any(e.requires_modifier and "tea_choice" in e.requires_modifier for e in matches)

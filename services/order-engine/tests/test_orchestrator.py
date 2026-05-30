@@ -2,7 +2,8 @@
 
 from src.llm.base import LLMProvider, LLMResponse
 from src.loader import load_menu_data_from_db, load_menu_from_db
-from src.models import ConfidentMatch
+from src.menu_graph import AnchorEntry, MenuGraph
+from src.models import ChooseFromCategory, ConfidentMatch
 from src.orchestrator import Orchestrator
 
 _DB_URL = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
@@ -82,12 +83,34 @@ def _make_response(intents: list[dict], text: str = "ok") -> LLMResponse:
     )
 
 
-def _build_orchestrator(responses: list[LLMResponse]) -> tuple[Orchestrator, MockProvider]:
+def _build_orchestrator(
+    responses: list[LLMResponse],
+    menu_graph: MenuGraph | None = None,
+) -> tuple[Orchestrator, MockProvider]:
     menu_data = load_menu_data_from_db(_DB_URL, _RESTAURANT_ID)
     index = load_menu_from_db(_DB_URL, _RESTAURANT_ID)
     provider = MockProvider(responses)
-    orch = Orchestrator(provider, index, menu_data)
+    orch = Orchestrator(provider, index, menu_data, menu_graph=menu_graph)
     return orch, provider
+
+
+def _make_graph(
+    anchors: list[AnchorEntry] | None = None,
+    pairings: dict[str, list[str]] | None = None,
+) -> MenuGraph:
+    return MenuGraph(anchors=anchors or [], pairings=pairings or {})
+
+
+def _filter_intent(attribute: str, category: str = "") -> dict:
+    return {
+        "action": "filter",
+        "attribute": attribute,
+        "category": category,
+        "raw_name": "",
+        "quantity": 0,
+        "modifiers": [],
+        "special_notes": "",
+    }
 
 
 def test_single_item_add():
@@ -284,3 +307,166 @@ def test_order_state_sent_to_llm_after_add():
     # Second call should have order state
     assert provider.last_inputs[1]["order_state"] is not None
     assert len(provider.last_inputs[1]["order_state"]["items"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# Browse category (Track C)
+# ---------------------------------------------------------------------------
+
+
+def test_browse_category_finds_items():
+    resp = _make_response([{"action": "browse_category", "raw_name": "hot coffee", "quantity": 0, "modifiers": [], "special_notes": ""}])
+    orch, _ = _build_orchestrator([resp])
+    result = orch.process_turn("hot coffee section dikhao")
+
+    assert len(result.resolver_results) == 1
+    rr = result.resolver_results[0]
+    assert isinstance(rr.result, ChooseFromCategory)
+    assert rr.result.category == "Hot Coffee"
+    assert rr.applied_to_order is False
+    assert result.order_state_snapshot["total"] == 0
+    item_names = {o.item_name for o in rr.result.options}
+    # Hot Coffee has 6 items: Latte, Cappuccino, Mocha, Long Black, Cortado, Flat White
+    assert len(item_names) == 6
+    assert "Cappuccino" in item_names
+
+
+def test_browse_category_fuzzy_match():
+    """'smoothie bowl' (singular) fuzzy-matches 'Smoothie Bowls' via token_sort_ratio ≥ 75."""
+    resp = _make_response([{"action": "browse_category", "raw_name": "smoothie bowl", "quantity": 0, "modifiers": [], "special_notes": ""}])
+    orch, _ = _build_orchestrator([resp])
+    result = orch.process_turn("smoothie bowl dikhao")
+
+    rr = result.resolver_results[0]
+    assert isinstance(rr.result, ChooseFromCategory)
+    assert rr.result.category == "Smoothie Bowls"
+    assert len(rr.result.options) > 0
+
+
+def test_browse_unknown_category_falls_back():
+    resp = _make_response([{"action": "browse_category", "raw_name": "pizza", "quantity": 0, "modifiers": [], "special_notes": ""}])
+    orch, _ = _build_orchestrator([resp])
+    result = orch.process_turn("pizza section")
+
+    # Unknown category → menu_question outcome, no resolver_results
+    assert len(result.resolver_results) == 0
+    assert result.order_state_snapshot["total"] == 0
+    assert result.pending_feedback is None
+
+
+# ---------------------------------------------------------------------------
+# Filter (Track D)
+# ---------------------------------------------------------------------------
+
+
+def test_filter_veg_returns_only_veg_items():
+    resp = _make_response([_filter_intent("veg")])
+    orch, _ = _build_orchestrator([resp])
+    result = orch.process_turn("veg items dikhao")
+
+    rr = result.resolver_results[0]
+    assert isinstance(rr.result, ChooseFromCategory)
+    assert rr.applied_to_order is False
+    veg_ids = {iid for iid, item in orch.menu_index.items_by_id.items() if "veg" in item.tags}
+    for opt in rr.result.options:
+        assert opt.item_id in veg_ids, f"{opt.item_name} is not a veg item"
+
+
+def test_filter_non_veg_returns_only_nonveg_items():
+    resp = _make_response([_filter_intent("non-veg")])
+    orch, _ = _build_orchestrator([resp])
+    result = orch.process_turn("non-veg items kya hain?")
+
+    rr = result.resolver_results[0]
+    assert isinstance(rr.result, ChooseFromCategory)
+    nonveg_ids = {iid for iid, item in orch.menu_index.items_by_id.items() if "non-veg" in item.tags}
+    for opt in rr.result.options:
+        assert opt.item_id in nonveg_ids, f"{opt.item_name} is not a non-veg item"
+    assert len(rr.result.options) == 5
+
+
+def test_filter_with_category_narrows_results():
+    resp = _make_response([_filter_intent("veg", category="Fries")])
+    orch, _ = _build_orchestrator([resp])
+    result = orch.process_turn("veg fries dikhao")
+
+    rr = result.resolver_results[0]
+    assert isinstance(rr.result, ChooseFromCategory)
+    # All 3 Fries items are veg → all 3 returned
+    assert len(rr.result.options) == 3
+    for opt in rr.result.options:
+        assert opt.category == "Fries"
+
+
+def test_filter_nonveg_in_fries_gives_no_match():
+    """All Fries are veg → filtering non-veg in Fries yields no items → no_match outcome."""
+    resp = _make_response([_filter_intent("non-veg", category="Fries")])
+    orch, _ = _build_orchestrator([resp])
+    result = orch.process_turn("non-veg fries hain kya?")
+
+    # 0 options → no resolver_results; no_match outcome appended internally
+    assert len(result.resolver_results) == 0
+    assert result.order_state_snapshot["total"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Recommend (Track E)
+# ---------------------------------------------------------------------------
+
+
+def test_recommend_named_item_not_added_to_order():
+    """recommend intent for a specific item must surface it as a suggestion, never add to cart."""
+    resp = _make_response([{"action": "recommend", "raw_name": "cappuccino", "quantity": 0, "modifiers": [], "special_notes": ""}])
+    orch, _ = _build_orchestrator([resp])
+    result = orch.process_turn("cappuccino suggest karo")
+
+    assert len(result.resolver_results) == 1
+    rr = result.resolver_results[0]
+    assert isinstance(rr.result, ChooseFromCategory)
+    assert rr.applied_to_order is False
+    assert result.order_state_snapshot["total"] == 0
+
+
+def test_recommend_uses_cart_pairings():
+    """When cart has avocado_toast, recommend should surface its pairings (cappuccino, silver_cold_brew)."""
+    add_resp = _make_response([{"action": "add_item", "raw_name": "avocado toast", "quantity": 1, "modifiers": [], "special_notes": ""}])
+    rec_resp = _make_response([{"action": "recommend", "raw_name": "", "quantity": 0, "modifiers": [], "special_notes": ""}])
+    graph = _make_graph(pairings={"avocado_toast": ["cappuccino", "silver_cold_brew"]})
+    orch, _ = _build_orchestrator([add_resp, rec_resp], menu_graph=graph)
+
+    orch.process_turn("avocado toast")
+    result = orch.process_turn("kuch aur suggest karo")
+
+    rr = result.resolver_results[0]
+    assert isinstance(rr.result, ChooseFromCategory)
+    assert rr.applied_to_order is False
+    option_names = {o.item_name for o in rr.result.options}
+    assert "Cappuccino" in option_names or "Silver Cold Brew" in option_names
+    assert result.order_state_snapshot["item_count"] == 1  # only avocado toast in cart
+
+
+def test_recommend_falls_back_to_anchors_when_cart_empty():
+    resp = _make_response([{"action": "recommend", "raw_name": "", "quantity": 0, "modifiers": [], "special_notes": ""}])
+    graph = _make_graph(anchors=[
+        AnchorEntry("avocado_toast", "Avocado Toast", "chef_pick", 1),
+        AnchorEntry("affogato", "Affogato", "chef_pick", 2),
+    ])
+    orch, _ = _build_orchestrator([resp], menu_graph=graph)
+    result = orch.process_turn("kuch suggest karo")
+
+    rr = result.resolver_results[0]
+    assert isinstance(rr.result, ChooseFromCategory)
+    assert rr.applied_to_order is False
+    option_names = {o.item_name for o in rr.result.options}
+    assert "Avocado Toast" in option_names
+    assert result.order_state_snapshot["total"] == 0
+
+
+def test_recommend_no_graph_falls_back_gracefully():
+    """With no MenuGraph, recommend should degrade to a menu_question (no resolver_results)."""
+    resp = _make_response([{"action": "recommend", "raw_name": "", "quantity": 0, "modifiers": [], "special_notes": ""}])
+    orch, _ = _build_orchestrator([resp], menu_graph=None)
+    result = orch.process_turn("kuch suggest karo")
+
+    assert len(result.resolver_results) == 0
+    assert result.order_state_snapshot["total"] == 0

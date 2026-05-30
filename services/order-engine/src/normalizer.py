@@ -105,10 +105,13 @@ def normalize(text: str) -> str:
     Steps:
     1. Lowercase, strip whitespace.
     2. Strip accents/diacritics.
-    3. Replace "&" with "and"; replace "n'"/"n’" with "and".
+    3. Replace "&" with "and"; replace "n’"/"n’" with "and".
     4. Drop punctuation (keep hyphens between word characters).
     5. Collapse whitespace.
     6. Strip filler words/phrases from the leading and trailing edges only.
+    7. Strip trailing -s from the last token (plural→singular) when the
+       stripped form is ≥ 3 chars. Applied to both user input and indexed
+       names so comparisons are like-for-like. No full stemming.
     """
     if text is None:
         return ""
@@ -140,6 +143,11 @@ def normalize(text: str) -> str:
 
     tokens = s.split(" ")
     tokens = _strip_filler_edges(tokens)
+
+    if tokens:
+        last = tokens[-1]
+        if last.endswith("s") and len(last) - 1 >= 3:
+            tokens[-1] = last[:-1]
 
     return " ".join(tokens)
 

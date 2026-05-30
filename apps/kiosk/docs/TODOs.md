@@ -29,10 +29,6 @@ in `apps/pos` after migration 0013 is applied (kiosk types already regenerated).
 
 ## Voice
 
-### VoiceAssistantOverlay — dead code
-`apps/kiosk/src/components/VoiceAssistantOverlay.tsx` is unused. It was the
-pre-redesign full-screen overlay. Delete once you've confirmed nothing imports it.
-
 ### ListeningScreen — "Ask Waiter" auto-recording timeout
 Currently the ListeningScreen auto-starts recording and waits for the backend to
 return a `done` or `no_speech` event (no user timeout). Add a 30s max-recording
