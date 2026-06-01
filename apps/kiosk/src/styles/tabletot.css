@@ -7779,13 +7779,13 @@ body::before {
 }
 
 .order-signal-add {
-  min-height: 32px;
-  padding: 0 14px;
+  min-height: 44px;
+  padding: 0 16px;
   border: 0;
   border-radius: 999px;
   background: #151614;
   color: #fffefa;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 900;
   cursor: pointer;
 }
