@@ -5366,15 +5366,15 @@ button {
   font-size: clamp(15px, 1.55vw, 20px);
   font-weight: 700;
   letter-spacing: 0.24em;
-  color: rgba(5, 5, 5, 0.48);
+  color: rgba(5, 5, 5, 0.72);
   text-indent: 0.24em;
   text-transform: uppercase;
   animation: idlePromptPulse 2.4s ease-in-out infinite;
 }
 
 @keyframes idlePromptPulse {
-  0%, 100% { opacity: 0.48; transform: translateY(0); }
-  50% { opacity: 0.86; transform: translateY(-2px); }
+  0%, 100% { opacity: 0.72; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-2px); }
 }
 
 .view {
