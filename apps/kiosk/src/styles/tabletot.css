@@ -4447,12 +4447,12 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 14px 7px 10px;
+  padding: 7px 16px 7px 12px;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: var(--panel-strong);
   font-family: "Manrope", sans-serif;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--muted);
   cursor: pointer;
