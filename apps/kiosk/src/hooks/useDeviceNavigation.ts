@@ -85,7 +85,7 @@ export function useDeviceNavigation() {
     setOrder([]);
     setPreviousOrders([]);
     setCurrentScreen("idle");
-    clearSession();
+    void clearSession();
   }, []);
 
   const totalBill = order.reduce((sum, o) => sum + o.price * o.quantity, 0);

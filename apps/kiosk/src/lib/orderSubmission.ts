@@ -45,10 +45,22 @@ function setActiveOrderId(id: string): void {
   sessionStorage.setItem('tt_order_id', id);
 }
 
-export function clearSession(): void {
+export async function clearSession(): Promise<void> {
+  const sessionKey = sessionStorage.getItem('tt_session_id');
   sessionStorage.removeItem('tt_session_id');
   sessionStorage.removeItem('tt_order_id');
   cachedTableId = null;
+  if (sessionKey && hasSupabaseConfig) {
+    try {
+      await supabase
+        .from('sessions')
+        .update({ status: 'closed', ended_at: new Date().toISOString() })
+        .eq('session_key', sessionKey)
+        .in('status', ['active', 'bill_requested']);
+    } catch {
+      // Non-blocking — UI has already reset.
+    }
+  }
 }
 
 export class OrderSubmissionError extends Error {
@@ -68,6 +80,14 @@ export async function startSession(): Promise<void> {
   try {
     const tableUuid = await resolveTableId();
     const sessionKey = getSessionKey();
+
+    // Close any stale open sessions for this table before starting a new one.
+    await supabase
+      .from('sessions')
+      .update({ status: 'closed', ended_at: new Date().toISOString() })
+      .eq('table_id', tableUuid)
+      .in('status', ['active', 'bill_requested'])
+      .neq('session_key', sessionKey);
 
     // Upsert so a page refresh doesn't create a duplicate session.
     await supabase.from('sessions').upsert(
@@ -97,9 +117,18 @@ export async function submitOrder(
   const sessionKey = getSessionKey();
   const existingOrderId = getActiveOrderId();
 
-  const { subtotal, total } = computeTotals(
-    cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+  // Fetch authoritative prices from menu_items so client-side cart values cannot
+  // be manipulated to submit a zero-cost order.
+  const { data: dbPrices } = await supabase
+    .from('menu_items')
+    .select('id, price')
+    .in('id', cart.map((i) => i.id));
+  const priceById = new Map((dbPrices ?? []).map((r) => [r.id, r.price as number]));
+  const canonicalSubtotal = cart.reduce(
+    (sum, item) => sum + (priceById.get(item.id) ?? item.price) * item.quantity,
+    0,
   );
+  const { subtotal, total } = computeTotals(canonicalSubtotal);
 
   const newItems = cart.map((item) => ({
     name: item.name,

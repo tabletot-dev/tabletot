@@ -6,7 +6,9 @@ Restaurant management app: KOT display, order management, billing, tables.
 
 ## [Unreleased]
 
-_No unreleased changes._
+### Fixed
+
+- **Stale sessions and unresolved `bill_requested` rows** — root cause was on the kiosk side (see kiosk CHANGELOG). No POS code changed; `handleCleanupStaleSessions` and the billing close paths in `Billing.tsx` are unchanged and remain correct as the authoritative close path from the staff side.
 
 ---
 

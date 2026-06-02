@@ -8,6 +8,16 @@ All notable changes to the Menu Resolver project.
 
 ### Added
 
+- **Session reaper — idle session cleanup** (`voice_agent/session_manager.py`, `backend/main.py`) — sessions that are never explicitly ended (tablet turned off, customer walks away) previously accumulated in `SessionManager._sessions` indefinitely. `VoiceSession` gains a `last_active_at` timestamp (UTC, updated on every PTT press via `SessionManager.touch_session()`). `SessionManager.reap_idle_sessions(idle_seconds)` sweeps the session map and calls `end_session` on any session idle past the threshold. A `_reaper_loop` background task runs every 5 minutes and reaps sessions idle for more than 15 minutes; it is started and cancelled alongside the existing menu refresh task in `lifespan`.
+
+### Changed
+
+- **LLM Pass 1 moved out of the thread pool** (`src/llm/base.py`, `src/llm/claude_provider.py`, `src/llm/openai_provider.py`, `src/llm/gemini_provider.py`, `src/orchestrator.py`) — `extract_intents` (Pass 1) was synchronous on all three providers and ran inside `asyncio.to_thread`, tying up thread-pool slots for 1–3 s per concurrent voice turn. Each provider now implements `extract_intents_async` using its native async client (`AsyncAnthropic`, `AsyncOpenAI`, `client.aio` for Gemini). The base class provides a thread-fallback default so any provider without an override continues to work. `Orchestrator` gains `_apply_intents` (the CPU-bound rapidfuzz resolver loop, extracted from `_resolve`) and `_resolve_async` which awaits `extract_intents_async` in the event loop then threads `_apply_intents`. `process_turn_streaming` calls `_resolve_async`; `process_turn` (CLI / unit tests) is unchanged and continues to call the sync `_resolve` path.
+
+- **DB connection pooling for voice turn analytics** (`backend/routers/voice.py`, `backend/main.py`) — `_record_voice_turn` previously opened a new `psycopg2.connect()` per voice turn, adding 50–100 ms overhead and risking connection exhaustion under load. A `psycopg2.pool.ThreadedConnectionPool(min=1, max=3)` is now created at startup and stored on `app.state.db_pool`; the pool is closed cleanly on shutdown. `_record_voice_turn` accepts the pool instead of a raw URL and uses `getconn`/`putconn` with a `finally` guard to ensure connections are always returned.
+
+### Added
+
 - **Voice turns analytics** (`backend/routers/voice.py`, `supabase/migrations/0020`) — after each STT turn, a `voice_turns` row is written fire-and-forget to Supabase. Captures `resolved_items` (items successfully added/removed) and `unresolved_phrases` (NoMatch inputs). No raw transcript stored — DPDP compliance for pilot. Silent turns (greeting, question, no ordering intent) are skipped. Write failure never blocks the voice response.
 - **`_record_voice_turn()` helper** (`backend/routers/voice.py`) — async function that translates `ResolverCall` results into the analytics schema and calls psycopg2 in a thread pool. Logs at `DEBUG` on failure.
 

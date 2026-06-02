@@ -10,6 +10,7 @@ Each turn uses two LLM passes:
 
 from __future__ import annotations
 
+import asyncio
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import AsyncIterator
@@ -48,6 +49,28 @@ class LLMProvider(ABC):
         resolver has run and can be held accountable to real outcomes.
         """
         pass
+
+    async def extract_intents_async(
+        self,
+        transcript: str,
+        menu_context: str,
+        conversation_history: list[dict],
+        resolver_feedback: list[dict] | None = None,
+        order_state: dict | None = None,
+    ) -> LLMResponse:
+        """Async variant of extract_intents.
+
+        Default: runs the sync implementation in a thread. Providers with a
+        native async client override this to avoid thread-pool usage entirely.
+        """
+        return await asyncio.to_thread(
+            self.extract_intents,
+            transcript,
+            menu_context,
+            conversation_history,
+            resolver_feedback,
+            order_state,
+        )
 
     @abstractmethod
     def generate_response(
