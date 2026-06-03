@@ -78,6 +78,43 @@ class GeminiProvider(LLMProvider):
             completion_tokens=usage.candidates_token_count if usage else 0,
         )
 
+    async def extract_intents_async(
+        self,
+        transcript: str,
+        menu_context: str,
+        conversation_history: list[dict],
+        resolver_feedback: list[dict] | None = None,
+        order_state: dict | None = None,
+    ) -> LLMResponse:
+        system_prompt = build_intent_extraction_prompt(menu_context, resolver_feedback, order_state)
+        contents = _to_gemini_contents(conversation_history, transcript)
+        try:
+            response = await self.client.aio.models.generate_content(
+                model=self.model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    max_output_tokens=1024,
+                ),
+            )
+        except Exception as e:
+            logger.error("Gemini API error (pass 1 async): %s", e)
+            return _error_response(self.model, str(e))
+
+        raw_output = response.text or ""
+        intents, _, detected_language = parse_intents(raw_output)
+        usage = response.usage_metadata
+        return LLMResponse(
+            intents=intents,
+            response_text="",
+            detected_language=detected_language,
+            raw_output=raw_output,
+            model=self.model,
+            provider="gemini",
+            prompt_tokens=usage.prompt_token_count if usage else 0,
+            completion_tokens=usage.candidates_token_count if usage else 0,
+        )
+
     def generate_response(
         self,
         transcript: str,

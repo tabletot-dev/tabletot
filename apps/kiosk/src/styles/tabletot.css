@@ -1279,7 +1279,7 @@ button {
 
 .pairing-add {
   width: 100%;
-  min-height: 38px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1287,7 +1287,7 @@ button {
   border-radius: 999px;
   background: var(--panel-dark);
   color: #fff8f2;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   border: 0;
   cursor: pointer;
@@ -2155,7 +2155,7 @@ button {
   color: #fffaf5;
   box-shadow: 0 16px 28px rgba(17, 17, 17, 0.18);
   font-family: "JetBrains Mono", monospace;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.07em;
   line-height: 1;
@@ -4447,12 +4447,12 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 14px 7px 10px;
+  padding: 7px 16px 7px 12px;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: var(--panel-strong);
   font-family: "Manrope", sans-serif;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--muted);
   cursor: pointer;
@@ -5366,15 +5366,15 @@ button {
   font-size: clamp(15px, 1.55vw, 20px);
   font-weight: 700;
   letter-spacing: 0.24em;
-  color: rgba(5, 5, 5, 0.48);
+  color: rgba(5, 5, 5, 0.72);
   text-indent: 0.24em;
   text-transform: uppercase;
   animation: idlePromptPulse 2.4s ease-in-out infinite;
 }
 
 @keyframes idlePromptPulse {
-  0%, 100% { opacity: 0.48; transform: translateY(0); }
-  50% { opacity: 0.86; transform: translateY(-2px); }
+  0%, 100% { opacity: 0.72; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-2px); }
 }
 
 .view {
@@ -5446,7 +5446,13 @@ button {
 }
 
 .eyebrow,
-.feature-kicker,
+.feature-kicker {
+  color: var(--brand);
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
 .mini-cart-count,
 .menu-item-count,
 .detail-facts span,
@@ -5454,7 +5460,7 @@ button {
 .mini-cart-total span {
   color: var(--brand);
   font-family: "JetBrains Mono", monospace;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
 }
@@ -7779,32 +7785,32 @@ body::before {
 }
 
 .order-signal-add {
-  min-height: 32px;
-  padding: 0 14px;
+  min-height: 44px;
+  padding: 0 16px;
   border: 0;
   border-radius: 999px;
   background: #151614;
   color: #fffefa;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 900;
   cursor: pointer;
 }
 
 .order-signal-stepper {
   display: inline-grid;
-  grid-template-columns: 30px 24px 30px;
+  grid-template-columns: 36px 28px 36px;
   align-items: center;
   gap: 4px;
-  min-height: 34px;
-  padding: 3px;
+  min-height: 44px;
+  padding: 4px;
   border-radius: 999px;
   background: #151614;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 252, 0.1);
 }
 
 .order-signal-stepper button {
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   border: 1px solid rgba(255, 255, 252, 0.16);
   border-radius: 999px;
   background: rgba(255, 255, 252, 0.14);
@@ -7974,12 +7980,12 @@ body::before {
 
   .menu-product-grid .card-pairing-panel .pairing-add {
     width: auto;
-    min-height: 28px;
+    min-height: 40px;
     padding: 0 12px;
     border-radius: 999px;
     background: #151614;
     color: #fffefa;
-    font-size: 10px;
+    font-size: 12px;
     justify-self: end;
   }
 
@@ -8006,8 +8012,8 @@ body::before {
   }
 
   .mini-cart-qty .qty-btn {
-    width: 34px;
-    height: 34px;
+    width: 44px;
+    height: 44px;
     border-radius: 999px;
     background: rgba(255, 255, 252, 0.14);
     color: #fffefa;
@@ -8107,8 +8113,8 @@ body::before {
 }
 
 .order-rail .mini-cart-qty .qty-btn {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 999px;
   background: rgba(255, 255, 252, 0.14);
   color: #fffefa;

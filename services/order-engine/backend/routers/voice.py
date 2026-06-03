@@ -163,14 +163,14 @@ def _serialize_resolver_results(calls: list[ResolverCall]) -> list[dict]:
 
 
 async def _record_voice_turn(
-    db_url: str | None,
+    db_pool: "psycopg2.pool.ThreadedConnectionPool | None",  # type: ignore[name-defined]
     session_key: str | None,
     restaurant_id: str,
     table_number: str,
     resolver_results: list[ResolverCall],
 ) -> None:
     """Write one voice_turns row to Supabase. Fails silently — never blocks voice response."""
-    if not db_url:
+    if not db_pool:
         return
 
     resolved = [
@@ -186,27 +186,27 @@ async def _record_voice_turn(
 
     import json as _json
 
-    import psycopg2
-
     def _write() -> None:
-        conn = psycopg2.connect(db_url)
-        cur = conn.cursor()
-        cur.execute(
-            """
-            INSERT INTO voice_turns (session_key, restaurant_id, table_number, resolved_items, unresolved_phrases)
-            VALUES (%s, %s, %s, %s::jsonb, %s)
-            """,
-            (
-                session_key,
-                restaurant_id,
-                table_number,
-                _json.dumps(resolved),
-                unresolved or None,
-            ),
-        )
-        conn.commit()
-        cur.close()
-        conn.close()
+        conn = db_pool.getconn()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                INSERT INTO voice_turns (session_key, restaurant_id, table_number, resolved_items, unresolved_phrases)
+                VALUES (%s, %s, %s, %s::jsonb, %s)
+                """,
+                (
+                    session_key,
+                    restaurant_id,
+                    table_number,
+                    _json.dumps(resolved),
+                    unresolved or None,
+                ),
+            )
+            conn.commit()
+            cur.close()
+        finally:
+            db_pool.putconn(conn)
 
     try:
         await asyncio.to_thread(_write)
@@ -296,6 +296,7 @@ async def voice_stt(ws: WebSocket, session_id: str) -> None:
     # previous press that are still in tts_queue will be stale and discarded.
     session.current_turn_id += 1
     turn_id = session.current_turn_id
+    mgr.touch_session(session_id)
 
     stt_handler = SarvamSTTHandler(mgr._sarvam_api_key)
 
@@ -341,7 +342,7 @@ async def voice_stt(ws: WebSocket, session_id: str) -> None:
 
         # Record turn analytics asynchronously — does not block the voice response
         asyncio.create_task(_record_voice_turn(
-            ws.app.state.db_url,
+            getattr(ws.app.state, "db_pool", None),
             session.client_session_id,
             session.restaurant_id,
             session.table_id,

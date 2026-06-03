@@ -13,6 +13,7 @@ import asyncio
 import logging
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
 from src.llm import create_provider
@@ -41,6 +42,7 @@ class VoiceSession:
     tts_queue: asyncio.Queue = field(default_factory=lambda: asyncio.Queue(maxsize=20))
     current_turn_id: int = 0
     keepalive_task: asyncio.Task | None = None
+    last_active_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class SessionManager:
@@ -133,6 +135,28 @@ class SessionManager:
     def get_session(self, session_id: str) -> VoiceSession | None:
         """Return the session for session_id, or None if not found."""
         return self._sessions.get(session_id)
+
+    def touch_session(self, session_id: str) -> None:
+        """Refresh last_active_at for a session. Call on every PTT press."""
+        session = self._sessions.get(session_id)
+        if session:
+            session.last_active_at = datetime.now(timezone.utc)
+
+    async def reap_idle_sessions(self, idle_seconds: int = 900) -> int:
+        """End sessions that have been idle for longer than idle_seconds.
+
+        Returns the number of sessions reaped.
+        """
+        cutoff = datetime.now(timezone.utc).timestamp() - idle_seconds
+        stale = [
+            sid
+            for sid, s in list(self._sessions.items())
+            if s.last_active_at.timestamp() < cutoff
+        ]
+        for sid in stale:
+            logger.info("Reaping idle session %s", sid)
+            await self.end_session(sid)
+        return len(stale)
 
     def get_restaurant_config(self, session: VoiceSession) -> RestaurantConfig:
         """Return the RestaurantConfig for a session (using resolved slug)."""

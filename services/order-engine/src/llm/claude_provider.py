@@ -65,6 +65,43 @@ class ClaudeProvider(LLMProvider):
             completion_tokens=response.usage.output_tokens,
         )
 
+    async def extract_intents_async(
+        self,
+        transcript: str,
+        menu_context: str,
+        conversation_history: list[dict],
+        resolver_feedback: list[dict] | None = None,
+        order_state: dict | None = None,
+    ) -> LLMResponse:
+        system_prompt = build_intent_extraction_prompt(menu_context, resolver_feedback, order_state)
+        messages = [*conversation_history, {"role": "user", "content": transcript}]
+        try:
+            response = await self.async_client.messages.create(
+                model=self.model,
+                max_tokens=1024,
+                system=system_prompt,
+                messages=messages,
+            )
+        except anthropic.RateLimitError as e:
+            logger.error("Rate limited by Anthropic API (pass 1 async): %s", e)
+            return _error_response(self.model, str(e), "Sorry, the system is busy. Please try again in a moment.")
+        except anthropic.APIError as e:
+            logger.error("Anthropic API error (pass 1 async): %s", e)
+            return _error_response(self.model, str(e), "Sorry, something went wrong. Please try again.")
+
+        raw_output = response.content[0].text
+        intents, _discarded_response_text, detected_language = parse_intents(raw_output)
+        return LLMResponse(
+            intents=intents,
+            response_text="",
+            detected_language=detected_language,
+            raw_output=raw_output,
+            model=self.model,
+            provider="claude",
+            prompt_tokens=response.usage.input_tokens,
+            completion_tokens=response.usage.output_tokens,
+        )
+
     def generate_response(
         self,
         transcript: str,

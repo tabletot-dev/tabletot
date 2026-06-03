@@ -62,6 +62,46 @@ class OpenAIProvider(LLMProvider):
             completion_tokens=response.usage.completion_tokens if response.usage else 0,
         )
 
+    async def extract_intents_async(
+        self,
+        transcript: str,
+        menu_context: str,
+        conversation_history: list[dict],
+        resolver_feedback: list[dict] | None = None,
+        order_state: dict | None = None,
+    ) -> LLMResponse:
+        system_prompt = build_intent_extraction_prompt(menu_context, resolver_feedback, order_state)
+        messages = [
+            {"role": "system", "content": system_prompt},
+            *conversation_history,
+            {"role": "user", "content": transcript},
+        ]
+        try:
+            response = await self.async_client.chat.completions.create(
+                model=self.model,
+                max_tokens=1024,
+                messages=messages,
+            )
+        except openai.RateLimitError as e:
+            logger.error("OpenAI rate limited (pass 1 async): %s", e)
+            return _error_response(self.model, str(e))
+        except openai.APIError as e:
+            logger.error("OpenAI API error (pass 1 async): %s", e)
+            return _error_response(self.model, str(e))
+
+        raw_output = response.choices[0].message.content or ""
+        intents, _, detected_language = parse_intents(raw_output)
+        return LLMResponse(
+            intents=intents,
+            response_text="",
+            detected_language=detected_language,
+            raw_output=raw_output,
+            model=self.model,
+            provider="openai",
+            prompt_tokens=response.usage.prompt_tokens if response.usage else 0,
+            completion_tokens=response.usage.completion_tokens if response.usage else 0,
+        )
+
     def generate_response(
         self,
         transcript: str,

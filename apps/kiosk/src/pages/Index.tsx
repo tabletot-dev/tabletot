@@ -236,6 +236,20 @@ const IndexInner = () => {
         }
       }
 
+      // Third sweep: remove any kiosk-cart item absent from the backend snapshot.
+      // Catches touch-added items that were removed by voice — they're absent from
+      // both next.items (removed) and prevVoiceOrderRef (never voice-added), so
+      // neither loop above handles them.
+      for (const cartItem of order) {
+        const m = menuItems.find((mi) => mi.id === cartItem.id);
+        if (!m) continue;
+        const inSnapshot = next.items.some(
+          (i) => normalizeName(i.item_name) === normalizeName(m.name),
+        );
+        if (!inSnapshot) {
+          removeItem(cartItem.id);
+        }
+      }
     },
     [menuItems, order, addToOrder, updateQuantity, removeItem],
   );

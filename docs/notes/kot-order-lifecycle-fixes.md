@@ -12,7 +12,7 @@ Six root problems (five original + one surfaced during implementation):
 6. Bill re-request: `billRequested` was local WaitingView state, reset on navigation
 
 **Status: all fixes implemented and deployed to local Supabase.**
-Migrations 0034 + 0035 applied. Types regenerated for both apps.
+Migrations 0034 + 0035 + 0036 applied. Types regenerated for both apps.
 
 ---
 
@@ -155,10 +155,16 @@ that authority belongs to the POS only.
 
 **File:** `apps/kiosk/src/pages/Index.tsx`
 
-The Realtime handler for `sessions.status = 'closed'` now:
+The Realtime subscription was originally on `sessions` but was switched to
+`restaurant_tables` (see ADR 0014). The handler watches for
+`restaurant_tables.status = 'available'` filtered by the device's table UUID:
 1. Sets `paymentConfirmed = true` (renders a full-screen overlay: "Payment Confirmed /
    Thank you! / See you again soon.")
 2. After 3 seconds, clears the overlay and calls `endSession()`
+
+The table UUID is resolved once at mount via `resolveTableId()` and is stable for
+the device lifetime. Migration 0036 (`REPLICA IDENTITY FULL` on `sessions`) was
+also applied and left in place for future use, but the reset signal no longer uses it.
 
 ---
 
@@ -198,5 +204,5 @@ entry (orders are now `'new'`), added `'new'` → `{ label: "Queued", pct: 28 }`
 - **C1 read-only badge:** The plan mentioned replacing kitchen states with a read-only
   badge in the Orders dropdown. Currently the trigger value shows them but they remain
   selectable if somehow set. Low priority — the trigger owns those transitions now.
-- **Supabase types:** Regenerated for both apps after 0034 + 0035 were applied locally.
-  Must re-run after applying to remote/staging.
+- **Remote migrations:** 0034 + 0035 + 0036 are applied locally only. Must apply to
+  remote/staging before pilot, then re-run `supabase gen types` for both apps.

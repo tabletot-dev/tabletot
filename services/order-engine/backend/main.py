@@ -53,6 +53,22 @@ def _load_menu_graphs(restaurant_configs: dict, db_url: str) -> dict:
     return graphs
 
 
+_SESSION_IDLE_SECONDS = 15 * 60  # 15 minutes
+_REAPER_INTERVAL = 5 * 60       # sweep every 5 minutes
+
+
+async def _reaper_loop(session_manager: SessionManager) -> None:
+    """Background task: reap voice sessions idle for more than 15 minutes."""
+    while True:
+        await asyncio.sleep(_REAPER_INTERVAL)
+        try:
+            reaped = await session_manager.reap_idle_sessions(_SESSION_IDLE_SECONDS)
+            if reaped:
+                logger.info("Session reaper: ended %d idle session(s)", reaped)
+        except Exception as exc:
+            logger.warning("Session reaper error: %s", exc)
+
+
 async def _refresh_loop(session_manager: SessionManager, restaurant_configs: dict, db_url: str) -> None:
     """Background task: reload menu and graph from DB every 6 hours."""
     from src.loader import load_menu_data_from_db, load_menu_from_db
@@ -114,13 +130,18 @@ async def lifespan(app: FastAPI):
         provider_model=provider_model,
         menu_graphs=menu_graphs,
     )
+    import psycopg2.pool as _pg_pool
+    db_pool = _pg_pool.ThreadedConnectionPool(minconn=1, maxconn=3, dsn=db_url)
+
     app.state.session_manager = session_manager
     app.state.restaurant_configs = restaurant_configs
     app.state.db_url = db_url
+    app.state.db_pool = db_pool
 
     refresh_task = asyncio.create_task(
         _refresh_loop(session_manager, restaurant_configs, db_url)
     )
+    reaper_task = asyncio.create_task(_reaper_loop(session_manager))
 
     logger.info(
         "Voice backend ready — %d restaurant(s) loaded",
@@ -129,14 +150,17 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    reaper_task.cancel()
     refresh_task.cancel()
-    try:
-        await refresh_task
-    except asyncio.CancelledError:
-        pass
+    for task in (reaper_task, refresh_task):
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
     # Graceful shutdown: close all active sessions
     await session_manager.end_all_sessions()
+    db_pool.closeall()
     logger.info("Voice backend shut down")
 
 

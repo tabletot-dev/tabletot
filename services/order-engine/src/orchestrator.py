@@ -87,32 +87,20 @@ class Orchestrator:
         self.pending_feedback: list[dict] | None = None
         self.turn_count: int = 0
 
-    def _resolve(self, user_input: str, current_time: datetime | None) -> _ResolveContext:
-        """Pass 1 + resolver: extract intents, run resolver, mutate order state.
+    def _apply_intents(
+        self,
+        intents: list[dict],
+        current_time: datetime | None,
+    ) -> tuple[list[ResolverCall], list[dict], list[dict]]:
+        """Run the resolver loop over extracted intents and mutate order state.
 
-        Does NOT call Pass 2 — caller decides whether to stream or batch the response.
-        Must be called with self.turn_count already incremented.
+        CPU-bound (rapidfuzz). Safe to call in a thread via asyncio.to_thread.
         """
-        pass1 = self.provider.extract_intents(
-            transcript=user_input,
-            menu_context=self.menu_context,
-            conversation_history=self.conversation_history,
-            resolver_feedback=self.pending_feedback,
-            order_state=(
-                self.order_state.to_summary_dict()
-                if not self.order_state.is_empty()
-                else None
-            ),
-        )
-
-        if pass1.detected_language:
-            self.order_state.language = pass1.detected_language
-
         resolver_results: list[ResolverCall] = []
         new_feedback: list[dict] = []
         turn_outcomes: list[dict] = []
 
-        for intent in pass1.intents:
+        for intent in intents:
             action = intent.get("action")
             if action == "add_item":
                 self._handle_add(intent, current_time, resolver_results, new_feedback, turn_outcomes)
@@ -140,6 +128,63 @@ class Orchestrator:
             elif action in ("none", "accept_upsell", "reject_upsell"):
                 turn_outcomes.append({"status": "none", "raw_name": ""})
 
+        return resolver_results, new_feedback, turn_outcomes
+
+    def _resolve(self, user_input: str, current_time: datetime | None) -> _ResolveContext:
+        """Pass 1 + resolver (sync). Used by process_turn (CLI / unit tests).
+
+        Does NOT call Pass 2 — caller decides whether to stream or batch the response.
+        Must be called with self.turn_count already incremented.
+        """
+        pass1 = self.provider.extract_intents(
+            transcript=user_input,
+            menu_context=self.menu_context,
+            conversation_history=self.conversation_history,
+            resolver_feedback=self.pending_feedback,
+            order_state=(
+                self.order_state.to_summary_dict()
+                if not self.order_state.is_empty()
+                else None
+            ),
+        )
+        if pass1.detected_language:
+            self.order_state.language = pass1.detected_language
+
+        resolver_results, new_feedback, turn_outcomes = self._apply_intents(
+            pass1.intents, current_time
+        )
+        self.pending_feedback = new_feedback if new_feedback else None
+        return _ResolveContext(
+            pass1=pass1,
+            resolver_results=resolver_results,
+            turn_outcomes=turn_outcomes,
+            new_feedback=new_feedback,
+        )
+
+    async def _resolve_async(self, user_input: str, current_time: datetime | None) -> _ResolveContext:
+        """Pass 1 + resolver (async). Used by process_turn_streaming (voice path).
+
+        LLM call runs in the event loop via the provider's async client.
+        Resolver (rapidfuzz) runs in a thread — CPU-bound.
+        Must be called with self.turn_count already incremented.
+        """
+        pass1 = await self.provider.extract_intents_async(
+            transcript=user_input,
+            menu_context=self.menu_context,
+            conversation_history=self.conversation_history,
+            resolver_feedback=self.pending_feedback,
+            order_state=(
+                self.order_state.to_summary_dict()
+                if not self.order_state.is_empty()
+                else None
+            ),
+        )
+        if pass1.detected_language:
+            self.order_state.language = pass1.detected_language
+
+        resolver_results, new_feedback, turn_outcomes = await asyncio.to_thread(
+            self._apply_intents, pass1.intents, current_time
+        )
         self.pending_feedback = new_feedback if new_feedback else None
         return _ResolveContext(
             pass1=pass1,
@@ -219,7 +264,7 @@ class Orchestrator:
                     result = item               # TurnResult, yielded last
         """
         self.turn_count += 1
-        ctx = await asyncio.to_thread(self._resolve, user_input, current_time)
+        ctx = await self._resolve_async(user_input, current_time)
 
         current_order_summary = (
             self.order_state.to_summary_dict() if not self.order_state.is_empty() else None
