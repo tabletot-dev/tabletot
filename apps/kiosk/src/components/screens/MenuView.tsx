@@ -2,11 +2,12 @@ import { useMemo, useState, useCallback, type ReactNode } from "react";
 import { useMenu } from "@/lib/menuStore";
 import DishCard from "@/components/DishCard";
 import type { MenuItem, OrderItem } from "@/data/menu";
+import type { Source } from "@/lib/eventBus";
 
 interface MenuViewProps {
   onSelect: (item: MenuItem) => void;
-  onAddToCart: (item: MenuItem) => void;
-  onUpdateQuantity: (itemId: string, delta: number) => void;
+  onAddToCart: (item: MenuItem, source: Source) => void;
+  onUpdateQuantity: (itemId: string, delta: number, source: Source) => void;
   order: OrderItem[];
   voiceDock?: ReactNode;
   voicePanel?: ReactNode;
@@ -203,10 +204,10 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, orde
                   qty={getQty(item.id)}
                   pairings={pairingsByItemId[item.id] ?? []}
                   cartTotal={cartTotal}
-                  onAddToCart={onAddToCart}
+                  onAddToCart={(i) => onAddToCart(i, "main_menu")}
                   onUpdateQuantity={onUpdateQuantity}
                   onSelect={onSelect}
-                  onAddPairing={onAddToCart}
+                  onAddPairing={(i) => onAddToCart(i, "pairing_chip")}
                   getQuantity={getQty}
                 />
               ))

@@ -2,6 +2,7 @@ import { supabase, hasSupabaseConfig } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import type { OrderItem } from '@/data/menu';
 import { computeTotals } from '@/lib/pricing';
+import { track } from '@/lib/eventBus';
 
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
 // Runtime table identity: ?table=T3 in the URL overrides the build-time default.
@@ -177,6 +178,7 @@ export async function submitOrder(
   const { subtotal, total } = computeTotals(canonicalSubtotal);
 
   const newItems = cart.map((item) => ({
+    id: item.id,
     name: item.name,
     qty: item.quantity,
     price: item.price,
@@ -264,6 +266,13 @@ export async function submitOrder(
     .single();
 
   if (kotError) throw new OrderSubmissionError('kot', kotError.message);
+
+  track('order_submitted', {
+    orderId,
+    kotId: kot.id,
+    itemCount: cart.length,
+    total,
+  });
 
   return { orderId, kotId: kot.id };
 }

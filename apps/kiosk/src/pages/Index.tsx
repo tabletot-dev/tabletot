@@ -31,6 +31,7 @@ import { findMatchingRule, type CompletionRule, type MatchedSuggestion } from "@
 import { useMenu, MenuProvider } from "@/lib/menuStore";
 import type { DoneMessage, OrderSnapshot, Turn } from "@/lib/voice/types";
 import type { TtsClientHandle } from "@/lib/voice/ttsClient";
+import type { Source } from "@/lib/eventBus";
 import { MenuItem } from "@/data/menu";
 
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
@@ -154,11 +155,22 @@ const IndexInner = () => {
   const prevVoiceOrderRef = useRef<OrderSnapshot | null>(null);
   const voiceTtsHandleRef = useRef<TtsClientHandle | null>(null);
 
+  // Source defaults to "main_menu" so cart-side surfaces (MiniCartSidebar,
+  // CartView) can call without thinking about attribution. High-stakes
+  // attribution paths — pairing chip, completion nudge, detail view, voice —
+  // pass their source explicitly.
   const handleAddToOrder = useCallback(
-    (item: MenuItem) => {
-      addToOrder(item);
+    (item: MenuItem, source: Source = "main_menu") => {
+      addToOrder(item, source);
     },
     [addToOrder],
+  );
+
+  const handleUpdateQuantity = useCallback(
+    (itemId: string, delta: number, source: Source = "main_menu") => {
+      updateQuantity(itemId, delta, source);
+    },
+    [updateQuantity],
   );
 
   const getDetailPairings = useCallback(
@@ -218,13 +230,13 @@ const IndexInner = () => {
         if (!kioskItem) continue;
 
         if (delta > 0) {
-          addToOrder(kioskItem, delta);
+          addToOrder(kioskItem, "voice", delta);
         } else {
           const newQty = (order.find((o) => o.id === kioskItem.id)?.quantity ?? 0) + delta;
           if (newQty <= 0) {
             removeItem(kioskItem.id);
           } else {
-            updateQuantity(kioskItem.id, delta);
+            updateQuantity(kioskItem.id, delta, "voice");
           }
         }
       }
@@ -271,7 +283,7 @@ const IndexInner = () => {
 
   const handleAddFromDetail = useCallback(() => {
     if (selectedItem) {
-      handleAddToOrder(selectedItem);
+      handleAddToOrder(selectedItem, "detail_view");
     }
   }, [selectedItem, handleAddToOrder]);
 
@@ -375,7 +387,7 @@ const IndexInner = () => {
                 <MenuView
                   onSelect={handleSelectItem}
                   onAddToCart={handleAddToOrder}
-                  onUpdateQuantity={updateQuantity}
+                  onUpdateQuantity={handleUpdateQuantity}
                   order={order}
                   voiceDock={
                     voiceEnabled ? (
@@ -400,7 +412,7 @@ const IndexInner = () => {
                         onClose={() => setVoiceConversationOpen(false)}
                         onDone={handleVoiceDone}
                         onAddItem={handleAddToOrder}
-                        onUpdateQuantity={updateQuantity}
+                        onUpdateQuantity={handleUpdateQuantity}
                         onSelectItem={handleSelectItem}
                         ttsHandle={voiceTtsHandleRef}
                       />
@@ -429,8 +441,8 @@ const IndexInner = () => {
                           item={selectedItem}
                           pairings={getDetailPairings(selectedItem)}
                           onAdd={handleAddFromDetail}
-                          onAddItem={handleAddToOrder}
-                          onUpdateQuantity={updateQuantity}
+                          onAddItem={(i) => handleAddToOrder(i, "detail_view")}
+                          onUpdateQuantity={handleUpdateQuantity}
                           getQuantity={getOrderQuantity}
                           onBack={() => setCurrentScreen("menu")}
                           onSelectPairing={handleSelectItem}
@@ -451,7 +463,7 @@ const IndexInner = () => {
                 order={order}
                 previousOrders={previousOrders}
                 onAddToCart={handleAddToOrder}
-                onUpdateQuantity={updateQuantity}
+                onUpdateQuantity={handleUpdateQuantity}
                 onSelect={handleSelectItem}
                 onGoToCart={() => setCurrentScreen("order-summary")}
               />
@@ -468,7 +480,7 @@ const IndexInner = () => {
             isSubmitting={isSubmitting}
             onContinue={() => setCurrentScreen("menu")}
             onConfirm={handleConfirmOrder}
-            onUpdateQuantity={updateQuantity}
+            onUpdateQuantity={handleUpdateQuantity}
           />
         );
       case "order-confirmation":
@@ -559,7 +571,7 @@ const IndexInner = () => {
             suggestedItemId={completionSuggestion.itemId}
             cartValueAtShow={totalBill}
             onAdd={(item) => {
-              handleAddToOrder(item);
+              handleAddToOrder(item, "completion_nudge");
               setCompletionSuggestion(null);
               setCurrentScreen("order-summary");
             }}

@@ -1,21 +1,9 @@
 import { useEffect, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { MenuItem, OrderItem } from "@/data/menu";
+import type { MenuItem } from "@/data/menu";
 import type { PairedItem } from "@/lib/menuStore";
 import { itemImageBackground } from "@/lib/menuImages";
+import { track, type Source } from "@/lib/eventBus";
 import DietMark from "@/components/DietMark";
-
-const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
-
-function getSessionId(): string {
-  const key = "tt_session_id";
-  let id = sessionStorage.getItem(key);
-  if (!id) {
-    id = crypto.randomUUID();
-    sessionStorage.setItem(key, id);
-  }
-  return id;
-}
 
 const TAG_CLASS: Record<string, string> = {
   "Chef's Pick": "tag-dark",
@@ -32,7 +20,7 @@ interface DishCardProps {
   pairings: PairedItem[];
   cartTotal: number;
   onAddToCart: (item: MenuItem) => void;
-  onUpdateQuantity: (itemId: string, delta: number) => void;
+  onUpdateQuantity: (itemId: string, delta: number, source: Source) => void;
   onSelect: (item: MenuItem) => void;
   onAddPairing: (item: MenuItem) => void;
   getQuantity?: (itemId: string) => number;
@@ -42,7 +30,6 @@ export default function DishCard({
   item,
   qty,
   pairings,
-  cartTotal,
   onAddToCart,
   onUpdateQuantity,
   onSelect,
@@ -52,39 +39,35 @@ export default function DishCard({
   const hasPairings = pairings.length > 0;
   const showPairingPanel = qty > 0 && hasPairings;
 
-  const prevQtyRef = useRef(qty);
-  const loggedShowRef = useRef(false);
+  // Track which pairing items we've already logged a shown event for, scoped
+  // to the current "panel open" cycle. Cleared when the panel closes (qty
+  // returns to zero) so a re-open re-logs.
+  const shownPairingIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    const wasZero = prevQtyRef.current === 0;
-    prevQtyRef.current = qty;
-
-    if (showPairingPanel && wasZero && !loggedShowRef.current) {
-      loggedShowRef.current = true;
-      supabase.from("recommendation_events").insert({
-        restaurant_id: RESTAURANT_ID,
-        session_id: getSessionId(),
-        table_id: null as string | null,
-        pattern_type: "inline_pairing_shown",
-        item_shown: pairings[0].id,
-        item_accepted: false,
-        cart_value_at_show: cartTotal,
-      });
+    if (!showPairingPanel) {
+      shownPairingIds.current.clear();
+      return;
     }
-
-    if (qty === 0) loggedShowRef.current = false;
-  }, [qty, showPairingPanel, pairings, cartTotal]);
+    const visible = pairings.slice(0, 2);
+    visible.forEach((paired) => {
+      if (shownPairingIds.current.has(paired.id)) return;
+      shownPairingIds.current.add(paired.id);
+      track("recommendation_shown", {
+        itemId: paired.id,
+        surface: "inline_pairing",
+      });
+    });
+  }, [showPairingPanel, pairings]);
 
   const handleAddPairing = (paired: PairedItem) => {
-    supabase.from("recommendation_events").insert({
-      restaurant_id: RESTAURANT_ID,
-      session_id: getSessionId(),
-      table_id: null as string | null,
-      pattern_type: "inline_pairing_accepted",
-      item_shown: paired.id,
-      item_accepted: true,
-      cart_value_at_show: cartTotal,
+    track("recommendation_tapped", {
+      itemId: paired.id,
+      surface: "inline_pairing",
     });
+    // The actual item_added event is fired by the cart hook when the parent
+    // calls addToOrder(paired, "pairing_chip"). Keeping a single emitter for
+    // item_added avoids double-counting in attribution.
     onAddPairing(paired);
   };
 
@@ -131,14 +114,14 @@ export default function DishCard({
           {qty > 0 ? (
             <div className="card-stepper" aria-label={`${item.name} quantity`}>
               <button
-                onClick={() => onUpdateQuantity(item.id, -1)}
+                onClick={() => onUpdateQuantity(item.id, -1, "main_menu")}
                 aria-label={`Decrease ${item.name}`}
               >
                 −
               </button>
               <span>{qty}</span>
               <button
-                onClick={() => onUpdateQuantity(item.id, 1)}
+                onClick={() => onUpdateQuantity(item.id, 1, "main_menu")}
                 aria-label={`Increase ${item.name}`}
               >
                 +
@@ -181,7 +164,7 @@ export default function DishCard({
                       <span className="card-stepper pairing-stepper" aria-label={`${paired.name} quantity`}>
                         <button
                           type="button"
-                          onClick={() => onUpdateQuantity(paired.id, -1)}
+                          onClick={() => onUpdateQuantity(paired.id, -1, "pairing_chip")}
                           aria-label={`Decrease ${paired.name}`}
                         >
                           −
@@ -189,7 +172,7 @@ export default function DishCard({
                         <span>{getQuantity?.(paired.id) ?? 0}</span>
                         <button
                           type="button"
-                          onClick={() => onUpdateQuantity(paired.id, 1)}
+                          onClick={() => onUpdateQuantity(paired.id, 1, "pairing_chip")}
                           aria-label={`Increase ${paired.name}`}
                         >
                           +

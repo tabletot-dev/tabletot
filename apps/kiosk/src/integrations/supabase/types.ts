@@ -1,3 +1,4 @@
+Connecting to db 5432
 export type Json =
   | string
   | number
@@ -337,6 +338,44 @@ export type Database = {
             columns: ["menu_item_id"]
             isOneToOne: false
             referencedRelation: "menu_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kiosk_events: {
+        Row: {
+          client_ts: string
+          event_type: string
+          id: string
+          payload: Json
+          restaurant_id: string
+          server_ts: string
+          session_key: string
+        }
+        Insert: {
+          client_ts: string
+          event_type: string
+          id?: string
+          payload?: Json
+          restaurant_id: string
+          server_ts?: string
+          session_key: string
+        }
+        Update: {
+          client_ts?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          restaurant_id?: string
+          server_ts?: string
+          session_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kiosk_events_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
         ]
@@ -1333,3 +1372,5 @@ export const Constants = {
   },
 } as const
 
+A new version of Supabase CLI is available: v2.105.0 (currently installed v)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
