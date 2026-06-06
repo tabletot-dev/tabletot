@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MenuItem } from "@/data/menu";
+import { track } from "@/lib/eventBus";
 
-// TODO: set to Silver Specialty Coffee UUID — run: SELECT id FROM restaurants WHERE name = 'Silver Specialty Coffee';
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
 
 interface CompletionNudgeProps {
@@ -13,25 +13,13 @@ interface CompletionNudgeProps {
   onSkip: () => void;
 }
 
-function getOrCreateSessionId(): string {
-  const key = "tt_session_id";
-  let id = sessionStorage.getItem(key);
-  if (!id) {
-    id = crypto.randomUUID();
-    sessionStorage.setItem(key, id);
-  }
-  return id;
-}
-
 const CompletionNudge = ({
   suggestionText,
   suggestedItemId,
-  cartValueAtShow,
   onAdd,
   onSkip,
 }: CompletionNudgeProps) => {
   const [item, setItem] = useState<{ id: string; name: string; price: number } | null>(null);
-  const [eventId, setEventId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -51,40 +39,28 @@ const CompletionNudge = ({
       }
 
       setItem(itemData as { id: string; name: string; price: number });
-
-      const { data: inserted } = await supabase
-        .from("recommendation_events")
-        .insert({
-          restaurant_id: RESTAURANT_ID,
-          session_id: getOrCreateSessionId(),
-          table_id: null as string | null,
-          pattern_type: "completion_nudge",
-          item_shown: itemData.id,
-          item_accepted: false,
-          cart_value_at_show: cartValueAtShow,
-        })
-        .select("id")
-        .single();
-
-      if (inserted) setEventId(inserted.id);
+      track("recommendation_shown", {
+        itemId: itemData.id,
+        surface: "completion_nudge",
+      });
       setReady(true);
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleAdd = async () => {
+  const handleAdd = () => {
     if (!item) return;
-    if (eventId) {
-      await supabase
-        .from("recommendation_events")
-        .update({ item_accepted: true })
-        .eq("id", eventId);
-    }
+    track("recommendation_tapped", {
+      itemId: item.id,
+      surface: "completion_nudge",
+    });
+    // item_added is emitted by the cart hook when the parent calls
+    // addToOrder(item, "completion_nudge") via the onAdd callback.
     onAdd({ id: item.id, name: item.name, price: item.price, category: "", tags: [] });
   };
 
   const handleSkip = () => {
-    // item_accepted stays false — no update needed
+    // Absence of recommendation_tapped is the signal — no event fired here.
     onSkip();
   };
 

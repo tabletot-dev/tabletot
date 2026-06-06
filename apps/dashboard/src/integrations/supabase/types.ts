@@ -1,3 +1,4 @@
+Connecting to db 5432
 export type Json =
   | string
   | number
@@ -341,10 +342,49 @@ export type Database = {
           },
         ]
       }
+      kiosk_events: {
+        Row: {
+          client_ts: string
+          event_type: string
+          id: string
+          payload: Json
+          restaurant_id: string
+          server_ts: string
+          session_key: string
+        }
+        Insert: {
+          client_ts: string
+          event_type: string
+          id?: string
+          payload?: Json
+          restaurant_id: string
+          server_ts?: string
+          session_key: string
+        }
+        Update: {
+          client_ts?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          restaurant_id?: string
+          server_ts?: string
+          session_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kiosk_events_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kot_tickets: {
         Row: {
           created_at: string
           created_by: string | null
+          display_name: string | null
           id: string
           items: Json | null
           kot_number: string | null
@@ -359,6 +399,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          display_name?: string | null
           id?: string
           items?: Json | null
           kot_number?: string | null
@@ -373,6 +414,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          display_name?: string | null
           id?: string
           items?: Json | null
           kot_number?: string | null
@@ -517,6 +559,8 @@ export type Database = {
           id: string
           image_url: string | null
           is_veg: boolean
+          json_id: string | null
+          modifiers: Json | null
           name: string
           price: number | null
           restaurant_id: string | null
@@ -530,6 +574,8 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_veg?: boolean
+          json_id?: string | null
+          modifiers?: Json | null
           name: string
           price?: number | null
           restaurant_id?: string | null
@@ -543,6 +589,8 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_veg?: boolean
+          json_id?: string | null
+          modifiers?: Json | null
           name?: string
           price?: number | null
           restaurant_id?: string | null
@@ -656,10 +704,13 @@ export type Database = {
       }
       orders: {
         Row: {
+          bill_generated_at: string | null
           created_at: string
           created_by: string | null
           customer_name: string | null
           discount: number
+          final_discount: number | null
+          final_total: number | null
           id: string
           items_json: Json | null
           order_id: string | null
@@ -677,10 +728,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bill_generated_at?: string | null
           created_at?: string
           created_by?: string | null
           customer_name?: string | null
           discount?: number
+          final_discount?: number | null
+          final_total?: number | null
           id?: string
           items_json?: Json | null
           order_id?: string | null
@@ -698,10 +752,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bill_generated_at?: string | null
           created_at?: string
           created_by?: string | null
           customer_name?: string | null
           discount?: number
+          final_discount?: number | null
+          final_total?: number | null
           id?: string
           items_json?: Json | null
           order_id?: string | null
@@ -989,6 +1046,7 @@ export type Database = {
       sessions: {
         Row: {
           bill_requested_by: string | null
+          display_name: string | null
           ended_at: string | null
           id: string
           restaurant_id: string | null
@@ -1000,6 +1058,7 @@ export type Database = {
         }
         Insert: {
           bill_requested_by?: string | null
+          display_name?: string | null
           ended_at?: string | null
           id?: string
           restaurant_id?: string | null
@@ -1011,6 +1070,7 @@ export type Database = {
         }
         Update: {
           bill_requested_by?: string | null
+          display_name?: string | null
           ended_at?: string | null
           id?: string
           restaurant_id?: string | null
@@ -1152,6 +1212,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_aov_summary: {
+        Args: { p_end_at: string; p_restaurant_id: string; p_start_at: string }
+        Returns: {
+          accepted_count: number
+          accepted_items: Json
+          direct_revenue: number
+          session_count: number
+          total_revenue: number
+        }[]
+      }
       recommendation_aov_lift_cohort: {
         Args: { p_end_at: string; p_restaurant_id: string; p_start_at: string }
         Returns: {
@@ -1302,3 +1372,5 @@ export const Constants = {
   },
 } as const
 
+A new version of Supabase CLI is available: v2.105.0 (currently installed v)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

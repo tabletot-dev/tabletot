@@ -95,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const redirectUrl = `${window.location.origin}/`;
       
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -108,28 +108,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      if (data.user) {
-        // Create profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            email: email,
-            full_name: fullName,
-          });
-
-        if (profileError) throw profileError;
-
-        // Assign default staff role
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: data.user.id,
-            role: 'staff',
-          });
-
-        if (roleError) throw roleError;
-      }
+      // profiles + user_roles rows are created server-side by the
+      // on_auth_user_created trigger (migration 0040). Client must not
+      // INSERT directly — profiles has RLS without an INSERT policy.
 
       toast({
         title: "Account created!",

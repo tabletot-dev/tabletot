@@ -16,6 +16,7 @@ interface KOTTicket {
   status: string;
   printed_at: string;
   special_notes: string | null;
+  display_name: string | null;
 }
 
 export default function Kitchen() {
@@ -212,6 +213,7 @@ export default function Kitchen() {
                       <CardTitle className="text-lg">{ticket.kot_number}</CardTitle>
                       <p className="text-sm text-muted-foreground">
                         {ticket.table_number ? `Table ${ticket.table_number}` : 'Takeaway'}
+                        {ticket.display_name ? ` · ${ticket.display_name}` : ''}
                       </p>
                     </div>
                     <Badge className={getStatusColor(ticket.status)}>

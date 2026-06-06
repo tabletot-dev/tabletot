@@ -1,10 +1,12 @@
 import { useState, useCallback } from "react";
 import { MenuItem, OrderItem } from "@/data/menu";
 import { submitOrder, clearSession } from "@/lib/orderSubmission";
+import { track, type Source } from "@/lib/eventBus";
 
 export type ScreenType =
   | "idle"
   | "home"
+  | "identity"
   | "listening"
   | "menu"
   | "item-detail"
@@ -29,7 +31,7 @@ export function useDeviceNavigation() {
   const [previousOrders, setPreviousOrders] = useState<OrderRound[]>([]);
   const [voiceOverlayOpen, setVoiceOverlayOpen] = useState(false);
 
-  const addToOrder = useCallback((item: MenuItem, qty = 1) => {
+  const addToOrder = useCallback((item: MenuItem, source: Source, qty = 1) => {
     setOrder((prev) => {
       const existing = prev.find((o) => o.id === item.id);
       if (existing) {
@@ -39,9 +41,13 @@ export function useDeviceNavigation() {
       }
       return [...prev, { ...item, quantity: qty }];
     });
+    track("item_added", { itemId: item.id, source });
   }, []);
 
-  const updateQuantity = useCallback((itemId: string, delta: number) => {
+  // delta > 0 emits item_added with the supplied source. delta < 0 emits one
+  // item_removed regardless of whether the row drops out (quantity hit zero)
+  // or just decremented — the cart still lost one unit either way.
+  const updateQuantity = useCallback((itemId: string, delta: number, source: Source) => {
     setOrder((prev) => {
       return prev
         .map((o) =>
@@ -49,10 +55,16 @@ export function useDeviceNavigation() {
         )
         .filter((o) => o.quantity > 0);
     });
+    if (delta > 0) {
+      track("item_added", { itemId, source });
+    } else if (delta < 0) {
+      track("item_removed", { itemId });
+    }
   }, []);
 
   const removeItem = useCallback((itemId: string) => {
     setOrder((prev) => prev.filter((o) => o.id !== itemId));
+    track("item_removed", { itemId });
   }, []);
 
   const confirmOrder = useCallback(async () => {
