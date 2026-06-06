@@ -37,6 +37,42 @@ function getSessionKey(): string {
   return id;
 }
 
+export function getDisplayName(): string | null {
+  return sessionStorage.getItem('tt_display_name');
+}
+
+// "Should the kiosk show IdentityView before this Send to Kitchen tap?"
+// True until the customer has either entered a name or explicitly skipped.
+export function isIdentityResolved(): boolean {
+  return sessionStorage.getItem('tt_identity_resolved') === 'true';
+}
+
+export function markIdentityResolved(): void {
+  sessionStorage.setItem('tt_identity_resolved', 'true');
+}
+
+// Used by the pre-confirm IdentityView: at HomeView we create the session row
+// without a name; the customer types it later, just before "Send to Kitchen."
+// We persist the name on the existing sessions row (matched by session_key)
+// and mirror it into sessionStorage for read paths like WaitingView and the
+// KOT insert (see submitOrder).
+export async function setSessionDisplayName(displayName: string): Promise<void> {
+  const trimmed = displayName.trim();
+  if (!trimmed) return;
+  sessionStorage.setItem('tt_display_name', trimmed);
+  if (!hasSupabaseConfig) return;
+  const sessionKey = sessionStorage.getItem('tt_session_id');
+  if (!sessionKey) return;
+  try {
+    await supabase
+      .from('sessions')
+      .update({ display_name: trimmed } as never)
+      .eq('session_key', sessionKey);
+  } catch (err) {
+    console.warn('setSessionDisplayName failed (non-blocking):', err);
+  }
+}
+
 function getActiveOrderId(): string | null {
   return sessionStorage.getItem('tt_order_id');
 }
@@ -49,6 +85,8 @@ export async function clearSession(): Promise<void> {
   const sessionKey = sessionStorage.getItem('tt_session_id');
   sessionStorage.removeItem('tt_session_id');
   sessionStorage.removeItem('tt_order_id');
+  sessionStorage.removeItem('tt_display_name');
+  sessionStorage.removeItem('tt_identity_resolved');
   cachedTableId = null;
   if (sessionKey && hasSupabaseConfig) {
     try {
@@ -75,7 +113,13 @@ export class OrderSubmissionError extends Error {
 
 // Called when customer taps "Start Ordering" on HomeView.
 // Creates the session row in DB — triggers table → occupied via DB trigger.
-export async function startSession(): Promise<void> {
+// displayName is an optional first-name label captured via IdentityView; it
+// is persisted on the sessions row and on every KOT for floor-staff use, then
+// nulled when the session closes (see migration 0038).
+export async function startSession(displayName?: string): Promise<void> {
+  if (displayName) {
+    sessionStorage.setItem('tt_display_name', displayName);
+  }
   if (!hasSupabaseConfig) return;
   try {
     const tableUuid = await resolveTableId();
@@ -90,6 +134,7 @@ export async function startSession(): Promise<void> {
       .neq('session_key', sessionKey);
 
     // Upsert so a page refresh doesn't create a duplicate session.
+    // display_name cast until supabase types are regenerated post-0038.
     await supabase.from('sessions').upsert(
       {
         restaurant_id: RESTAURANT_ID,
@@ -97,7 +142,8 @@ export async function startSession(): Promise<void> {
         table_number: TABLE_NUMBER,
         session_key: sessionKey,
         status: 'active',
-      },
+        display_name: displayName ?? null,
+      } as never,
       { onConflict: 'session_key', ignoreDuplicates: true },
     );
   } catch (err) {
@@ -201,6 +247,7 @@ export async function submitOrder(
   }
 
   // Always create a new KOT row per round — kitchen sees each round separately.
+  // display_name cast until supabase types are regenerated post-0038.
   const { data: kot, error: kotError } = await supabase
     .from('kot_tickets')
     .insert({
@@ -211,7 +258,8 @@ export async function submitOrder(
       items: newItems,
       status: 'accepted',
       session_id: sessionKey,
-    })
+      display_name: getDisplayName(),
+    } as never)
     .select('id')
     .single();
 

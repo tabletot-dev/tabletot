@@ -10,6 +10,7 @@ import CartView from "@/components/screens/CartView";
 import BillView from "@/components/screens/BillView";
 import ConfirmationView from "@/components/screens/ConfirmationView";
 import WaitingView from "@/components/screens/WaitingView";
+import IdentityView from "@/components/screens/IdentityView";
 import GamesView from "@/components/screens/GamesView";
 import ConversationStartersView from "@/components/screens/ConversationStartersView";
 import CompletionNudge from "@/components/CompletionNudge";
@@ -19,7 +20,13 @@ import VoiceConversationPanel from "@/components/VoiceConversationPanel";
 import AppShell from "@/components/AppShell";
 import { RestaurantProvider, useRestaurant } from "@/lib/restaurantContext";
 import { supabase } from "@/integrations/supabase/client";
-import { resolveTableId, startSession } from "@/lib/orderSubmission";
+import {
+  resolveTableId,
+  startSession,
+  isIdentityResolved,
+  markIdentityResolved,
+  setSessionDisplayName,
+} from "@/lib/orderSubmission";
 import { findMatchingRule, type CompletionRule, type MatchedSuggestion } from "@/lib/completionRules";
 import { useMenu, MenuProvider } from "@/lib/menuStore";
 import type { DoneMessage, OrderSnapshot, Turn } from "@/lib/voice/types";
@@ -58,7 +65,7 @@ function wait(ms: number) {
 }
 
 const IndexInner = () => {
-  const { voiceEnabled, isTreatment } = useRestaurant();
+  const { voiceEnabled, promptForIdentity } = useRestaurant();
   const {
     currentScreen,
     setCurrentScreen,
@@ -275,9 +282,13 @@ const IndexInner = () => {
 
   const handleConfirmOrder = useCallback(async () => {
     if (isSubmitting) return;
+    if (promptForIdentity && !isIdentityResolved()) {
+      setCurrentScreen("identity");
+      return;
+    }
     setIsSubmitting(true);
     try {
-      if (isTreatment) {
+      {
         try {
           const { data: rules } = await withTimeout(
             supabase
@@ -303,7 +314,7 @@ const IndexInner = () => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, order, confirmOrder]);
+  }, [isSubmitting, order, confirmOrder, promptForIdentity, setCurrentScreen]);
 
   const [toast, setToast] = useState<string>("");
   useEffect(() => {
@@ -329,6 +340,19 @@ const IndexInner = () => {
             }}
             onInfoToast={(msg) => setToast(msg)}
             tableId={TABLE_ID}
+          />
+        );
+      case "identity":
+        return (
+          <IdentityView
+            onContinue={async (displayName) => {
+              if (displayName) {
+                await setSessionDisplayName(displayName);
+              }
+              markIdentityResolved();
+              setCurrentScreen("order-summary");
+              await handleConfirmOrder();
+            }}
           />
         );
       case "listening":

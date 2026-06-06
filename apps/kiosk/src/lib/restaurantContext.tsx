@@ -5,14 +5,14 @@ interface RestaurantCtx {
   restaurantId: string;
   tableId: string;
   voiceEnabled: boolean;
-  isTreatment: boolean;
+  promptForIdentity: boolean;
 }
 
 const RestaurantContext = createContext<RestaurantCtx>({
   restaurantId: "",
   tableId: "",
   voiceEnabled: true,
-  isTreatment: false,
+  promptForIdentity: false,
 });
 
 export function RestaurantProvider({ children }: { children: React.ReactNode }) {
@@ -20,41 +20,34 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
   const tableId = import.meta.env.VITE_TABLE_ID as string;
 
   // voiceEnabled defaults true to avoid flash of no-voice before flag loads.
-  // isTreatment defaults false — safer for A/B integrity on fetch failure.
+  // promptForIdentity defaults false — restaurants without the flag set
+  // should go straight to menu, same as before this feature existed.
   const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [isTreatment, setIsTreatment] = useState(false);
+  const [promptForIdentity, setPromptForIdentity] = useState(false);
 
   useEffect(() => {
     if (!restaurantId || !hasSupabaseConfig) return;
 
-    Promise.all([
-      supabase
-        .from("restaurants")
-        .select("config")
-        .eq("id", restaurantId)
-        .single(),
-      tableId
-        ? supabase
-            .from("restaurant_tables")
-            .select("is_treatment")
-            .eq("restaurant_id", restaurantId)
-            .eq("table_number", tableId)
-            .single()
-        : Promise.resolve({ data: null }),
-    ]).then(([restaurantRes, tableRes]) => {
-      if (restaurantRes.data?.config && typeof restaurantRes.data.config === "object") {
-        const cfg = restaurantRes.data.config as Record<string, unknown>;
-        if ("voice_enabled" in cfg) {
-          setVoiceEnabled(Boolean(cfg.voice_enabled));
+    supabase
+      .from("restaurants")
+      .select("config")
+      .eq("id", restaurantId)
+      .single()
+      .then(({ data }) => {
+        if (data?.config && typeof data.config === "object") {
+          const cfg = data.config as Record<string, unknown>;
+          if ("voice_enabled" in cfg) {
+            setVoiceEnabled(Boolean(cfg.voice_enabled));
+          }
+          if ("prompt_for_identity" in cfg) {
+            setPromptForIdentity(Boolean(cfg.prompt_for_identity));
+          }
         }
-      }
-      // Any fetch error → stays false (control behavior)
-      setIsTreatment(Boolean((tableRes as { data: { is_treatment?: boolean } | null }).data?.is_treatment ?? false));
-    });
-  }, [restaurantId, tableId]);
+      });
+  }, [restaurantId]);
 
   return (
-    <RestaurantContext.Provider value={{ restaurantId, tableId, voiceEnabled, isTreatment }}>
+    <RestaurantContext.Provider value={{ restaurantId, tableId, voiceEnabled, promptForIdentity }}>
       {children}
     </RestaurantContext.Provider>
   );

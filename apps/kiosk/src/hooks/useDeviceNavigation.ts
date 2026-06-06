@@ -5,6 +5,7 @@ import { submitOrder, clearSession } from "@/lib/orderSubmission";
 export type ScreenType =
   | "idle"
   | "home"
+  | "identity"
   | "listening"
   | "menu"
   | "item-detail"

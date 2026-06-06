@@ -4,7 +4,6 @@ import type { MenuItem, OrderItem } from "@/data/menu";
 import type { PairedItem } from "@/lib/menuStore";
 import { itemImageBackground } from "@/lib/menuImages";
 import DietMark from "@/components/DietMark";
-import { useRestaurant } from "@/lib/restaurantContext";
 
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
 
@@ -50,9 +49,8 @@ export default function DishCard({
   onAddPairing,
   getQuantity,
 }: DishCardProps) {
-  const { isTreatment } = useRestaurant();
   const hasPairings = pairings.length > 0;
-  const showPairingPanel = isTreatment && qty > 0 && hasPairings;
+  const showPairingPanel = qty > 0 && hasPairings;
 
   const prevQtyRef = useRef(qty);
   const loggedShowRef = useRef(false);

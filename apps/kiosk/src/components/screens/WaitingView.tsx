@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase, hasSupabaseConfig } from "@/integrations/supabase/client";
 import type { OrderRound } from "@/hooks/useDeviceNavigation";
+import { getDisplayName } from "@/lib/orderSubmission";
 
 interface WaitingViewProps {
   previousOrders: OrderRound[];
@@ -153,9 +154,15 @@ export default function WaitingView({
         <div className="idle-status-copy">
           <p className="eyebrow">Order Status</p>
           <h2>
-            {kitchenStatus === "served"
-              ? "Your order has arrived!"
-              : "Your order is being prepared"}
+            {(() => {
+              const name = getDisplayName();
+              if (kitchenStatus === "served") {
+                return name ? `Your order has arrived, ${name}!` : "Your order has arrived!";
+              }
+              return name
+                ? `Your order is being prepared, ${name}`
+                : "Your order is being prepared";
+            })()}
           </h2>
           <p className="hero-sub">
             {itemCount > 0 ? `${itemCount} item${itemCount === 1 ? "" : "s"} in progress. ` : ""}

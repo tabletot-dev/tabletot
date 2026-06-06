@@ -1,4 +1,3 @@
-Connecting to db 5432
 export type Json =
   | string
   | number
@@ -346,6 +345,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          display_name: string | null
           id: string
           items: Json | null
           kot_number: string | null
@@ -360,6 +360,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          display_name?: string | null
           id?: string
           items?: Json | null
           kot_number?: string | null
@@ -374,6 +375,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          display_name?: string | null
           id?: string
           items?: Json | null
           kot_number?: string | null
@@ -1005,6 +1007,7 @@ export type Database = {
       sessions: {
         Row: {
           bill_requested_by: string | null
+          display_name: string | null
           ended_at: string | null
           id: string
           restaurant_id: string | null
@@ -1016,6 +1019,7 @@ export type Database = {
         }
         Insert: {
           bill_requested_by?: string | null
+          display_name?: string | null
           ended_at?: string | null
           id?: string
           restaurant_id?: string | null
@@ -1027,6 +1031,7 @@ export type Database = {
         }
         Update: {
           bill_requested_by?: string | null
+          display_name?: string | null
           ended_at?: string | null
           id?: string
           restaurant_id?: string | null
@@ -1168,6 +1173,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_aov_summary: {
+        Args: { p_end_at: string; p_restaurant_id: string; p_start_at: string }
+        Returns: {
+          accepted_count: number
+          accepted_items: Json
+          direct_revenue: number
+          session_count: number
+          total_revenue: number
+        }[]
+      }
       recommendation_aov_lift_cohort: {
         Args: { p_end_at: string; p_restaurant_id: string; p_start_at: string }
         Returns: {
@@ -1318,5 +1333,3 @@ export const Constants = {
   },
 } as const
 
-A new version of Supabase CLI is available: v2.102.0 (currently installed v)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

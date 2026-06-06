@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMenu } from "@/lib/menuStore";
 import type { AnchorItem } from "@/lib/menuStore";
-import { useRestaurant } from "@/lib/restaurantContext";
 import { itemImageBackground } from "@/lib/menuImages";
 
 function heroGradient(item: AnchorItem) {
@@ -29,7 +28,6 @@ export default function HomeView({
   tableId,
 }: HomeViewProps) {
   const { anchors, loading } = useMenu();
-  const { isTreatment } = useRestaurant();
   const [heroIndex, setHeroIndex] = useState(0);
 
   const chefPicks = anchors.filter((a) => a.anchorType === "chef_pick");
@@ -75,7 +73,7 @@ export default function HomeView({
         </div>
 
         <div className="home-spotlight-stack">
-          {!isTreatment || loading || !heroItem ? (
+          {loading || !heroItem ? (
             <div
               className="hero-feature home-spotlight"
               style={{ background: "linear-gradient(135deg, #f5e6d8, #e8c9a8)" }}

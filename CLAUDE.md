@@ -48,10 +48,10 @@ Fall back to Grep/Glob/Read **only** when graphify doesn't cover what you need.
 apps/
 kiosk/          customer-facing PWA (React, Vite). Primary surface.
 src/components/screens/ — one file per view
-src/lib/menuStore.ts   — single hook for all menu data
+src/lib/menuStore.tsx  — single hook for all menu data
 src/styles/tabletot.css — design system (do not edit lightly)
 pos/            restaurant management app (auth, KOT, billing, tables)
-dashboard/      recommendation curation + AOV measurement (port 8081)
+dashboard/      recommendation curation + AOV measurement
 services/
 order-engine/   FastAPI backend: voice pipeline, LLM resolver, menu loader
 menus/        one JSON per restaurant (see MENU-CREATION-GUIDE.md)
@@ -59,9 +59,7 @@ backend/config/restaurants.json — speaker + language config per restaurant
 packages/         shared types and utilities — currently empty
 supabase/
 migrations/     applied in order; never edit an existing migration
-0009 — Silver Specialty Coffee restaurant + menu_items
-0010 — item_pairings + anchor_items (Silver)
-0011 — image_url column on menu_items
+                currently at 0036 + remote schema (2026-05-29)
 seed/           reference data only
 ```
 ## Supabase table groups (one project, three logical layers)
@@ -94,12 +92,11 @@ TTS WebSocket is persistent per session (Sarvam bulbul:v3, 30s keepalive).
 LLM responds in native script only — no romanised transliteration.
 
 **Migrations:** Never edit an existing migration file. Always append a new one.
-Run `validate_silver_seed.sql` after applying 0009–0011 to confirm counts.
+Migrations 0009–0036 are applied. Current Silver UUID is
+`b22b5d53-6dd8-4f5b-8276-2e828cd1ab91` (pinned in migration 0014).
 
-**Env vars:** `VITE_RESTAURANT_ID` must be set to the Silver Specialty Coffee
-UUID after migration 0009 is applied. `VITE_TABLE_ID` is required for order
-submission. Both are in `.env.example` with TODO comments marking every usage
-site in source.
+**Env vars:** `VITE_RESTAURANT_ID` and `VITE_TABLE_ID` are set in
+`apps/kiosk/.env.local`. All four services have env vars configured in Railway.
 
 **Images:** `menu_items.image_url` is nullable. DishCard, CartView, and
 WaitingView all fall back to category-gradient placeholders when null — do not
@@ -109,13 +106,18 @@ remove the fallback.
 pairings, anchor items. It is not a menu CRUD tool. Menu CRUD belongs in
 apps/pos and only for restaurants without their own POS admin.
 
-## What's next (ordered)
+## Current status (as of 2026-06-03)
 
-1. Apply migrations 0009 → 0010 (fix cold-brew pairing first) → 0011
-2. Set `VITE_RESTAURANT_ID` to Silver UUID; set `VITE_TABLE_ID`
-3. Seed `image_url` from Unsplash placeholders (see tabletot-redesign.html)
-4. Step 7 — ADRs 0004–0008 (solo)
-5. Step 8 — manual E2E test
-6. Owner session — populate `meal_completion_rules`
-7. Pilot launch
+All four services deployed on Railway: kiosk, POS, dashboard, order-engine.
+
+**Active phase:** Hardware testing on a Lenovo Tab K9. Not yet in the
+restaurant. Fixing bugs surfaced by real-device usage.
+
+**Next major milestone:** AOV data accuracy for the pilot restaurant.
+The system must produce trustworthy AOV numbers before Silver Specialty Coffee
+can use them to measure lift. This means:
+- recommendation_events firing correctly on every pattern (post-add pairing,
+  anchor-on-empty, pre-submit nudge)
+- orders and order_items recorded with accurate amounts and item counts
+- AOV baseline vs. nudged sessions distinguishable in the data
 
