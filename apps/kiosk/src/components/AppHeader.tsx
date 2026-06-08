@@ -17,7 +17,7 @@ export default function AppHeader({
 }: AppHeaderProps) {
   return (
     <header className="app-header">
-      <div className="brand-block" onClick={() => onNavigate("home")} role="button" tabIndex={0}>
+      <div className="brand-block" onClick={() => onNavigate("home")} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onNavigate("home")} role="button" tabIndex={0}>
         <div className="brand-mark">
           <TabletotLogo />
         </div>

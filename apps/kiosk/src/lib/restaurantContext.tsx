@@ -33,7 +33,11 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
       .select("config")
       .eq("id", restaurantId)
       .single()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("[RestaurantProvider] Failed to load restaurant config:", error.message);
+          return;
+        }
         if (data?.config && typeof data.config === "object") {
           const cfg = data.config as Record<string, unknown>;
           if ("voice_enabled" in cfg) {

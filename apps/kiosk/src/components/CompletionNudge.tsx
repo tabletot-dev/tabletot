@@ -23,6 +23,7 @@ const CompletionNudge = ({
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
     (async () => {
       const { data: itemData } = await supabase
         .from("menu_items")
@@ -31,6 +32,8 @@ const CompletionNudge = ({
         .eq("id", suggestedItemId)
         .eq("active", true)
         .single();
+
+      if (!mounted) return;
 
       if (!itemData) {
         // Suggested item not found or inactive — skip straight to order submission
@@ -45,8 +48,8 @@ const CompletionNudge = ({
       });
       setReady(true);
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return () => { mounted = false; };
+  }, [suggestedItemId, onSkip]);
 
   const handleAdd = () => {
     if (!item) return;
