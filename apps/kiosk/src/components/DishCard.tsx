@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, memo } from "react";
 import type { MenuItem } from "@/data/menu";
 import type { PairedItem } from "@/lib/menuStore";
 import { itemImageBackground } from "@/lib/menuImages";
@@ -26,7 +26,7 @@ interface DishCardProps {
   getQuantity?: (itemId: string) => number;
 }
 
-export default function DishCard({
+function DishCard({
   item,
   qty,
   pairings,
@@ -198,3 +198,5 @@ export default function DishCard({
     </article>
   );
 }
+
+export default memo(DishCard);

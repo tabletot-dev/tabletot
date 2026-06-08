@@ -124,6 +124,9 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, orde
 
   const cartTotal = useMemo(() => order.reduce((s, o) => s + o.price * o.quantity, 0), [order]);
 
+  const handleAddToCart = useCallback((i: MenuItem) => onAddToCart(i, "main_menu"), [onAddToCart]);
+  const handleAddPairing = useCallback((i: MenuItem) => onAddToCart(i, "pairing_chip"), [onAddToCart]);
+
   if (loading) {
     return (
       <div className="view menu-view" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -157,6 +160,7 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, orde
               key={cat}
               className={`menu-cat-pill${resolvedCategory === cat ? " active" : ""}`}
               onClick={() => setActiveCategory(cat)}
+              aria-pressed={resolvedCategory === cat}
             >
               <span className="menu-cat-pill-icon">
                 <CategoryIcon category={cat} />
@@ -181,6 +185,7 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, orde
                   key={d}
                   className={`diet-pill${diet === d ? " active" : ""}`}
                   onClick={() => setDiet(d)}
+                  aria-pressed={diet === d}
                 >
                   {d === "all" ? "All" : d === "veg" ? "Veg" : "Non-Veg"}
                 </button>
@@ -204,10 +209,10 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, orde
                   qty={getQty(item.id)}
                   pairings={pairingsByItemId[item.id] ?? []}
                   cartTotal={cartTotal}
-                  onAddToCart={(i) => onAddToCart(i, "main_menu")}
+                  onAddToCart={handleAddToCart}
                   onUpdateQuantity={onUpdateQuantity}
                   onSelect={onSelect}
-                  onAddPairing={(i) => onAddToCart(i, "pairing_chip")}
+                  onAddPairing={handleAddPairing}
                   getQuantity={getQty}
                 />
               ))

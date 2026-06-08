@@ -44,44 +44,13 @@ export default function VoiceConversationPanel({
   ttsHandle,
 }: VoiceConversationPanelProps) {
   const [pressStatus, setPressStatus] = useState<PressStatus>("idle");
-  const [levels, setLevels] = useState<number[]>(() =>
-    Array.from({ length: 18 }, (_, i) => 0.28 + (i % 4) * 0.08),
-  );
 
   const sttRef = useRef<SttPressHandle | null>(null);
-  const rafRef = useRef<number | null>(null);
   const streamEndRef = useRef<HTMLDivElement | null>(null);
   const pressStatusRef = useRef<PressStatus>("idle");
 
   useEffect(() => {
     pressStatusRef.current = pressStatus;
-  }, [pressStatus]);
-
-  // Animated waveform while recording
-  useEffect(() => {
-    if (pressStatus !== "recording") {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-      return;
-    }
-
-    const tick = () => {
-      const now = Date.now() / 260;
-      setLevels((cur) =>
-        cur.map((_, i) => {
-          const wave = Math.sin(now + i * 0.72) * 0.5 + 0.5;
-          const pulse = Math.sin(now * 1.6 + i * 0.24) * 0.5 + 0.5;
-          return 0.18 + wave * 0.52 + pulse * 0.22;
-        }),
-      );
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    };
   }, [pressStatus]);
 
   // Auto-scroll to bottom on new turns
@@ -260,14 +229,8 @@ export default function VoiceConversationPanel({
           <span>{inputLabel}</span>
         </div>
         <div className="voice-frequency-meter" aria-hidden="true">
-          {levels.map((level, index) => (
-            <span
-              key={index}
-              style={{
-                height: `${Math.round(10 + level * 38)}px`,
-                opacity: 0.52 + level * 0.48,
-              }}
-            />
+          {Array.from({ length: 18 }, (_, i) => (
+            <span key={i} style={{ "--i": i } as React.CSSProperties} />
           ))}
         </div>
         <button

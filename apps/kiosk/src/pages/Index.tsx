@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDeviceNavigation } from "@/hooks/useDeviceNavigation";
 import IdleScreen from "@/components/screens/IdleScreen";
@@ -7,12 +7,12 @@ import ListeningScreen from "@/components/screens/ListeningScreen";
 import MenuView from "@/components/screens/MenuView";
 import DetailView from "@/components/screens/DetailView";
 import CartView from "@/components/screens/CartView";
-import BillView from "@/components/screens/BillView";
 import ConfirmationView from "@/components/screens/ConfirmationView";
 import WaitingView from "@/components/screens/WaitingView";
 import IdentityView from "@/components/screens/IdentityView";
-import GamesView from "@/components/screens/GamesView";
-import ConversationStartersView from "@/components/screens/ConversationStartersView";
+const BillView = lazy(() => import("@/components/screens/BillView"));
+const GamesView = lazy(() => import("@/components/screens/GamesView"));
+const ConversationStartersView = lazy(() => import("@/components/screens/ConversationStartersView"));
 import CompletionNudge from "@/components/CompletionNudge";
 import VoiceOrderButton from "@/components/VoiceOrderButton";
 import MiniCartSidebar from "@/components/MiniCartSidebar";
@@ -126,7 +126,7 @@ const IndexInner = () => {
             setPaymentConfirmed(true);
             window.setTimeout(() => {
               setPaymentConfirmed(false);
-              endSession();
+              handleEndSession();
               setVoiceTurns([]);
             }, 3000);
           }
@@ -154,6 +154,11 @@ const IndexInner = () => {
 
   const prevVoiceOrderRef = useRef<OrderSnapshot | null>(null);
   const voiceTtsHandleRef = useRef<TtsClientHandle | null>(null);
+
+  const handleEndSession = useCallback(() => {
+    prevVoiceOrderRef.current = null;
+    endSession();
+  }, [endSession]);
 
   // Source defaults to "main_menu" so cart-side surfaces (MiniCartSidebar,
   // CartView) can call without thinking about attribution. High-stakes
@@ -286,6 +291,11 @@ const IndexInner = () => {
       handleAddToOrder(selectedItem, "detail_view");
     }
   }, [selectedItem, handleAddToOrder]);
+
+  const handleCompletionSkip = useCallback(() => {
+    setCompletionSuggestion(null);
+    confirmOrder();
+  }, [confirmOrder]);
 
   const getOrderQuantity = useCallback(
     (itemId: string) => order.find((item) => item.id === itemId)?.quantity ?? 0,
@@ -515,22 +525,32 @@ const IndexInner = () => {
           />
         );
       case "games":
-        return <GamesView onBack={() => setCurrentScreen("session-idle")} />;
+        return (
+          <Suspense fallback={null}>
+            <GamesView onBack={() => setCurrentScreen("session-idle")} />
+          </Suspense>
+        );
       case "conversation-starters":
-        return <ConversationStartersView onBack={() => setCurrentScreen("session-idle")} />;
+        return (
+          <Suspense fallback={null}>
+            <ConversationStartersView onBack={() => setCurrentScreen("session-idle")} />
+          </Suspense>
+        );
       case "bill-summary":
         return (
-          <BillView
-            previousOrders={previousOrders}
-            sessionTotal={sessionTotal}
-            alreadyRequested={billRequested}
-            onBillSubmitted={() => setBillRequested(true)}
-            onClose={() => {
-              endSession();
-              setVoiceTurns([]);
-            }}
-            onContinueOrdering={() => setCurrentScreen("menu")}
-          />
+          <Suspense fallback={null}>
+            <BillView
+              previousOrders={previousOrders}
+              sessionTotal={sessionTotal}
+              alreadyRequested={billRequested}
+              onBillSubmitted={() => setBillRequested(true)}
+              onClose={() => {
+                handleEndSession();
+                setVoiceTurns([]);
+              }}
+              onContinueOrdering={() => setCurrentScreen("menu")}
+            />
+          </Suspense>
         );
       default:
         return null;
@@ -575,10 +595,7 @@ const IndexInner = () => {
               setCompletionSuggestion(null);
               setCurrentScreen("order-summary");
             }}
-            onSkip={() => {
-              setCompletionSuggestion(null);
-              confirmOrder();
-            }}
+            onSkip={handleCompletionSkip}
           />
         )}
 

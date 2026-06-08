@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { MenuItem, OrderItem } from "@/data/menu";
 import type { OrderRound } from "@/hooks/useDeviceNavigation";
@@ -33,17 +34,23 @@ export default function MiniCartSidebar({
   const { anchors } = useMenu();
   const { isTreatment } = useRestaurant();
   const isEmpty = order.length === 0;
-  const total = order.reduce((s, o) => s + o.price * o.quantity, 0);
-  const itemCount = order.reduce((s, o) => s + o.quantity, 0);
-  const qtyById = new Map(order.map((item) => [item.id, item.quantity]));
-  const sentItems = previousOrders.flatMap((round, roundIdx) =>
-    round.items.map((item) => ({ ...item, roundNumber: roundIdx + 1 })),
+  const total = useMemo(() => order.reduce((s, o) => s + o.price * o.quantity, 0), [order]);
+  const itemCount = useMemo(() => order.reduce((s, o) => s + o.quantity, 0), [order]);
+  const qtyById = useMemo(() => new Map(order.map((item) => [item.id, item.quantity])), [order]);
+  const sentItems = useMemo(
+    () => previousOrders.flatMap((round, roundIdx) =>
+      round.items.map((item) => ({ ...item, roundNumber: roundIdx + 1 })),
+    ),
+    [previousOrders],
   );
-  const signalItems = anchors
-    .slice()
-    .sort((a, b) => b.priority - a.priority)
-    .filter((item, index, list) => list.findIndex((entry) => entry.id === item.id) === index)
-    .slice(0, 4);
+  const signalItems = useMemo(
+    () => anchors
+      .slice()
+      .sort((a, b) => b.priority - a.priority)
+      .filter((item, index, list) => list.findIndex((entry) => entry.id === item.id) === index)
+      .slice(0, 4),
+    [anchors],
+  );
 
   return (
     <aside className="order-rail">
@@ -91,7 +98,6 @@ export default function MiniCartSidebar({
                   {order.map((item) => (
                     <motion.div
                       key={item.id}
-                      layout
                       initial={{ opacity: 0, x: 12 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 12 }}
