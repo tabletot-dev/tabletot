@@ -2,11 +2,16 @@
 
 SarvamTTSHandler is fully mocked so no real WebSocket calls are made.
 The Orchestrator is instantiated with a MockProvider so no LLM calls are made.
+
+DB persistence tests (prefixed test_db_*) require local Supabase on :54322
+and are skipped automatically when it is not reachable.
 """
 
 from __future__ import annotations
 
 import asyncio
+import psycopg2
+import psycopg2.pool
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -171,3 +176,176 @@ async def test_end_session_nonexistent_is_noop():
         menus=_MENUS,
     )
     await mgr.end_session("does-not-exist")  # should not raise
+
+
+# ---------------------------------------------------------------------------
+# DB persistence integration tests — require local Supabase on :54322
+# ---------------------------------------------------------------------------
+
+def _local_db_available() -> bool:
+    try:
+        conn = psycopg2.connect(_DB_URL, connect_timeout=2)
+        conn.close()
+        return True
+    except Exception:
+        return False
+
+
+_requires_local_db = pytest.mark.skipif(
+    not _local_db_available(),
+    reason="local Supabase not reachable on :54322",
+)
+
+
+def _make_db_pool() -> "psycopg2.pool.ThreadedConnectionPool":
+    return psycopg2.pool.ThreadedConnectionPool(1, 2, dsn=_DB_URL)
+
+
+def _query_session_status(pool, session_id: str) -> str | None:
+    conn = pool.getconn()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT status FROM voice_sessions WHERE session_id = %s", (session_id,))
+        row = cur.fetchone()
+        cur.close()
+        return row[0] if row else None
+    finally:
+        pool.putconn(conn)
+
+
+def _delete_session_row(pool, session_id: str) -> None:
+    conn = pool.getconn()
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM voice_sessions WHERE session_id = %s", (session_id,))
+        conn.commit()
+        cur.close()
+    finally:
+        pool.putconn(conn)
+
+
+@_requires_local_db
+@pytest.mark.asyncio
+async def test_db_create_session_inserts_active_row():
+    pool = _make_db_pool()
+    try:
+        with patch("voice_agent.session_manager.SarvamTTSHandler", return_value=make_mock_tts_handler()):
+            mgr = SessionManager(
+                restaurant_configs=_CONFIGS,
+                sarvam_api_key="key",
+                anthropic_api_key="key",
+                menus=_MENUS,
+                db_pool=pool,
+            )
+            with patch("voice_agent.session_manager.create_provider") as mock_create:
+                mock_create.return_value = MagicMock()
+                session = await mgr.create_session("T-01", "silver-ssc-hyd")
+
+        # Give the fire-and-forget task a moment to complete
+        await asyncio.sleep(0.2)
+
+        status = _query_session_status(pool, session.session_id)
+        assert status == "active", f"Expected 'active', got {status!r}"
+    finally:
+        _delete_session_row(pool, session.session_id)
+        pool.closeall()
+
+
+@_requires_local_db
+@pytest.mark.asyncio
+async def test_db_end_session_updates_to_closed():
+    pool = _make_db_pool()
+    mock_tts = make_mock_tts_handler()
+    try:
+        with patch("voice_agent.session_manager.SarvamTTSHandler", return_value=mock_tts):
+            mgr = SessionManager(
+                restaurant_configs=_CONFIGS,
+                sarvam_api_key="key",
+                anthropic_api_key="key",
+                menus=_MENUS,
+                db_pool=pool,
+            )
+            with patch("voice_agent.session_manager.create_provider") as mock_create:
+                mock_create.return_value = MagicMock()
+                session = await mgr.create_session("T-01", "silver-ssc-hyd")
+
+        await asyncio.sleep(0.2)  # wait for insert task
+        await mgr.end_session(session.session_id)
+        await asyncio.sleep(0.2)  # wait for update task
+
+        status = _query_session_status(pool, session.session_id)
+        assert status == "closed", f"Expected 'closed', got {status!r}"
+    finally:
+        _delete_session_row(pool, session.session_id)
+        pool.closeall()
+
+
+@_requires_local_db
+@pytest.mark.asyncio
+async def test_db_reap_idle_session_updates_to_reaped():
+    pool = _make_db_pool()
+    mock_tts = make_mock_tts_handler()
+    try:
+        with patch("voice_agent.session_manager.SarvamTTSHandler", return_value=mock_tts):
+            mgr = SessionManager(
+                restaurant_configs=_CONFIGS,
+                sarvam_api_key="key",
+                anthropic_api_key="key",
+                menus=_MENUS,
+                db_pool=pool,
+            )
+            with patch("voice_agent.session_manager.create_provider") as mock_create:
+                mock_create.return_value = MagicMock()
+                session = await mgr.create_session("T-01", "silver-ssc-hyd")
+
+        await asyncio.sleep(0.2)  # wait for insert task
+
+        # Force the session to appear idle by backdating last_active_at
+        from datetime import timedelta
+        session.last_active_at = session.last_active_at - timedelta(seconds=1000)
+
+        reaped = await mgr.reap_idle_sessions(idle_seconds=60)
+        assert reaped == 1
+
+        await asyncio.sleep(0.2)  # wait for update task
+
+        status = _query_session_status(pool, session.session_id)
+        assert status == "reaped", f"Expected 'reaped', got {status!r}"
+    finally:
+        _delete_session_row(pool, session.session_id)
+        pool.closeall()
+
+
+@_requires_local_db
+@pytest.mark.asyncio
+async def test_db_startup_cleanup_marks_stale_as_interrupted():
+    pool = _make_db_pool()
+    # Manually insert an 'active' row simulating a crashed previous process
+    fake_session_id = "test-interrupted-" + "x" * 16
+    conn = pool.getconn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO voice_sessions (session_id, restaurant_id, table_id, status) VALUES (%s, %s, %s, 'active')",
+            (fake_session_id, "silver-ssc-hyd", "T-99"),
+        )
+        conn.commit()
+        cur.close()
+    finally:
+        pool.putconn(conn)
+
+    try:
+        mgr = SessionManager(
+            restaurant_configs=_CONFIGS,
+            sarvam_api_key="key",
+            anthropic_api_key="key",
+            menus=_MENUS,
+            db_pool=pool,
+        )
+        await mgr.startup_cleanup()
+
+        status = _query_session_status(pool, fake_session_id)
+        assert status == "interrupted", f"Expected 'interrupted', got {status!r}"
+    finally:
+        _delete_session_row(pool, fake_session_id)
+        pool.closeall()

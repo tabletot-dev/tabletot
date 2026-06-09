@@ -1,4 +1,3 @@
-Connecting to db 5432
 export type Json =
   | string
   | number
@@ -1236,6 +1235,23 @@ export type Database = {
           treatment_stddev: number
         }[]
       }
+      submit_order: {
+        Args: {
+          p_display_name?: string
+          p_existing_order_id?: string
+          p_new_items: Json
+          p_restaurant_id: string
+          p_session_key: string
+          p_table_id: string
+          p_table_number: string
+        }
+        Returns: {
+          kot_id: string
+          order_id: string
+          subtotal: number
+          total: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
@@ -1371,6 +1387,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
-A new version of Supabase CLI is available: v2.105.0 (currently installed v)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

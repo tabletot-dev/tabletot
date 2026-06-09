@@ -15,6 +15,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from src.llm import create_provider
 from src.loader import MenuIndex, load_menu
@@ -22,6 +23,9 @@ from src.menu_graph import MenuGraph
 from src.orchestrator import Orchestrator
 from voice_agent.restaurant_config import RestaurantConfig
 from voice_agent.tts_handler import SarvamTTSHandler
+
+if TYPE_CHECKING:
+    import psycopg2.pool
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +66,7 @@ class SessionManager:
         provider_api_key: str = "",
         provider_model: str | None = None,
         menu_graphs: dict[str, MenuGraph] | None = None,
+        db_pool: "psycopg2.pool.ThreadedConnectionPool | None" = None,
     ) -> None:
         self._sessions: dict[str, VoiceSession] = {}
         self._configs = restaurant_configs
@@ -73,6 +78,95 @@ class SessionManager:
         # Fall back to anthropic_api_key when provider is claude and no explicit key given
         self._provider_api_key = provider_api_key or anthropic_api_key
         self._provider_model = provider_model or None
+        self._db_pool = db_pool
+
+    # ------------------------------------------------------------------
+    # DB persistence helpers — all fire-and-forget, never block callers.
+    # ------------------------------------------------------------------
+
+    def _db_insert_session(self, session: "VoiceSession") -> None:
+        """Synchronous insert; called via asyncio.to_thread."""
+        if self._db_pool is None:
+            return
+        conn = self._db_pool.getconn()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                INSERT INTO voice_sessions
+                  (session_id, restaurant_id, table_id, client_session_key, status)
+                VALUES (%s, %s, %s, %s, 'active')
+                ON CONFLICT (session_id) DO NOTHING
+                """,
+                (
+                    session.session_id,
+                    session.restaurant_id,
+                    session.table_id,
+                    session.client_session_id,
+                ),
+            )
+            conn.commit()
+            cur.close()
+        finally:
+            self._db_pool.putconn(conn)
+
+    def _db_update_status(self, session_id: str, status: str) -> None:
+        """Synchronous status update; called via asyncio.to_thread."""
+        if self._db_pool is None:
+            return
+        conn = self._db_pool.getconn()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                UPDATE voice_sessions
+                SET status = %s, ended_at = now()
+                WHERE session_id = %s
+                """,
+                (status, session_id),
+            )
+            conn.commit()
+            cur.close()
+        finally:
+            self._db_pool.putconn(conn)
+
+    def _db_interrupt_stale(self) -> int:
+        """Mark any rows still 'active' as 'interrupted' (previous crash).
+
+        Returns the number of rows updated.
+        """
+        if self._db_pool is None:
+            return 0
+        conn = self._db_pool.getconn()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                UPDATE voice_sessions
+                SET status = 'interrupted', ended_at = now()
+                WHERE status = 'active'
+                """,
+            )
+            count = cur.rowcount
+            conn.commit()
+            cur.close()
+            return count
+        finally:
+            self._db_pool.putconn(conn)
+
+    async def startup_cleanup(self) -> None:
+        """Mark lingering 'active' rows from a previous process as 'interrupted'.
+
+        Call once during app lifespan startup, before accepting requests.
+        """
+        try:
+            count = await asyncio.to_thread(self._db_interrupt_stale)
+            if count:
+                logger.info(
+                    "startup_cleanup: marked %d stale voice session(s) as interrupted", count
+                )
+        except Exception as exc:
+            logger.warning("startup_cleanup DB error (non-blocking): %s", exc)
 
     def _resolve_restaurant_slug(self, restaurant_id: str) -> str:
         """Resolve restaurant_id (slug or UUID) to internal slug key.
@@ -130,6 +224,11 @@ class SessionManager:
             table_id,
             restaurant_id,
         )
+        # Persist to DB — fire-and-forget; never blocks session creation.
+        if self._db_pool is not None:
+            asyncio.create_task(
+                asyncio.to_thread(self._db_insert_session, session)
+            )
         return session
 
     def get_session(self, session_id: str) -> VoiceSession | None:
@@ -155,7 +254,16 @@ class SessionManager:
         ]
         for sid in stale:
             logger.info("Reaping idle session %s", sid)
-            await self.end_session(sid)
+            # Update DB directly to 'reaped' instead of going through end_session,
+            # which would write 'closed'. Both statuses mean the session is over.
+            session = self._sessions.pop(sid, None)
+            if session:
+                await session.tts_queue.put(None)
+                await session.tts_handler.close()
+                if self._db_pool is not None:
+                    asyncio.create_task(
+                        asyncio.to_thread(self._db_update_status, sid, "reaped")
+                    )
         return len(stale)
 
     def get_restaurant_config(self, session: VoiceSession) -> RestaurantConfig:
@@ -171,6 +279,10 @@ class SessionManager:
         await session.tts_queue.put(None)
         await session.tts_handler.close()
         logger.info("Session ended: %s", session_id)
+        if self._db_pool is not None:
+            asyncio.create_task(
+                asyncio.to_thread(self._db_update_status, session_id, "closed")
+            )
 
     async def end_all_sessions(self) -> None:
         """Gracefully end all active sessions (called on app shutdown)."""

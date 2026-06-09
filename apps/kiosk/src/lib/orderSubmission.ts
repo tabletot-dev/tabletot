@@ -1,16 +1,8 @@
 import { supabase, hasSupabaseConfig } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import type { OrderItem } from '@/data/menu';
-import { computeTotals } from '@/lib/pricing';
 import { track } from '@/lib/eventBus';
-
-const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
-// Runtime table identity: ?table=T3 in the URL overrides the build-time default.
-// One build can serve all tables — each device/browser is pointed at its own URL.
-const TABLE_NUMBER =
-  new URLSearchParams(window.location.search).get('table') ||
-  (import.meta.env.VITE_TABLE_ID as string) ||
-  'T1';
+import { RESTAURANT_ID, TABLE_NUMBER } from '@/lib/config';
 
 // Cached for the lifetime of the browser session.
 let cachedTableId: string | null = null;
@@ -67,7 +59,7 @@ export async function setSessionDisplayName(displayName: string): Promise<void> 
   try {
     await supabase
       .from('sessions')
-      .update({ display_name: trimmed } as never)
+      .update({ display_name: trimmed })
       .eq('session_key', sessionKey);
   } catch (err) {
     console.warn('setSessionDisplayName failed (non-blocking):', err);
@@ -135,7 +127,6 @@ export async function startSession(displayName?: string): Promise<void> {
       .neq('session_key', sessionKey);
 
     // Upsert so a page refresh doesn't create a duplicate session.
-    // display_name cast until supabase types are regenerated post-0038.
     await supabase.from('sessions').upsert(
       {
         restaurant_id: RESTAURANT_ID,
@@ -144,7 +135,7 @@ export async function startSession(displayName?: string): Promise<void> {
         session_key: sessionKey,
         status: 'active',
         display_name: displayName ?? null,
-      } as never,
+      },
       { onConflict: 'session_key', ignoreDuplicates: true },
     );
   } catch (err) {
@@ -153,10 +144,14 @@ export async function startSession(displayName?: string): Promise<void> {
   }
 }
 
-// Each "Send to Kitchen" call:
-//   Round 1 → INSERT orders row (sets tt_order_id in sessionStorage)
-//   Round 2+ → UPDATE the same orders row (merge items, recalculate totals)
-//   Every round → INSERT new kot_tickets row for kitchen routing
+// Each "Send to Kitchen" call delegates to the submit_order DB function (migration
+// 0044) which runs atomically:
+//   – Checks session status first (TOCTOU fix, row-locked)
+//   – Round 1 → INSERT orders row
+//   – Round 2+ → merges items by id (summing qty), recalculates totals
+//   – Every round → INSERT new kot_tickets row for kitchen routing
+//   – Computes authoritative subtotal from menu_items.price in the DB
+// All of the above runs in a single transaction — no ghost orders on crash.
 export async function submitOrder(
   cart: OrderItem[],
 ): Promise<{ orderId: string; kotId: string }> {
@@ -164,115 +159,51 @@ export async function submitOrder(
   const sessionKey = getSessionKey();
   const existingOrderId = getActiveOrderId();
 
-  // Fetch authoritative prices from menu_items so client-side cart values cannot
-  // be manipulated to submit a zero-cost order.
-  const { data: dbPrices } = await supabase
-    .from('menu_items')
-    .select('id, price')
-    .in('id', cart.map((i) => i.id));
-  const priceById = new Map((dbPrices ?? []).map((r) => [r.id, r.price as number]));
-  const canonicalSubtotal = cart.reduce(
-    (sum, item) => sum + (priceById.get(item.id) ?? item.price) * item.quantity,
-    0,
-  );
-  const { subtotal, total } = computeTotals(canonicalSubtotal);
-
   const newItems = cart.map((item) => ({
     id: item.id,
     name: item.name,
     qty: item.quantity,
     price: item.price,
     modifiers: [] as string[],
-  })) as unknown as Json;
+  }));
 
-  let orderId: string;
+  const { data, error } = await supabase.rpc('submit_order', {
+    p_restaurant_id:     RESTAURANT_ID,
+    p_table_id:          tableUuid,
+    p_table_number:      TABLE_NUMBER,
+    p_session_key:       sessionKey,
+    p_new_items:         newItems as unknown as Json,
+    p_existing_order_id: existingOrderId ?? null,
+    p_display_name:      getDisplayName(),
+  });
 
-  if (existingOrderId) {
-    // Fetch the existing order to merge items
-    const { data: existing, error: fetchError } = await supabase
-      .from('orders')
-      .select('items_json, subtotal')
-      .eq('id', existingOrderId)
-      .single();
+  if (error) {
+    if (
+      error.message.includes('ordering is closed') ||
+      error.message.includes('Session not found')
+    ) {
+      throw new OrderSubmissionError('session', error.message);
+    }
+    if (error.message.includes('not found')) {
+      throw new OrderSubmissionError('order', error.message);
+    }
+    throw new OrderSubmissionError('kot', error.message);
+  }
 
-    if (fetchError) throw new OrderSubmissionError('order', fetchError.message);
+  const result = data![0];
+  const orderId = result.order_id;
+  const kotId   = result.kot_id;
 
-    const existingItems = Array.isArray(existing.items_json) ? existing.items_json : [];
-    const mergedItems = [...existingItems, ...Array.from(newItems as unknown as any[])] as unknown as Json;
-    const mergedSubtotal = (existing.subtotal ?? 0) + subtotal;
-    const { total: mergedTotal } = computeTotals(mergedSubtotal); // consistent with INSERT path
-
-    const { error: updateError } = await supabase
-      .from('orders')
-      .update({
-        items_json: mergedItems,
-        subtotal: mergedSubtotal,
-        total: mergedTotal,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', existingOrderId);
-
-    if (updateError) throw new OrderSubmissionError('order', updateError.message);
-    orderId = existingOrderId;
-  } else {
-    // First round — create the orders row
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert({
-        restaurant_id: RESTAURANT_ID,
-        table_no: TABLE_NUMBER,
-        table_id: tableUuid,
-        order_type: 'dine-in',
-        source: 'Tabletot',
-        status: 'new',
-        items_json: newItems,
-        subtotal,
-        total,
-        session_id: sessionKey,
-      })
-      .select('id')
-      .single();
-
-    if (orderError) throw new OrderSubmissionError('order', orderError.message);
-    orderId = order.id;
+  if (!existingOrderId) {
     setActiveOrderId(orderId);
   }
 
-  // D2: Block new KOTs if the session is already being settled.
-  const { data: sessionRow } = await supabase
-    .from('sessions')
-    .select('status')
-    .eq('session_key', sessionKey)
-    .single();
-  if (sessionRow?.status === 'bill_requested' || sessionRow?.status === 'closed') {
-    throw new OrderSubmissionError('session', 'Bill has been requested — ordering is closed for this table.');
-  }
-
-  // Always create a new KOT row per round — kitchen sees each round separately.
-  // display_name cast until supabase types are regenerated post-0038.
-  const { data: kot, error: kotError } = await supabase
-    .from('kot_tickets')
-    .insert({
-      restaurant_id: RESTAURANT_ID,
-      order_id: orderId,
-      kot_number: `KOT-${Date.now()}`,
-      table_number: TABLE_NUMBER,
-      items: newItems,
-      status: 'accepted',
-      session_id: sessionKey,
-      display_name: getDisplayName(),
-    } as never)
-    .select('id')
-    .single();
-
-  if (kotError) throw new OrderSubmissionError('kot', kotError.message);
-
   track('order_submitted', {
     orderId,
-    kotId: kot.id,
+    kotId,
     itemCount: cart.length,
-    total,
+    total: result.total,
   });
 
-  return { orderId, kotId: kot.id };
+  return { orderId, kotId };
 }

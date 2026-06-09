@@ -408,7 +408,13 @@ async def voice_tts(ws: WebSocket, session_id: str) -> None:
 
     try:
         while True:
-            item = await session.tts_queue.get()
+            # 60-second timeout: if no TTS work arrives (customer browsing menu),
+            # touch the session so the reaper doesn't evict an active connection.
+            try:
+                item = await asyncio.wait_for(session.tts_queue.get(), timeout=60.0)
+            except asyncio.TimeoutError:
+                mgr.touch_session(session_id)
+                continue
 
             if item is None:
                 # Shutdown sentinel from end_session()

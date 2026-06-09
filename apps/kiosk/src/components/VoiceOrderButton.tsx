@@ -38,6 +38,10 @@ const VoiceOrderButton = ({ onDone, order, restaurantId, tableId, onStatusChange
   const pressStatusRef = useRef<PressStatus>("idle");
   const backendStatusRef = useRef<BackendStatus>("starting");
 
+  // Stable ref used by handleSttMessage (useCallback) to call doRestart()
+  // from inside the useEffect without a stale-closure problem.
+  const restartSessionRef = useRef<() => Promise<void>>(async () => {});
+
   useEffect(() => {
     pressStatusRef.current = pressStatus;
     onStatusChange?.(pressStatus);
@@ -47,19 +51,57 @@ const VoiceOrderButton = ({ onDone, order, restaurantId, tableId, onStatusChange
 
   useEffect(() => {
     let mounted = true;
+    let restartInProgress = false;
+
+    // Opens a new voice session and TTS client.
+    // Called on first mount and after a 4004 session-not-found error.
+    async function initSession(): Promise<void> {
+      const { voiceSessionId, clientSessionId } = await startSession(tableId, restaurantId);
+      if (!mounted) return;
+      sessionIdRef.current = voiceSessionId;
+      clientSessionIdRef.current = clientSessionId;
+      ttsRef.current = openTtsClient(voiceSessionId, (msg) => {
+        if (msg.type === "error") {
+          if (msg.message === "Session not found") {
+            // Backend session was lost (restart). Recover transparently.
+            void restartSessionRef.current();
+          } else {
+            console.warn("TTS error:", msg.message);
+          }
+        }
+      });
+      onSessionReady?.(voiceSessionId);
+      onTtsReady?.(ttsRef.current);
+      setBackendStatus("ready");
+    }
+
+    // Tears down the current TTS connection and re-establishes the session.
+    // Guarded against concurrent calls and unmounted components.
+    async function doRestart(): Promise<void> {
+      if (restartInProgress || !mounted) return;
+      restartInProgress = true;
+      setBackendStatus("starting");
+      ttsRef.current?.close();
+      ttsRef.current = null;
+      sessionIdRef.current = null;
+      try {
+        await initSession();
+      } catch (err) {
+        if (!mounted) return;
+        console.warn("Voice session restart failed:", err);
+        setBackendStatus("error");
+      } finally {
+        restartInProgress = false;
+      }
+    }
+
+    // Expose doRestart to handleSttMessage (defined outside this effect).
+    restartSessionRef.current = doRestart;
+
     (async () => {
       try {
         await unlockAudioContext();
-        const { voiceSessionId, clientSessionId } = await startSession(tableId, restaurantId);
-        if (!mounted) return;
-        sessionIdRef.current = voiceSessionId;
-        clientSessionIdRef.current = clientSessionId;
-        ttsRef.current = openTtsClient(voiceSessionId, (msg) => {
-          if (msg.type === "error") console.warn("TTS error:", msg.message);
-        });
-        onSessionReady?.(voiceSessionId);
-        onTtsReady?.(ttsRef.current);
-        setBackendStatus("ready");
+        await initSession();
       } catch (err) {
         if (!mounted) return;
         console.warn("Voice backend unavailable:", err);
@@ -92,7 +134,12 @@ const VoiceOrderButton = ({ onDone, order, restaurantId, tableId, onStatusChange
           setPressStatus("idle");
           break;
         case "error":
-          console.warn("STT error:", msg.message);
+          if (msg.message === "Session not found") {
+            // Backend session was lost (restart). Recover transparently.
+            void restartSessionRef.current();
+          } else {
+            console.warn("STT error:", msg.message);
+          }
           setPressStatus("idle");
           break;
       }
