@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MenuItem } from "@/data/menu";
 import { track } from "@/lib/eventBus";
-
-const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
+import { RESTAURANT_ID } from "@/lib/config";
 
 interface CompletionNudgeProps {
   suggestionText: string;

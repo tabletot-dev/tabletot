@@ -53,12 +53,12 @@ def _load_menu_graphs(restaurant_configs: dict, db_url: str) -> dict:
     return graphs
 
 
-_SESSION_IDLE_SECONDS = 15 * 60  # 15 minutes
+_SESSION_IDLE_SECONDS = 30 * 60  # 30 minutes — raised from 15 to accommodate long menu-browsing
 _REAPER_INTERVAL = 5 * 60       # sweep every 5 minutes
 
 
 async def _reaper_loop(session_manager: SessionManager) -> None:
-    """Background task: reap voice sessions idle for more than 15 minutes."""
+    """Background task: reap voice sessions idle for more than 30 minutes."""
     while True:
         await asyncio.sleep(_REAPER_INTERVAL)
         try:
@@ -79,9 +79,15 @@ async def _refresh_loop(session_manager: SessionManager, restaurant_configs: dic
         try:
             for rid, cfg in restaurant_configs.items():
                 db_rid = getattr(cfg, "db_restaurant_id", None)
-                menu_data = await asyncio.to_thread(load_menu_data_from_db, db_url, db_rid)
-                index = await asyncio.to_thread(load_menu_from_db, db_url, db_rid)
-                graph = await asyncio.to_thread(load_menu_graph_from_db, db_url, db_rid)
+                # Load all three concurrently, then assign both dicts without
+                # an await between them. This prevents a new session from
+                # picking up a new _menus entry but an old _menu_graphs entry
+                # (or vice versa) if create_session() runs mid-refresh.
+                menu_data, index, graph = await asyncio.gather(
+                    asyncio.to_thread(load_menu_data_from_db, db_url, db_rid),
+                    asyncio.to_thread(load_menu_from_db, db_url, db_rid),
+                    asyncio.to_thread(load_menu_graph_from_db, db_url, db_rid),
+                )
                 session_manager._menus[rid] = (menu_data, index)
                 session_manager._menu_graphs[rid] = graph
                 logger.info("Menu refreshed: %d items for %s", len(index.items_by_id), rid)
@@ -116,6 +122,9 @@ async def lifespan(app: FastAPI):
         raise RuntimeError(
             "DATABASE_URL is not set — required for restaurant config and menu loading."
         )
+    import psycopg2.pool as _pg_pool
+    db_pool = _pg_pool.ThreadedConnectionPool(minconn=1, maxconn=3, dsn=db_url)
+
     restaurant_configs = load_restaurant_config(db_url)
     menus = _load_restaurant_menus(restaurant_configs, db_url)
     menu_graphs = _load_menu_graphs(restaurant_configs, db_url)
@@ -129,14 +138,16 @@ async def lifespan(app: FastAPI):
         provider_api_key=provider_api_key,
         provider_model=provider_model,
         menu_graphs=menu_graphs,
+        db_pool=db_pool,
     )
-    import psycopg2.pool as _pg_pool
-    db_pool = _pg_pool.ThreadedConnectionPool(minconn=1, maxconn=3, dsn=db_url)
 
     app.state.session_manager = session_manager
     app.state.restaurant_configs = restaurant_configs
     app.state.db_url = db_url
     app.state.db_pool = db_pool
+
+    # Mark any sessions from a previous process as interrupted.
+    await session_manager.startup_cleanup()
 
     refresh_task = asyncio.create_task(
         _refresh_loop(session_manager, restaurant_configs, db_url)
@@ -182,13 +193,21 @@ app.include_router(voice_router, prefix="/voice")
 
 
 @app.post("/admin/refresh-menu")
-async def refresh_menu() -> dict:
+async def refresh_menu(request: Request) -> dict:
     """Immediately reload menu from DB.
 
+    Requires the X-Admin-Key header to match the ADMIN_API_KEY env var.
     Call this from POS admin after editing menu items to propagate changes
     without waiting for the 6-hour background cycle.
     """
+    from fastapi import HTTPException
     from src.loader import load_menu_data_from_db, load_menu_from_db
+
+    admin_key = os.environ.get("ADMIN_API_KEY", "")
+    if not admin_key:
+        raise HTTPException(status_code=503, detail="ADMIN_API_KEY not configured on this server")
+    if request.headers.get("X-Admin-Key") != admin_key:
+        raise HTTPException(status_code=403, detail="Forbidden")
 
     session_manager: SessionManager = app.state.session_manager
     restaurant_configs: dict = app.state.restaurant_configs

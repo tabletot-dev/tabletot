@@ -2,8 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { supabase, hasSupabaseConfig } from '@/integrations/supabase/client';
 import type { MenuItem } from '@/data/menu';
 import { hydrateMenuItemImage } from '@/lib/menuImages';
-
-const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
+import type { CompletionRule } from '@/lib/completionRules';
+import { RESTAURANT_ID } from '@/lib/config';
 
 export interface PairedItem extends MenuItem {
   context: string | null;
@@ -22,6 +22,7 @@ export interface MenuState {
   categories: string[];
   pairingsByItemId: Record<string, PairedItem[]>;
   anchors: AnchorItem[];
+  completionRules: CompletionRule[];
   loading: boolean;
   error: string | null;
   retry: () => void;
@@ -33,6 +34,7 @@ const MenuContext = createContext<MenuState>({
   categories: [],
   pairingsByItemId: {},
   anchors: [],
+  completionRules: [],
   loading: true,
   error: null,
   retry: () => {},
@@ -42,6 +44,7 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [pairingsByItemId, setPairingsByItemId] = useState<Record<string, PairedItem[]>>({});
   const [anchors, setAnchors] = useState<AnchorItem[]>([]);
+  const [completionRules, setCompletionRules] = useState<CompletionRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,7 +55,7 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
     const version = ++fetchVersionRef.current;
     setLoading(true);
     try {
-      const [menuRes, pairingsRes, anchorsRes] = await Promise.all([
+      const [menuRes, pairingsRes, anchorsRes, rulesRes] = await Promise.all([
         supabase
           .from('menu_items')
           .select('id, name, category, price, tags, is_veg, image_url')
@@ -70,6 +73,12 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
           .eq('restaurant_id', RESTAURANT_ID)
           .eq('active', true)
           .order('priority', { ascending: false }),
+        supabase
+          .from('meal_completion_rules')
+          .select('rule_name, condition, suggestion')
+          .eq('restaurant_id', RESTAURANT_ID)
+          .eq('active', true)
+          .order('priority', { ascending: false }),
       ]);
 
       if (version !== fetchVersionRef.current) return;
@@ -81,6 +90,7 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
 
       if (pairingsRes.error) console.error('[menuStore] pairings fetch failed:', pairingsRes.error);
       if (anchorsRes.error) console.error('[menuStore] anchors fetch failed:', anchorsRes.error);
+      if (rulesRes.error) console.error('[menuStore] completion rules fetch failed:', rulesRes.error);
 
       const mapped: MenuItem[] = (menuRes.data ?? []).map((row) => ({
         id: row.id,
@@ -122,6 +132,7 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
       setItems(mapped);
       setPairingsByItemId(byItemId);
       setAnchors(anchorList);
+      setCompletionRules((rulesRes.data ?? []) as CompletionRule[]);
       setError(null);
     } catch (e) {
       if (version !== fetchVersionRef.current) return;
@@ -153,6 +164,10 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
         event: '*', schema: 'public', table: 'anchor_items',
         filter: `restaurant_id=eq.${RESTAURANT_ID}`,
       }, fetchAll)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'meal_completion_rules',
+        filter: `restaurant_id=eq.${RESTAURANT_ID}`,
+      }, fetchAll)
       .subscribe();
 
     return () => { void supabase.removeChannel(channel); };
@@ -170,8 +185,8 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
   const categories = useMemo(() => [...new Set(items.map((i) => i.category))], [items]);
 
   const value = useMemo<MenuState>(
-    () => ({ items, itemsByCategory, categories, pairingsByItemId, anchors, loading, error, retry: fetchAll }),
-    [items, itemsByCategory, categories, pairingsByItemId, anchors, loading, error, fetchAll],
+    () => ({ items, itemsByCategory, categories, pairingsByItemId, anchors, completionRules, loading, error, retry: fetchAll }),
+    [items, itemsByCategory, categories, pairingsByItemId, anchors, completionRules, loading, error, fetchAll],
   );
 
   return <MenuContext.Provider value={value}>{children}</MenuContext.Provider>;

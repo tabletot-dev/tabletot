@@ -27,39 +27,19 @@ import {
   markIdentityResolved,
   setSessionDisplayName,
 } from "@/lib/orderSubmission";
-import { findMatchingRule, type CompletionRule, type MatchedSuggestion } from "@/lib/completionRules";
+import { findMatchingRule, type MatchedSuggestion } from "@/lib/completionRules";
 import { useMenu, MenuProvider } from "@/lib/menuStore";
 import type { DoneMessage, OrderSnapshot, Turn } from "@/lib/voice/types";
 import type { TtsClientHandle } from "@/lib/voice/ttsClient";
 import type { Source } from "@/lib/eventBus";
 import { MenuItem } from "@/data/menu";
-
-const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
-const TABLE_ID =
-  new URLSearchParams(window.location.search).get("table") ||
-  (import.meta.env.VITE_TABLE_ID as string) ||
-  "T1";
+import { RESTAURANT_ID, TABLE_NUMBER as TABLE_ID } from "@/lib/config";
 
 function normalizeName(name: string): string {
   return name.toLowerCase().replace(/[-–—]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 
-function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const id = window.setTimeout(() => reject(new Error("Timed out")), ms);
-    promise.then(
-      (value) => {
-        window.clearTimeout(id);
-        resolve(value);
-      },
-      (error) => {
-        window.clearTimeout(id);
-        reject(error);
-      },
-    );
-  });
-}
 
 function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -136,7 +116,7 @@ const IndexInner = () => {
     return () => { supabase.removeChannel(channel); };
   }, [tableUuid, endSession]);
 
-  const { items: menuItems, pairingsByItemId, anchors } = useMenu();
+  const { items: menuItems, pairingsByItemId, anchors, completionRules } = useMenu();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [completionSuggestion, setCompletionSuggestion] = useState<MatchedSuggestion | null>(null);
@@ -311,24 +291,11 @@ const IndexInner = () => {
     setIsSubmitting(true);
     try {
       {
-        try {
-          const { data: rules } = await withTimeout(
-            supabase
-              .from("meal_completion_rules")
-              .select("rule_name, condition, suggestion")
-              .eq("restaurant_id", RESTAURANT_ID)
-              .eq("active", true)
-              .order("priority", { ascending: false }),
-            700,
-          );
-
-          const match = findMatchingRule((rules ?? []) as CompletionRule[], order);
-          if (match) {
-            setCompletionSuggestion(match);
-            return;
-          }
-        } catch {
-          // DB error — fall through to submit
+        // completionRules are pre-loaded by menuStore at startup — no fetch needed here.
+        const match = findMatchingRule(completionRules, order);
+        if (match) {
+          setCompletionSuggestion(match);
+          return;
         }
       }
       await wait(1150);
