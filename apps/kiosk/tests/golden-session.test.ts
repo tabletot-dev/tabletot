@@ -230,3 +230,27 @@ describe('POS add-items via ledger (0048, audit M4)', () => {
     expect(Number(orders![0].total)).toBeGreaterThan(Number(orders![0].subtotal)); // tax included
   });
 });
+
+describe('AOV v4 (0050)', () => {
+  it('multi-round session counts each accepted recommendation ONCE (audit H1)', async () => {
+    const append = (type: string, payload: object = {}) => kiosk.rpc('append_event', {
+      p_event_id: crypto.randomUUID(), p_restaurant_id: RESTAURANT_ID,
+      p_table_id: table.id, p_event_type: type, p_payload: payload,
+    });
+    await append('session_started');
+    await append('item_added', { itemId: items[0].id, source: 'pairing_chip' });
+    await append('order_submitted', { items: cartRound(1), source: 'kiosk' }); // round 1
+    await append('order_submitted', { items: cartRound(1), source: 'kiosk' }); // round 2
+    await append('bill_requested');
+    await append('payment_settled', { payment_method: 'cash', amount_paid: 500, tips: 0, created_by: null });
+
+    const { data, error } = await admin.rpc('get_aov_summary', {
+      p_restaurant_id: RESTAURANT_ID,
+      p_start_at: new Date(Date.now() - 60_000).toISOString(),
+      p_end_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+    expect(error).toBeNull();
+    expect(Number(data![0].accepted_count)).toBe(1); // v3 would say 2
+    expect(Number(data![0].direct_revenue)).toBeCloseTo(Number(items[0].price), 2);
+  });
+});
