@@ -209,3 +209,24 @@ describe('bill + settle via ledger (0049)', () => {
     expect((st as any).order_id).toBeNull();
   });
 });
+
+describe('POS add-items via ledger (0048, audit M4)', () => {
+  it('POS add-items merges in canonical shape', async () => {
+    await kiosk.rpc('append_event', {
+      p_event_id: crypto.randomUUID(), p_restaurant_id: RESTAURANT_ID,
+      p_table_id: table.id, p_event_type: 'order_submitted',
+      p_payload: { items: cartRound(1), source: 'kiosk' },
+    });
+    await kiosk.rpc('append_event', {
+      p_event_id: crypto.randomUUID(), p_restaurant_id: RESTAURANT_ID,
+      p_table_id: table.id, p_event_type: 'order_submitted',
+      p_payload: { items: [{ id: items[0].id, name: items[0].name, qty: 1, price: items[0].price, modifiers: [] }], source: 'pos' },
+    });
+    const { data: orders } = await admin.from('orders').select('*').eq('table_id', table.id);
+    expect(orders!.length).toBe(1);
+    for (const line of orders![0].items_json as any[]) {
+      expect(typeof line.qty).toBe('number'); // never null (M4)
+    }
+    expect(Number(orders![0].total)).toBeGreaterThan(Number(orders![0].subtotal)); // tax included
+  });
+});
