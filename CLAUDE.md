@@ -87,7 +87,9 @@ Current restaurants in DB:
 Pattern 5 (Ask AI / voice upsell) uses the two-pass LLM flow only. Never let
 the LLM confirm items it didn't successfully resolve.
 
-**Voice:** PTT only. STT WebSocket is stateless per press (Sarvam saaras:v3).
+**Voice:** THE VOICE PIPELINE IS FROZEN — do not modify voice code unless
+explicitly asked ("i dont want to create some new bugs in the voice").
+PTT only. STT WebSocket is stateless per press (Sarvam saaras:v3).
 TTS WebSocket is persistent per session (Sarvam bulbul:v3, 30s keepalive).
 LLM responds in native script only — no romanised transliteration.
 
@@ -97,6 +99,8 @@ Migrations 0009–0036 are applied. Current Silver UUID is
 
 **Env vars:** `VITE_RESTAURANT_ID` and `VITE_TABLE_ID` are set in
 `apps/kiosk/.env.local`. All four services have env vars configured in Railway.
+
+**Local dev ports:** kiosk 8080, POS 8081, dashboard 8082.
 
 **Images:** `menu_items.image_url` is nullable. DishCard, CartView, and
 WaitingView all fall back to category-gradient placeholders when null — do not
