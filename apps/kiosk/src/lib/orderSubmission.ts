@@ -1,8 +1,8 @@
 import { supabase, hasSupabaseConfig } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import type { OrderItem } from '@/data/menu';
-import { track } from '@/lib/eventBus';
 import { RESTAURANT_ID, TABLE_NUMBER } from '@/lib/config';
+import { appendEvent, getTableState } from '@/lib/ledger';
 
 // Cached for the lifetime of the browser session.
 let cachedTableId: string | null = null;
@@ -20,16 +20,6 @@ export async function resolveTableId(): Promise<string> {
   return data.id;
 }
 
-function getSessionKey(): string {
-  const key = 'tt_session_id';
-  let id = sessionStorage.getItem(key);
-  if (!id) {
-    id = crypto.randomUUID();
-    sessionStorage.setItem(key, id);
-  }
-  return id;
-}
-
 export function getDisplayName(): string | null {
   return sessionStorage.getItem('tt_display_name');
 }
@@ -44,54 +34,35 @@ export function markIdentityResolved(): void {
   sessionStorage.setItem('tt_identity_resolved', 'true');
 }
 
-// Used by the pre-confirm IdentityView: at HomeView we create the session row
-// without a name; the customer types it later, just before "Send to Kitchen."
-// We persist the name on the existing sessions row (matched by session_key)
-// and mirror it into sessionStorage for read paths like WaitingView and the
-// KOT insert (see submitOrder).
+// Used by the pre-confirm IdentityView: at HomeView we open the span without
+// a name; the customer types it later, just before "Send to Kitchen." We
+// persist the name on the sessions row for the table's CURRENT span (looked
+// up via the ledger, not a client-held key) and mirror it into sessionStorage
+// for read paths like WaitingView and the KOT insert (see submitOrder).
 export async function setSessionDisplayName(displayName: string): Promise<void> {
   const trimmed = displayName.trim();
   if (!trimmed) return;
   sessionStorage.setItem('tt_display_name', trimmed);
   if (!hasSupabaseConfig) return;
-  const sessionKey = sessionStorage.getItem('tt_session_id');
-  if (!sessionKey) return;
   try {
+    const state = await getTableState();
+    if (!state.span_id) return;
     await supabase
       .from('sessions')
       .update({ display_name: trimmed })
-      .eq('session_key', sessionKey);
+      .eq('session_key', state.span_id);
   } catch (err) {
     console.warn('setSessionDisplayName failed (non-blocking):', err);
   }
 }
 
-function getActiveOrderId(): string | null {
-  return sessionStorage.getItem('tt_order_id');
-}
-
-function setActiveOrderId(id: string): void {
-  sessionStorage.setItem('tt_order_id', id);
-}
-
+// UI-only reset: identity/display-name in sessionStorage. Server state is
+// owned by the ledger — only a payment_settled event closes a span, so this
+// must NOT touch the sessions table.
 export async function clearSession(): Promise<void> {
-  const sessionKey = sessionStorage.getItem('tt_session_id');
-  sessionStorage.removeItem('tt_session_id');
-  sessionStorage.removeItem('tt_order_id');
   sessionStorage.removeItem('tt_display_name');
   sessionStorage.removeItem('tt_identity_resolved');
   cachedTableId = null;
-  if (sessionKey && hasSupabaseConfig) {
-    try {
-      await supabase
-        .from('sessions')
-        .update({ status: 'closed', ended_at: new Date().toISOString() })
-        .eq('session_key', sessionKey)
-        .in('status', ['active', 'bill_requested']);
-    } catch {
-      // Non-blocking — UI has already reset.
-    }
-  }
 }
 
 export class OrderSubmissionError extends Error {
@@ -104,62 +75,31 @@ export class OrderSubmissionError extends Error {
   }
 }
 
-// Called when customer taps "Start Ordering" on HomeView.
-// Creates the session row in DB — triggers table → occupied via DB trigger.
-// displayName is an optional first-name label captured via IdentityView; it
-// is persisted on the sessions row and on every KOT for floor-staff use, then
-// nulled when the session closes (see migration 0038).
+// Called when customer taps "Start Ordering" on HomeView. Appends a
+// session_started event to the ledger, which opens a span (or joins the
+// existing one — audit C3: never close-and-reopen). Non-blocking: a customer
+// who bypasses this (e.g. a hero-dish tap straight to menu) can still submit,
+// because order_submitted implicitly opens a span too (audit C1).
 export async function startSession(displayName?: string): Promise<void> {
   if (displayName) {
     sessionStorage.setItem('tt_display_name', displayName);
   }
   if (!hasSupabaseConfig) return;
   try {
-    const tableUuid = await resolveTableId();
-    const sessionKey = getSessionKey();
-
-    // Close any stale open sessions for this table before starting a new one.
-    await supabase
-      .from('sessions')
-      .update({ status: 'closed', ended_at: new Date().toISOString() })
-      .eq('table_id', tableUuid)
-      .in('status', ['active', 'bill_requested'])
-      .neq('session_key', sessionKey);
-
-    // Upsert so a page refresh doesn't create a duplicate session.
-    await supabase.from('sessions').upsert(
-      {
-        restaurant_id: RESTAURANT_ID,
-        table_id: tableUuid,
-        table_number: TABLE_NUMBER,
-        session_key: sessionKey,
-        status: 'active',
-        display_name: displayName ?? null,
-      },
-      { onConflict: 'session_key', ignoreDuplicates: true },
-    );
+    await appendEvent('session_started', { display_name: displayName ?? null });
   } catch (err) {
-    // Non-blocking — kiosk continues even if session insert fails.
-    console.warn('Session start failed (non-blocking):', err);
+    console.warn('session_started failed (non-blocking):', err);
   }
 }
 
-// Each "Send to Kitchen" call delegates to the submit_order DB function (migration
-// 0044) which runs atomically:
-//   – Checks session status first (TOCTOU fix, row-locked)
-//   – Round 1 → INSERT orders row
-//   – Round 2+ → merges items by id (summing qty), recalculates totals
-//   – Every round → INSERT new kot_tickets row for kitchen routing
-//   – Computes authoritative subtotal from menu_items.price in the DB
-// All of the above runs in a single transaction — no ghost orders on crash.
+// Each "Send to Kitchen" call appends one order_submitted event to the
+// ledger. The RPC (0048) is the sole writer of round identity — no client
+// order id involved — so round 2+ always merges into the right order
+// (audit C2) and a retried event_id can never double-submit (audit H5/H1).
 export async function submitOrder(
   cart: OrderItem[],
 ): Promise<{ orderId: string; kotId: string }> {
-  const tableUuid = await resolveTableId();
-  const sessionKey = getSessionKey();
-  const existingOrderId = getActiveOrderId();
-
-  const newItems = cart.map((item) => ({
+  const items = cart.map((item) => ({
     id: item.id,
     name: item.name,
     qty: item.quantity,
@@ -167,43 +107,23 @@ export async function submitOrder(
     modifiers: [] as string[],
   }));
 
-  const { data, error } = await supabase.rpc('submit_order', {
-    p_restaurant_id:     RESTAURANT_ID,
-    p_table_id:          tableUuid,
-    p_table_number:      TABLE_NUMBER,
-    p_session_key:       sessionKey,
-    p_new_items:         newItems as unknown as Json,
-    p_existing_order_id: existingOrderId ?? null,
-    p_display_name:      getDisplayName(),
-  });
-
-  if (error) {
-    if (
-      error.message.includes('ordering is closed') ||
-      error.message.includes('Session not found')
-    ) {
-      throw new OrderSubmissionError('session', error.message);
-    }
-    if (error.message.includes('not found')) {
-      throw new OrderSubmissionError('order', error.message);
-    }
-    throw new OrderSubmissionError('kot', error.message);
+  // One event_id per submit attempt-group: a retry of THIS submission reuses
+  // the id, so the kitchen can never receive the round twice.
+  const eventId = crypto.randomUUID();
+  let data: Json;
+  try {
+    data = await appendEvent(
+      'order_submitted',
+      { items, display_name: getDisplayName(), source: 'kiosk' } as unknown as Json,
+      eventId,
+    );
+  } catch (error) {
+    const msg = (error as Error).message ?? '';
+    if (msg.includes('ordering is closed')) throw new OrderSubmissionError('session', msg);
+    if (msg.includes('not found')) throw new OrderSubmissionError('order', msg);
+    throw new OrderSubmissionError('kot', msg);
   }
 
-  const result = data![0];
-  const orderId = result.order_id;
-  const kotId   = result.kot_id;
-
-  if (!existingOrderId) {
-    setActiveOrderId(orderId);
-  }
-
-  track('order_submitted', {
-    orderId,
-    kotId,
-    itemCount: cart.length,
-    total: result.total,
-  });
-
-  return { orderId, kotId };
+  const result = data as unknown as { order_id: string; kot_id: string; total: number };
+  return { orderId: result.order_id, kotId: result.kot_id };
 }
