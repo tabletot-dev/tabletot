@@ -31,6 +31,8 @@ beforeEach(async () => {
   items = mi!;
 
   // Wipe state for this table so tests are independent.
+  await admin.from('table_events').delete().eq('table_id', table.id);
+  await admin.from('table_state').delete().eq('table_id', table.id);
   await admin.from('kot_tickets').delete().eq('table_number', table.table_number);
   await admin.from('orders').delete().eq('table_id', table.id);
   await admin.from('sessions').delete().eq('table_id', table.id);
@@ -70,5 +72,53 @@ describe('golden session (pre-ledger baseline)', () => {
     const { data: order } = await admin
       .from('orders').select('*').eq('id', data![0].order_id).single();
     expect(order!.status).toBe('new');
+  });
+});
+
+describe('ledger core (0047)', () => {
+  it('append_event is idempotent by event_id', async () => {
+    const eventId = crypto.randomUUID();
+    const call = () => kiosk.rpc('append_event', {
+      p_event_id: eventId,
+      p_restaurant_id: RESTAURANT_ID,
+      p_table_id: table.id,
+      p_event_type: 'session_started',
+      p_payload: {},
+    });
+    const r1 = await call();
+    const r2 = await call();
+    expect(r1.error).toBeNull();
+    expect(r2.error).toBeNull();
+    expect(r2.data).toEqual(r1.data); // replay returns stored result
+    const { count } = await admin
+      .from('table_events').select('*', { count: 'exact', head: true })
+      .eq('event_id', eventId);
+    expect(count).toBe(1);
+  });
+
+  it('session_started twice does NOT reset the span (audit C3)', async () => {
+    const r1 = await kiosk.rpc('append_event', {
+      p_event_id: crypto.randomUUID(), p_restaurant_id: RESTAURANT_ID,
+      p_table_id: table.id, p_event_type: 'session_started', p_payload: {},
+    });
+    const r2 = await kiosk.rpc('append_event', {
+      p_event_id: crypto.randomUUID(), p_restaurant_id: RESTAURANT_ID,
+      p_table_id: table.id, p_event_type: 'session_started', p_payload: {},
+    });
+    expect((r2.data as any).span_id).toBe((r1.data as any).span_id);
+    const { data: t } = await admin
+      .from('restaurant_tables').select('status').eq('id', table.id).single();
+    expect(t!.status).toBe('occupied'); // never flipped back to available
+  });
+
+  it('get_table_state reflects the open span', async () => {
+    const r = await kiosk.rpc('append_event', {
+      p_event_id: crypto.randomUUID(), p_restaurant_id: RESTAURANT_ID,
+      p_table_id: table.id, p_event_type: 'session_started', p_payload: {},
+    });
+    const { data: state } = await kiosk.rpc('get_table_state', { p_table_id: table.id });
+    expect((state as any).state).toBe('ordering');
+    expect((state as any).span_id).toBe((r.data as any).span_id);
+    expect((state as any).rounds).toEqual([]);
   });
 });

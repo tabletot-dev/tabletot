@@ -1126,6 +1126,50 @@ export type Database = {
         }
         Relationships: []
       }
+      table_events: {
+        Row: {
+          created_at: string
+          event_id: string
+          event_type: string
+          payload: Json
+          restaurant_id: string
+          result: Json | null
+          seq: number
+          span_id: string | null
+          table_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          event_type: string
+          payload?: Json
+          restaurant_id: string
+          result?: Json | null
+          seq?: number
+          span_id?: string | null
+          table_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          event_type?: string
+          payload?: Json
+          restaurant_id?: string
+          result?: Json | null
+          seq?: number
+          span_id?: string | null
+          table_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_events_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       table_requests: {
         Row: {
           created_at: string
@@ -1158,6 +1202,41 @@ export type Database = {
           },
         ]
       }
+      table_state: {
+        Row: {
+          order_id: string | null
+          restaurant_id: string
+          span_id: string | null
+          state: string
+          table_id: string
+          updated_at: string
+        }
+        Insert: {
+          order_id?: string | null
+          restaurant_id: string
+          span_id?: string | null
+          state?: string
+          table_id: string
+          updated_at?: string
+        }
+        Update: {
+          order_id?: string | null
+          restaurant_id?: string
+          span_id?: string | null
+          state?: string
+          table_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_state_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: true
+            referencedRelation: "restaurant_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1173,6 +1252,39 @@ export type Database = {
           created_at?: string
           role?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      voice_sessions: {
+        Row: {
+          client_session_key: string | null
+          created_at: string
+          ended_at: string | null
+          last_active_at: string
+          restaurant_id: string
+          session_id: string
+          status: string
+          table_id: string
+        }
+        Insert: {
+          client_session_key?: string | null
+          created_at?: string
+          ended_at?: string | null
+          last_active_at?: string
+          restaurant_id: string
+          session_id: string
+          status?: string
+          table_id: string
+        }
+        Update: {
+          client_session_key?: string | null
+          created_at?: string
+          ended_at?: string | null
+          last_active_at?: string
+          restaurant_id?: string
+          session_id?: string
+          status?: string
+          table_id?: string
         }
         Relationships: []
       }
@@ -1211,6 +1323,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      append_event: {
+        Args: {
+          p_event_id: string
+          p_event_type: string
+          p_payload?: Json
+          p_restaurant_id: string
+          p_table_id: string
+        }
+        Returns: Json
+      }
       get_aov_summary: {
         Args: { p_end_at: string; p_restaurant_id: string; p_start_at: string }
         Returns: {
@@ -1221,6 +1343,7 @@ export type Database = {
           total_revenue: number
         }[]
       }
+      get_table_state: { Args: { p_table_id: string }; Returns: Json }
       recommendation_aov_lift_cohort: {
         Args: { p_end_at: string; p_restaurant_id: string; p_start_at: string }
         Returns: {
@@ -1233,6 +1356,23 @@ export type Database = {
           treatment_avg_total: number
           treatment_n: number
           treatment_stddev: number
+        }[]
+      }
+      submit_order: {
+        Args: {
+          p_display_name?: string
+          p_existing_order_id?: string
+          p_new_items: Json
+          p_restaurant_id: string
+          p_session_key: string
+          p_table_id: string
+          p_table_number: string
+        }
+        Returns: {
+          kot_id: string
+          order_id: string
+          subtotal: number
+          total: number
         }[]
       }
     }
@@ -1370,3 +1510,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
