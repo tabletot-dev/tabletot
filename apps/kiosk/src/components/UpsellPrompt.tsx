@@ -71,9 +71,6 @@ const UpsellPrompt = ({ addedItem, suggestedItem, onAdd, onDismiss }: UpsellProm
             <p className="font-display text-sm font-semibold text-foreground truncate">
               {suggestedItem.name}
             </p>
-            <p className="text-xs text-muted-foreground truncate">
-              {suggestedItem.description}
-            </p>
           </div>
           <div className="flex flex-col items-end gap-1 flex-shrink-0">
             <span className="font-display text-xs font-bold text-primary">
