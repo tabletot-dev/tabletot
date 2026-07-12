@@ -122,3 +122,42 @@ describe('ledger core (0047)', () => {
     expect((state as any).rounds).toEqual([]);
   });
 });
+
+describe('order_submitted via ledger (0048)', () => {
+  const submit = (eventId: string, qty = 1) => kiosk.rpc('append_event', {
+    p_event_id: eventId, p_restaurant_id: RESTAURANT_ID, p_table_id: table.id,
+    p_event_type: 'order_submitted',
+    p_payload: { items: cartRound(qty), display_name: null, source: 'kiosk' },
+  });
+
+  it('submit from idle implicitly opens a span (audit C1)', async () => {
+    const { data, error } = await submit(crypto.randomUUID());
+    expect(error).toBeNull();
+    expect((data as any).order_id).toBeTruthy();
+    const { data: st } = await kiosk.rpc('get_table_state', { p_table_id: table.id });
+    expect((st as any).state).toBe('ordering');
+  });
+
+  it('round 2 merges into the SAME order without a client order id (audit C2)', async () => {
+    await submit(crypto.randomUUID(), 1);
+    await submit(crypto.randomUUID(), 2);
+    const { data: orders } = await admin.from('orders').select('*').eq('table_id', table.id);
+    expect(orders!.length).toBe(1); // one order row, two KOTs
+    const line = (orders![0].items_json as any[]).find((l) => l.id === items[0].id);
+    expect(line.qty).toBe(3); // 1 + 2 merged
+    const { data: kots } = await admin
+      .from('kot_tickets').select('id').eq('order_id', orders![0].id);
+    expect(kots!.length).toBe(2);
+  });
+
+  it('replaying the same submit event does NOT create a second order (audit H5/H1)', async () => {
+    const eventId = crypto.randomUUID();
+    await submit(eventId);
+    await submit(eventId); // double-tap / retry
+    const { data: orders } = await admin.from('orders').select('id').eq('table_id', table.id);
+    expect(orders!.length).toBe(1);
+    const { data: kots } = await admin
+      .from('kot_tickets').select('id').eq('order_id', orders![0].id);
+    expect(kots!.length).toBe(1); // kitchen got ONE ticket
+  });
+});
