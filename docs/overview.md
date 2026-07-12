@@ -38,6 +38,26 @@ Tests: 136/136 unit, 98/98 batch, 46/48 natural speech (96%).
 Menu (Silver SSC): 49 items in DB (migration 0009); voice engine index entry count TBD — run `python -m cli.interactive` to verify,
 38 categories.
 
+## Session state architecture — table_events ledger (2026-07-12)
+
+Order/session lifecycle now runs on a single append-only ledger (`table_events`)
+with one server-side writer, the `append_event()` RPC. The kiosk is stateless:
+it boots from `get_table_state()` and survives power-cycles. See
+**ADR 0019** (`docs/decisions/0019-table-events-ledger.md`) for the full
+rationale; it supersedes 0010, 0014, and 0017.
+
+- **Migrations 0047–0051.** 0047 ledger tables + `append_event` core +
+  `get_table_state`; 0048 `order_submitted`; 0049 `bill_requested` /
+  `payment_settled` (retires the 0019 table-free trigger); 0050
+  `get_aov_summary` v4 (span-deduped, reads the ledger); 0051 drops the dead
+  `recommendation_events` table.
+- **Kiosk + POS** submit, settle, and add-items all go through `append_event`.
+  `sessionStorage` holds UI identity only, never lifecycle state.
+- **Regression harness:** `cd apps/kiosk && SUPABASE_SERVICE_ROLE_KEY=… `
+  `SUPABASE_PUBLISHABLE_KEY=… npm run test:golden` (12 tests, local Supabase).
+- **Known remaining direct-write path:** `SettleBillModal` in POS `POSLayout`
+  still settles without the ledger — migrate before relying on it.
+
 ## What's next (Stage 4)
 
 Recommendation system + PWA evolution. Four patterns selected:

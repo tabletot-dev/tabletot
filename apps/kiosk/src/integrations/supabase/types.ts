@@ -853,57 +853,6 @@ export type Database = {
         }
         Relationships: []
       }
-      recommendation_events: {
-        Row: {
-          cart_value_at_show: number | null
-          id: string
-          item_accepted: boolean | null
-          item_shown: string | null
-          pattern_type: string | null
-          restaurant_id: string | null
-          session_id: string | null
-          table_id: string | null
-          timestamp: string | null
-        }
-        Insert: {
-          cart_value_at_show?: number | null
-          id?: string
-          item_accepted?: boolean | null
-          item_shown?: string | null
-          pattern_type?: string | null
-          restaurant_id?: string | null
-          session_id?: string | null
-          table_id?: string | null
-          timestamp?: string | null
-        }
-        Update: {
-          cart_value_at_show?: number | null
-          id?: string
-          item_accepted?: boolean | null
-          item_shown?: string | null
-          pattern_type?: string | null
-          restaurant_id?: string | null
-          session_id?: string | null
-          table_id?: string | null
-          timestamp?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "recommendation_events_item_shown_fkey"
-            columns: ["item_shown"]
-            isOneToOne: false
-            referencedRelation: "menu_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "recommendation_events_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
-            referencedRelation: "restaurants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       restaurant_settings: {
         Row: {
           created_at: string
