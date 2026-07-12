@@ -161,3 +161,51 @@ describe('order_submitted via ledger (0048)', () => {
     expect(kots!.length).toBe(1); // kitchen got ONE ticket
   });
 });
+
+describe('bill + settle via ledger (0049)', () => {
+  const append = (type: string, payload: object = {}) => kiosk.rpc('append_event', {
+    p_event_id: crypto.randomUUID(), p_restaurant_id: RESTAURANT_ID,
+    p_table_id: table.id, p_event_type: type, p_payload: payload,
+  });
+
+  it('bill_requested blocks further ordering', async () => {
+    await append('order_submitted', { items: cartRound(), source: 'kiosk' });
+    await append('bill_requested');
+    const { error } = await append('order_submitted', { items: cartRound(), source: 'kiosk' });
+    expect(error!.message).toContain('ordering is closed');
+  });
+
+  it('payment_settled archives, frees the table, resets state', async () => {
+    const { data: sub } = await append('order_submitted', { items: cartRound(), source: 'kiosk' });
+    await append('bill_requested');
+    const { error } = await append('payment_settled',
+      { payment_method: 'cash', amount_paid: 100, tips: 0, created_by: null });
+    expect(error).toBeNull();
+
+    const { data: live } = await admin.from('orders').select('id').eq('table_id', table.id);
+    expect(live!.length).toBe(0);
+    const { data: hist } = await admin.from('order_history')
+      .select('original_order_id').eq('original_order_id', (sub as any).order_id);
+    expect(hist!.length).toBe(1);
+    const { data: t } = await admin
+      .from('restaurant_tables').select('status').eq('id', table.id).single();
+    expect(t!.status).toBe('available');
+    const { data: st } = await kiosk.rpc('get_table_state', { p_table_id: table.id });
+    expect((st as any).state).toBe('idle');
+  });
+
+  it('full golden journey: seat → 2 rounds → bill → settle', async () => {
+    await append('session_started');
+    await append('order_submitted', { items: cartRound(1), source: 'kiosk' });
+    await append('item_added', { itemId: items[0].id, source: 'pairing_chip' });
+    await append('order_submitted', { items: cartRound(1), source: 'kiosk' });
+    await append('bill_requested');
+    const { error } = await append('payment_settled',
+      { payment_method: 'upi', amount_paid: 500, tips: 0, created_by: null });
+    expect(error).toBeNull();
+    // Next customer starts clean:
+    const { data: st } = await kiosk.rpc('get_table_state', { p_table_id: table.id });
+    expect((st as any).state).toBe('idle');
+    expect((st as any).order_id).toBeNull();
+  });
+});
