@@ -74,3 +74,6 @@ supabase/.branches
 # graphify cache — never commit
 graphify-out/
 **/graphify-out/
+
+.playwright/
+.playwright-cli/
