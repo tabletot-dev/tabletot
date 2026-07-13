@@ -32,7 +32,6 @@ export default function MiniCartSidebar({
   onGoToCart,
 }: MiniCartSidebarProps) {
   const { anchors } = useMenu();
-  const { isTreatment } = useRestaurant();
   const isEmpty = order.length === 0;
   const total = useMemo(() => order.reduce((s, o) => s + o.price * o.quantity, 0), [order]);
   const itemCount = useMemo(() => order.reduce((s, o) => s + o.quantity, 0), [order]);
@@ -189,59 +188,8 @@ export default function MiniCartSidebar({
         )}
       </section>
 
-      {isTreatment && signalItems.length > 0 && (
-        <section className="order-signals">
-          <div className="order-signals-header">
-            <p className="eyebrow">House Specials</p>
-            <span>Curated</span>
-          </div>
-          <div className="order-signal-list">
-            {signalItems.map((item) => {
-              const qty = qtyById.get(item.id) ?? 0;
-
-              return (
-                <article key={`${item.anchorType}-${item.id}`} className="order-signal-card">
-                  <button
-                    type="button"
-                    className="order-signal-thumb"
-                    style={{ background: itemImageBackground(item) }}
-                    onClick={() => onSelect(item)}
-                    aria-label={`View ${item.name}`}
-                  />
-                  <div className="order-signal-copy">
-                    <span>{ANCHOR_LABELS[item.anchorType]}</span>
-                    <strong>
-                      <DietMark isVeg={item.is_veg} compact />
-                      {item.name}
-                    </strong>
-                    <small>₹{item.price}</small>
-                  </div>
-                  {qty > 0 ? (
-                    <div className="order-signal-stepper" aria-label={`${item.name} quantity`}>
-                      <button type="button" onClick={() => onUpdateQuantity(item.id, -1)} aria-label={`Decrease ${item.name}`}>
-                        −
-                      </button>
-                      <span>{qty}</span>
-                      <button type="button" onClick={() => onUpdateQuantity(item.id, 1)} aria-label={`Increase ${item.name}`}>
-                        +
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className="order-signal-add"
-                      onClick={() => onAddToCart(item)}
-                      aria-label={`Add ${item.name}`}
-                    >
-                      Add
-                    </button>
-                  )}
-                </article>
-              );
-            })}
-          </div>
-        </section>
-      )}
+      {/* "House Specials" rail removed: gated on isTreatment, which never
+          existed on RestaurantCtx, so it never rendered (audit H2). */}
     </aside>
   );
 }

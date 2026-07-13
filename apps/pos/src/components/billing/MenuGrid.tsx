@@ -9,7 +9,6 @@ import { toast } from '@/hooks/use-toast';
 
 interface MenuItem {
   id: string;
-  item_id: string;
   name: string;
   category: string;
   price: number;

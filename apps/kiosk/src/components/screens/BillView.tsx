@@ -3,6 +3,7 @@ import type { OrderRound } from "@/hooks/useDeviceNavigation";
 import TabletotLogo from "@/components/TabletotLogo";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveTableId } from "@/lib/orderSubmission";
+import { appendEvent } from "@/lib/ledger";
 
 const TAX_RATE = 0.05;
 
@@ -27,6 +28,7 @@ export default function BillView({
     alreadyRequested ? "sent" : "summary"
   );
   const [phone, setPhone] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const subtotal = sessionTotal;
   const tax = subtotal * TAX_RATE;
   const total = subtotal + tax;
@@ -35,31 +37,37 @@ export default function BillView({
 
   const submitBillRequest = async () => {
     if (!canSubmitPhone) return;
+    setError(null);
     setStage("loading");
+
+    // The ledger event is the source of truth: it flips table_state + the
+    // sessions row to bill_requested server-side. If it fails, surface the
+    // failure instead of a false "bill coming your way" (audit M2).
+    try {
+      await appendEvent("bill_requested");
+    } catch (err) {
+      console.error("bill_requested failed:", err);
+      setError("Couldn't reach the kitchen. Please try again or call a server.");
+      setStage("phone");
+      return;
+    }
+
+    // Phone capture is best-effort — the bill request already succeeded above.
     try {
       const tableUuid = await resolveTableId();
       const latestOrderId = previousOrders.length > 0
         ? previousOrders[previousOrders.length - 1].orderId
         : null;
-      const { error } = await supabase.from("bill_requests").insert({
+      await supabase.from("bill_requests").insert({
         table_id: tableUuid,
         order_id: latestOrderId ?? null,
         phone: sanitizedPhone,
         status: "pending",
       });
-      if (error) throw error;
-
-      // Also mark the session as bill_requested so POS gets a session-level signal
-      const sessionKey = sessionStorage.getItem("tt_session_id");
-      if (sessionKey) {
-        await supabase
-          .from("sessions")
-          .update({ status: "bill_requested", bill_requested_by: "customer" })
-          .eq("session_key", sessionKey);
-      }
     } catch {
-      // Show success regardless — staff will also see it on their screen
+      // non-blocking — staff already have the ledger signal
     }
+
     setStage("sent");
     onBillSubmitted?.();
   };
@@ -177,6 +185,11 @@ export default function BillView({
                 autoFocus
               />
             </label>
+            {error && (
+              <p role="alert" style={{ color: "var(--color-danger, #c0392b)", fontWeight: 600 }}>
+                {error}
+              </p>
+            )}
             <div className="bill-phone-actions">
               <button type="button" className="secondary-btn" onClick={() => setStage("summary")}>
                 Back

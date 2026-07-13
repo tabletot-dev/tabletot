@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { RESTAURANT_ID } from '@/lib/restaurant';
 import { useAuth } from '@/contexts/AuthContext';
 import { PaymentModal } from '@/components/billing/PaymentModal';
 import { KOTView } from '@/components/billing/KOTView';
@@ -344,72 +345,52 @@ export default function Billing() {
     if (!selectedTable || pendingItems.length === 0) return;
     setSaving(true);
     try {
-      let orderId = activeOrder?.id;
+      // One writer: order_submitted creates-or-merges the order in the canonical
+      // {id,name,qty,price,modifiers} shape, prices it from menu_items (tax
+      // included), cuts the KOT, and marks the table occupied — server-side
+      // (migration 0048). This kills the old {quantity,total} shape and the
+      // tax-free `total = subtotal` overwrite (audit M4). id must be the
+      // menu_items UUID (menu_item_id); the RPC casts it and looks up the price.
+      const items = pendingItems.map((it) => ({
+        id: it.menu_item_id,
+        name: it.name,
+        qty: it.quantity,
+        price: it.price,
+        modifiers: [] as string[],
+      }));
+      const { data, error: rpcErr } = await supabase.rpc('append_event', {
+        p_event_id: crypto.randomUUID(),
+        p_restaurant_id: RESTAURANT_ID,
+        p_table_id: selectedTable.id,
+        p_event_type: 'order_submitted',
+        p_payload: { items, display_name: null, source: 'pos' },
+      });
+      if (rpcErr) throw rpcErr;
+      const result = data as unknown as { order_id: string; kot_id: string };
 
-      if (!orderId) {
-        const orderIdStr = `T${selectedTable.table_number}-${Date.now()}`;
-        const sub = pendingItems.reduce((s, i) => s + i.total, 0);
-        const { data: newOrder, error: orderErr } = await supabase
-          .from('orders')
-          .insert({
-            order_id: orderIdStr,
-            order_type: 'dine-in',
-            table_no: selectedTable.table_number,
-            table_id: selectedTable.id,
-            items_json: pendingItems as any,
-            subtotal: sub,
-            tax: 0,
-            discount: 0,
-            total: sub,
-            status: 'new',
-            source: 'POS',
-            created_by: user?.id,
-          })
-          .select()
-          .single();
-        if (orderErr) throw orderErr;
-        orderId = newOrder.id;
-        setActiveOrder(newOrder);
-
-        await supabase
-          .from('restaurant_tables')
-          .update({ status: 'occupied', current_order_id: orderId })
-          .eq('id', selectedTable.id);
-      } else {
-        const existing = Array.isArray(activeOrder?.items_json) ? activeOrder!.items_json : [];
-        const merged = [...existing, ...pendingItems];
-        const sub = merged.reduce((s: number, i: any) =>
-          s + (Number(i.total) || Number(i.price || 0) * Number(i.quantity || i.qty || 1)), 0);
-        const { error: updateErr } = await supabase
-          .from('orders')
-          .update({ items_json: merged, subtotal: sub, total: sub, updated_at: new Date().toISOString() })
-          .eq('id', orderId);
-        if (updateErr) throw updateErr;
-      }
-
+      // The RPC's KOT row stores the canonical item shape (qty, no variants), so
+      // show the richer local pendingItems on the ticket; only the kot_number is
+      // server-owned.
       const specialNotes = pendingItems.filter((i) => i.notes).map((i) => `${i.name}: ${i.notes}`).join('; ');
-      const kotNumber = `KOT-${Date.now()}`;
-      const { data: kot, error: kotErr } = await supabase
+      const { data: kotRow } = await supabase
         .from('kot_tickets')
-        .insert({
-          order_id: orderId,
-          kot_number: kotNumber,
-          table_number: selectedTable.table_number,
-          items: pendingItems as any,
-          status: 'accepted',
-          special_notes: specialNotes || null,
-          created_by: user?.id,
-        })
-        .select()
-        .single();
-      if (kotErr) throw kotErr;
+        .select('kot_number, printed_at')
+        .eq('id', result.kot_id)
+        .maybeSingle();
+      const kotNumber = kotRow?.kot_number ?? `KOT-${Date.now()}`;
 
-      setLastKot(kot);
+      setLastKot({
+        kot_number: kotNumber,
+        table_number: selectedTable.table_number,
+        printed_at: kotRow?.printed_at ?? new Date().toISOString(),
+        items: pendingItems,
+        special_notes: specialNotes || null,
+      });
       setPendingItems([]);
       setShowAddItems(false);
       setShowKOT(true);
       toast({ title: 'KOT sent', description: `${kotNumber} sent to kitchen` });
-      await loadActiveOrder({ ...selectedTable, current_order_id: orderId });
+      await loadActiveOrder({ ...selectedTable, current_order_id: result.order_id });
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {

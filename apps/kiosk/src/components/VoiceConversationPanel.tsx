@@ -103,7 +103,6 @@ export default function VoiceConversationPanel({
   useEffect(() => {
     return () => {
       sttRef.current?.stop().catch(() => {});
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
 

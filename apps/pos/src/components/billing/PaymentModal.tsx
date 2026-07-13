@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { RESTAURANT_ID } from '@/lib/restaurant';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Dialog,
@@ -36,7 +37,8 @@ export function PaymentModal({ cart, total, orderId, tableId, tableNumber, onClo
   const change = totalAmount - total;
 
   const handlePayment = async () => {
-    if (parseFloat(amountPaid) < total) {
+    const paid = parseFloat(amountPaid);
+    if (!Number.isFinite(paid) || paid < total) {
       toast({
         title: 'Insufficient amount',
         description: 'Payment amount must be at least the total',
@@ -44,86 +46,33 @@ export function PaymentModal({ cart, total, orderId, tableId, tableNumber, onClo
       });
       return;
     }
+    if (!tableId) {
+      toast({
+        title: 'No table linked to this order',
+        description: 'Settling without a table is no longer supported.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setLoading(true);
-
     try {
-      // Get the full order data first
-      const { data: orderData, error: orderFetchError } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('id', orderId)
-        .single();
-
-      if (orderFetchError) throw orderFetchError;
-
-      // Archive order to order_history
-      const { error: archiveError } = await supabase.from('order_history').insert({
-        original_order_id: orderId!,
-        order_id: orderData.order_id,
-        order_type: orderData.order_type,
-        table_no: orderData.table_no,
-        customer_name: orderData.customer_name,
-        items_json: orderData.items_json,
-        subtotal: orderData.subtotal,
-        tax: orderData.tax,
-        discount: orderData.discount,
-        total: orderData.total,
-        special_instructions: orderData.special_instructions,
-        source: orderData.source,
-        payment_method: paymentMethod,
-        amount_paid: parseFloat(amountPaid),
-        tips: parseFloat(tips || '0'),
-        created_by: user?.id,
-        order_created_at: orderData.created_at,
+      // Single writer: payment_settled archives to order_history, records the
+      // payment, frees the table, and deletes the live order — all server-side
+      // (migration 0049). POS is just another ledger caller now.
+      const { error } = await supabase.rpc('append_event', {
+        p_event_id: crypto.randomUUID(),
+        p_restaurant_id: RESTAURANT_ID,
+        p_table_id: tableId,
+        p_event_type: 'payment_settled',
+        p_payload: {
+          payment_method: paymentMethod,
+          amount_paid: paid,
+          tips: parseFloat(tips || '0') || 0,
+          created_by: user?.id ?? null,
+        },
       });
-
-      if (archiveError) throw archiveError;
-
-      // Create payment record
-      const { error: paymentError } = await supabase.from('payments').insert({
-        order_id: orderId!,
-        payment_method: paymentMethod,
-        amount: parseFloat(amountPaid),
-        tips: parseFloat(tips || '0'),
-        status: 'completed',
-        created_by: user?.id,
-      });
-
-      if (paymentError) throw paymentError;
-
-      // Reset table status to 'available' (Free/green) and clear order reference
-      if (tableId) {
-        await supabase
-          .from('restaurant_tables')
-          .update({ 
-            status: 'available', 
-            current_order_id: null,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', tableId);
-      }
-      
-      // Also try matching by current_order_id as fallback
-      await supabase
-        .from('restaurant_tables')
-        .update({ 
-          status: 'available', 
-          current_order_id: null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('current_order_id', orderId);
-
-      // Delete order from active orders table
-      const { error: deleteError } = await supabase
-        .from('orders')
-        .delete()
-        .eq('id', orderId);
-
-      if (deleteError) {
-        console.error('Failed to delete order:', deleteError);
-        // Don't throw - order is already paid and archived
-      }
+      if (error) throw error;
 
       toast({
         title: 'Payment successful',

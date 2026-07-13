@@ -19,7 +19,6 @@ interface Category {
 
 interface MenuItem {
   id: string;
-  item_id: string;
   name: string;
   category: string;
   price: number;
@@ -28,7 +27,6 @@ interface MenuItem {
 interface BillItem {
   id: string;
   menu_item_id: string;
-  item_id: string;
   name: string;
   price: number;
   quantity: number;
@@ -128,7 +126,6 @@ export function POSLayout() {
         {
           id: crypto.randomUUID(),
           menu_item_id: item.id,
-          item_id: item.item_id,
           name: item.name,
           price: item.price,
           quantity: 1,
@@ -177,7 +174,6 @@ export function POSLayout() {
         items_json: billItems.map((item) => ({
           id: item.id,
           menu_item_id: item.menu_item_id,
-          item_id: item.item_id,
           name: item.name,
           price: item.price,
           quantity: item.quantity,
@@ -277,7 +273,6 @@ export function POSLayout() {
             items_json: billItems.map((item) => ({
               id: item.id,
               menu_item_id: item.menu_item_id,
-              item_id: item.item_id,
               name: item.name,
               price: item.price,
               quantity: item.quantity,

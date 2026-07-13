@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { MenuItem, OrderItem } from "@/data/menu";
 import { submitOrder, clearSession } from "@/lib/orderSubmission";
 import { track, type Source } from "@/lib/eventBus";
+import type { TableState } from "@/lib/ledger";
 
 export type ScreenType =
   | "idle"
@@ -100,6 +101,33 @@ export function useDeviceNavigation() {
     void clearSession();
   }, []);
 
+  // Rebuild previousOrders from server truth (get_table_state) so a reloaded or
+  // power-cycled kiosk shows the full session history (audit M5). Each ledger
+  // "round" is a KOT; they all belong to the single live order, so every round
+  // carries state.order_id — that keeps the derived currentRoundOrderId pointing
+  // at the live order for WaitingView's kitchen-status subscription.
+  // ponytail: rounds carry only {id,name,qty,price}, so category/is_veg default
+  // out — the sidebar veg dot on the post-reload history is cosmetically wrong.
+  // Enrich from menuStore by id if that dot ever matters.
+  const hydrateFromTableState = useCallback((state: TableState) => {
+    setPreviousOrders(
+      state.rounds.map((round) => ({
+        orderId: state.order_id ?? "",
+        items: round.items.map((line) => ({
+          id: line.id,
+          name: line.name,
+          price: line.price,
+          quantity: line.qty,
+          category: "",
+          tags: [],
+          is_veg: false,
+        })),
+        total: round.items.reduce((sum, line) => sum + line.price * line.qty, 0),
+        timestamp: new Date(round.created_at),
+      })),
+    );
+  }, []);
+
   const totalBill = order.reduce((sum, o) => sum + o.price * o.quantity, 0);
   const sessionTotal = previousOrders.reduce((sum, r) => sum + r.total, 0) + totalBill;
   const currentRoundOrderId = previousOrders.length > 0
@@ -118,6 +146,7 @@ export function useDeviceNavigation() {
     removeItem,
     confirmOrder,
     endSession,
+    hydrateFromTableState,
     totalBill,
     sessionTotal,
     currentRoundOrderId,

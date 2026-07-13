@@ -27,6 +27,7 @@ import {
   markIdentityResolved,
   setSessionDisplayName,
 } from "@/lib/orderSubmission";
+import { getTableState, subscribeTableState } from "@/lib/ledger";
 import { findMatchingRule, type MatchedSuggestion } from "@/lib/completionRules";
 import { useMenu, MenuProvider } from "@/lib/menuStore";
 import type { DoneMessage, OrderSnapshot, Turn } from "@/lib/voice/types";
@@ -58,6 +59,7 @@ const IndexInner = () => {
     removeItem,
     confirmOrder,
     endSession,
+    hydrateFromTableState,
     totalBill,
     sessionTotal,
     currentRoundOrderId,
@@ -69,8 +71,20 @@ const IndexInner = () => {
   const [tableUuid, setTableUuid] = useState<string | null>(null);
 
   // Resolve the physical table UUID once on mount — stable for the device's lifetime.
+  // Then hydrate from the ledger: a reloaded/woken kiosk mid-session rebuilds its
+  // order history from server truth and lands back on WaitingView (audit M5).
   useEffect(() => {
     resolveTableId().then(setTableUuid).catch(() => {});
+    getTableState()
+      .then((state) => {
+        if (state.state !== "idle" && state.rounds.length > 0) {
+          hydrateFromTableState(state);
+          if (state.state === "bill_requested") setBillRequested(true);
+          setCurrentScreen("session-idle");
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Reset bill-requested flag when the session fully ends.
@@ -82,39 +96,6 @@ const IndexInner = () => {
   // the latest value without needing to re-subscribe on every screen change.
   const currentScreenRef = useRef(currentScreen);
   useEffect(() => { currentScreenRef.current = currentScreen; }, [currentScreen]);
-
-  // When the POS settles the bill, the DB trigger sets restaurant_tables.status →
-  // 'available'. Watch for that change to show a closing message then reset.
-  // See ADR 0014 for why we watch restaurant_tables rather than sessions.
-  useEffect(() => {
-    if (!tableUuid) return;
-    const channel = supabase
-      .channel(`table-status-${tableUuid}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "restaurant_tables",
-          filter: `id=eq.${tableUuid}`,
-        },
-        (payload) => {
-          if (
-            (payload.new as { status: string }).status === "available" &&
-            currentScreenRef.current !== "idle"
-          ) {
-            setPaymentConfirmed(true);
-            window.setTimeout(() => {
-              setPaymentConfirmed(false);
-              handleEndSession();
-              setVoiceTurns([]);
-            }, 3000);
-          }
-        },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [tableUuid, endSession]);
 
   const { items: menuItems, pairingsByItemId, anchors, completionRules } = useMenu();
 
@@ -139,6 +120,32 @@ const IndexInner = () => {
     prevVoiceOrderRef.current = null;
     endSession();
   }, [endSession]);
+
+  // The ledger's table_state row is the single truth. Any change → refetch.
+  // The settle overlay fires only when OUR known span settles (audit C3): a
+  // brand-new customer opening a fresh span must not trigger this device's
+  // "Payment Confirmed" screen.
+  const spanIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!tableUuid) return;
+    const refetch = async () => {
+      try {
+        const st = await getTableState();
+        if (st.state === "idle" && spanIdRef.current !== null && currentScreenRef.current !== "idle") {
+          setPaymentConfirmed(true);
+          window.setTimeout(() => {
+            setPaymentConfirmed(false);
+            handleEndSession();
+            setVoiceTurns([]);
+          }, 3000);
+        }
+        spanIdRef.current = st.span_id;
+      } catch { /* next poke retries */ }
+    };
+    refetch();
+    const unsubscribe = subscribeTableState(refetch);
+    return unsubscribe;
+  }, [tableUuid, handleEndSession]);
 
   // Source defaults to "main_menu" so cart-side surfaces (MiniCartSidebar,
   // CartView) can call without thinking about attribution. High-stakes
@@ -272,10 +279,16 @@ const IndexInner = () => {
     }
   }, [selectedItem, handleAddToOrder]);
 
-  const handleCompletionSkip = useCallback(() => {
+  const handleCompletionSkip = useCallback(async () => {
     setCompletionSuggestion(null);
-    confirmOrder();
-  }, [confirmOrder]);
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await confirmOrder();
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [confirmOrder, isSubmitting]);
 
   const getOrderQuantity = useCallback(
     (itemId: string) => order.find((item) => item.id === itemId)?.quantity ?? 0,

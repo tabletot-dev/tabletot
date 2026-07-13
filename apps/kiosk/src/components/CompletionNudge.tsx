@@ -18,7 +18,7 @@ const CompletionNudge = ({
   onAdd,
   onSkip,
 }: CompletionNudgeProps) => {
-  const [item, setItem] = useState<{ id: string; name: string; price: number } | null>(null);
+  const [item, setItem] = useState<{ id: string; name: string; price: number; is_veg: boolean } | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -26,7 +26,7 @@ const CompletionNudge = ({
     (async () => {
       const { data: itemData } = await supabase
         .from("menu_items")
-        .select("id, name, price")
+        .select("id, name, price, is_veg")
         .eq("restaurant_id", RESTAURANT_ID)
         .eq("id", suggestedItemId)
         .eq("active", true)
@@ -40,7 +40,7 @@ const CompletionNudge = ({
         return;
       }
 
-      setItem(itemData as { id: string; name: string; price: number });
+      setItem(itemData as { id: string; name: string; price: number; is_veg: boolean });
       track("recommendation_shown", {
         itemId: itemData.id,
         surface: "completion_nudge",
@@ -58,7 +58,7 @@ const CompletionNudge = ({
     });
     // item_added is emitted by the cart hook when the parent calls
     // addToOrder(item, "completion_nudge") via the onAdd callback.
-    onAdd({ id: item.id, name: item.name, price: item.price, category: "", tags: [] });
+    onAdd({ id: item.id, name: item.name, price: item.price, category: "", tags: [], is_veg: item.is_veg });
   };
 
   const handleSkip = () => {
