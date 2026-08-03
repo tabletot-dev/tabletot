@@ -46,6 +46,12 @@ function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+// Pre-submit browsing screens only — session-idle/games/conversation-starters
+// are static screens where no activity is expected by design (see
+// docs/plans/2026-08-03-idle-table-notification.md).
+const NUDGE_ELIGIBLE_SCREENS = new Set(["home", "menu", "item-detail", "order-summary", "identity"]);
+const NUDGE_THRESHOLD_MS = 3.5 * 60 * 1000;
+
 const IndexInner = () => {
   const { voiceEnabled, promptForIdentity } = useRestaurant();
   const {
@@ -96,6 +102,32 @@ const IndexInner = () => {
   // the latest value without needing to re-subscribe on every screen change.
   const currentScreenRef = useRef(currentScreen);
   useEffect(() => { currentScreenRef.current = currentScreen; }, [currentScreen]);
+
+  // "Still there?" nudge: pure client-side UX, nothing written to the ledger.
+  // Separate from the POS idle badge (longer threshold, DB-backed) — the two
+  // don't coordinate (docs/plans/2026-08-03-idle-table-notification.md).
+  const lastTouchRef = useRef(Date.now());
+  const [showIdleNudge, setShowIdleNudge] = useState(false);
+  useEffect(() => {
+    const onTouch = () => {
+      lastTouchRef.current = Date.now();
+      setShowIdleNudge(false);
+    };
+    document.addEventListener("pointerdown", onTouch);
+    return () => document.removeEventListener("pointerdown", onTouch);
+  }, []);
+  // A customer moving between screens (e.g. menu -> cart) is obviously present.
+  useEffect(() => {
+    lastTouchRef.current = Date.now();
+    setShowIdleNudge(false);
+  }, [currentScreen]);
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const eligible = NUDGE_ELIGIBLE_SCREENS.has(currentScreenRef.current) && previousOrders.length === 0;
+      setShowIdleNudge(eligible && Date.now() - lastTouchRef.current > NUDGE_THRESHOLD_MS);
+    }, 30_000);
+    return () => window.clearInterval(id);
+  }, [previousOrders.length]);
 
   const { items: menuItems, pairingsByItemId, anchors, completionRules } = useMenu();
 
@@ -590,6 +622,26 @@ const IndexInner = () => {
             <p className="eyebrow">Payment Confirmed</p>
             <h1>Thank you!</h1>
             <p>See you again soon.</p>
+          </div>
+        )}
+
+        {showIdleNudge && (
+          <div
+            style={{
+              position: "fixed",
+              top: "1.25rem",
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "var(--color-surface, #fff)",
+              border: "1px solid var(--color-border, #ddd)",
+              borderRadius: "999px",
+              padding: "0.75rem 1.5rem",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+              fontWeight: 600,
+              zIndex: 9990,
+            }}
+          >
+            Still there? Tap anywhere to continue.
           </div>
         )}
 

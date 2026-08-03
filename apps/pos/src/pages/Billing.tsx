@@ -19,9 +19,20 @@ import {
 } from '@/components/ui/dialog';
 import {
   Loader2, Users, Bell, Droplets, ChefHat, Plus,
-  Receipt, CreditCard, UserCheck, Minus, Wifi, WifiOff, Trash2,
+  Receipt, CreditCard, UserCheck, Minus, Wifi, WifiOff, Trash2, Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getTimeSince } from '@/lib/timeSince';
+
+// A table is "idle-abandoned" once a session opened (state = 'ordering' via
+// table_state) and enough time passed with zero table_events activity and no
+// round ever reaching the kitchen (order_id IS NULL). Longer than the kiosk's
+// own "Still there?" nudge — this is the operational signal for staff, not UX
+// (docs/plans/2026-08-03-idle-table-notification.md). Known ceiling: a
+// customer who scrolls without tapping anything produces no table_events rows
+// at all and is indistinguishable from absent — acceptable for a notify-only
+// badge with a generous threshold.
+const IDLE_BADGE_THRESHOLD_MS = 12 * 60 * 1000;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -233,6 +244,53 @@ export default function Billing() {
       .eq('status', 'pending');
     setTableRequests(data || []);
   }, []);
+
+  // table_id -> last table_events activity, for tables with no order yet.
+  const [lastActivityByTable, setLastActivityByTable] = useState<Map<string, string>>(new Map());
+
+  // Two batched queries (not per-table): table_state for occupied tables, then
+  // table_events last-activity only for the spans that still have no order —
+  // a table that's already ordered can't be idle-abandoned regardless of
+  // elapsed time, so there's nothing to look up for it.
+  const fetchIdleSignals = useCallback(async () => {
+    const occupiedIds = tables.filter((t) => t.status === 'occupied').map((t) => t.id);
+    if (occupiedIds.length === 0) { setLastActivityByTable(new Map()); return; }
+
+    const { data: states } = await supabase
+      .from('table_state')
+      .select('table_id, span_id, order_id')
+      .in('table_id', occupiedIds);
+
+    const spanIds = (states || [])
+      .filter((s) => s.order_id === null && s.span_id)
+      .map((s) => s.span_id as string);
+    if (spanIds.length === 0) { setLastActivityByTable(new Map()); return; }
+
+    const { data: events } = await supabase
+      .from('table_events')
+      .select('span_id, created_at')
+      .in('span_id', spanIds)
+      .order('created_at', { ascending: false });
+
+    const lastBySpan = new Map<string, string>();
+    for (const e of events || []) {
+      if (!lastBySpan.has(e.span_id as string)) lastBySpan.set(e.span_id as string, e.created_at);
+    }
+
+    const next = new Map<string, string>();
+    for (const s of states || []) {
+      if (s.order_id === null && s.span_id && lastBySpan.has(s.span_id)) {
+        next.set(s.table_id, lastBySpan.get(s.span_id)!);
+      }
+    }
+    setLastActivityByTable(next);
+  }, [tables]);
+
+  useEffect(() => {
+    fetchIdleSignals();
+    const id = window.setInterval(fetchIdleSignals, 60_000);
+    return () => window.clearInterval(id);
+  }, [fetchIdleSignals]);
 
   useEffect(() => {
     fetchTables();
@@ -576,6 +634,11 @@ export default function Billing() {
   const tableHasBillReq = (tableId: string) => billRequests.some((r) => r.table_id === tableId);
   const tableHasWaterReq = (tableId: string) =>
     tableRequests.some((r) => r.table_id === tableId && r.request_type === 'water');
+  const tableIsIdleAbandoned = (tableId: string) => {
+    const lastActivity = lastActivityByTable.get(tableId);
+    if (!lastActivity) return false;
+    return Date.now() - new Date(lastActivity).getTime() > IDLE_BADGE_THRESHOLD_MS;
+  };
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -623,6 +686,7 @@ export default function Billing() {
               {tables.map((table) => {
                 const hasBill = tableHasBillReq(table.id);
                 const hasWater = tableHasWaterReq(table.id);
+                const isIdle = !hasBill && !hasWater && tableIsIdleAbandoned(table.id);
                 const isSelected = table.id === selectedTableId;
                 const colorClass = STATUS_COLORS[table.status] ?? 'bg-muted border-border';
 
@@ -645,6 +709,14 @@ export default function Billing() {
                     {!hasBill && hasWater && (
                       <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 text-white animate-pulse">
                         <Droplets className="h-2.5 w-2.5" />
+                      </span>
+                    )}
+                    {isIdle && (
+                      <span
+                        className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-white"
+                        title={`No order yet — last activity ${getTimeSince(lastActivityByTable.get(table.id)!)}`}
+                      >
+                        <Clock className="h-2.5 w-2.5" />
                       </span>
                     )}
 
@@ -673,6 +745,7 @@ export default function Billing() {
         <div className="p-3 border-t grid grid-cols-2 gap-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-1"><Bell className="h-3 w-3 text-rose-500" /> Bill requested</span>
           <span className="flex items-center gap-1"><Droplets className="h-3 w-3 text-sky-500" /> Water request</span>
+          <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-amber-500" /> Idle, no order yet</span>
         </div>
       </div>
 

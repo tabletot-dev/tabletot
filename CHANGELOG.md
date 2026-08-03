@@ -5,6 +5,40 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — 2026-08-03
+
+Implements `docs/plans/2026-08-03-idle-table-notification.md`: a table that
+opens a session and never submits an order now gets a soft on-screen nudge on
+the kiosk, and staff get a passive amber-badge signal on the POS table grid.
+Notify only — no auto-ending a session; staff decide via the existing End
+Service button. Full rationale and threshold discussion in
+`docs/notes/2026-08-03-idle-table-notification-implementation.md`.
+
+- **Kiosk** (`apps/kiosk/src/pages/Index.tsx`): a document-level pointerdown
+  listener plus a 30s check interval show a dismissible "Still there? Tap
+  anywhere to continue." banner after 3.5 min of no touch on a pre-submit
+  browsing screen, only when no round has been submitted yet. Pure
+  client-side UX — nothing written to the ledger.
+- **POS** (`apps/pos/src/pages/Billing.tsx`): a 60s batched fetch (table_state
+  + table_events, not per-table) flags an occupied table with no order and no
+  activity for 12 min with a new amber clock badge, lowest priority behind
+  the existing bill/water badges. Clears itself the moment the table stops
+  matching — no new "acknowledge" state. Extracted `Kitchen.tsx`'s inline
+  `getTimeSince` into `apps/pos/src/lib/timeSince.ts` (now two call sites).
+- **Migration `0057`** (unplanned — the plan assumed zero migrations needed):
+  `table_events` had RLS enabled with no SELECT policy at all, so the POS
+  badge query would have silently returned nothing. Added a `staff_read`
+  policy for `authenticated`, mirroring the existing pattern on
+  `recommendation_events`/`table_state`. Full story in the implementation
+  note above.
+
+**Verify:** ✅ `npm run build` clean on kiosk + POS. Kiosk golden-session
+suite 11/11, kiosk unit suite 4/4. POS badge query chain verified directly
+against local Postgres (session_started → backdated idle → authenticated
+role sees it, anon role doesn't → order_submitted clears it → service_ended
+frees the table). No live click-through this session — no running dev
+servers.
+
 ## [Unreleased] — 2026-08-02
 
 Implements `docs/plans/2026-08-02-three-app-hardening.md` in full — all four

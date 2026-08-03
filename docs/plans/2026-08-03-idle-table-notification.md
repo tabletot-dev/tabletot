@@ -73,57 +73,54 @@ guess.
 
 ---
 
-## Task 1 — Kiosk: "Still there?" nudge
+## Task 1 — Kiosk: "Still there?" nudge — DONE
 
 **Files:** `apps/kiosk/src/pages/Index.tsx`
 
-- [ ] Add a `lastTouchRef` (timestamp) updated by a document-level
+- [x] Added `lastTouchRef` (timestamp) updated by a document-level
       `pointerdown` listener, mounted once.
-- [ ] Add a `setInterval` (check every ~30s, don't need finer resolution)
-      that shows a dismissible banner when: `currentScreen` is one of the
-      pre-submit browsing screens (`home`, `menu`, `item-detail`,
-      `order-summary`, `identity` — **not** `session-idle`, `games`,
-      `conversation-starters`, where static screens are expected by design)
-      AND no round has been submitted this visit (`previousOrders.length === 0`)
-      AND time since `lastTouchRef` exceeds the nudge threshold.
-- [ ] Banner: "Still there? Tap anywhere to continue." Any `pointerdown`
+- [x] Added a `setInterval` (30s) that shows a dismissible banner when:
+      `currentScreen` is one of the pre-submit browsing screens (`home`,
+      `menu`, `item-detail`, `order-summary`, `identity` — **not**
+      `session-idle`, `games`, `conversation-starters`) AND no round has
+      been submitted this visit (`previousOrders.length === 0`) AND time
+      since `lastTouchRef` exceeds 3.5 min.
+- [x] Banner: "Still there? Tap anywhere to continue." Any `pointerdown`
       dismisses it (same listener that resets the timer). No auto-navigation,
-      no session-ending call — this is pure client-side UI, nothing written
-      to the ledger.
-- [ ] Timer resets on screen change too (a customer moving between menu and
-      cart is obviously present).
+      no session-ending call — pure client-side UI, nothing written to the
+      ledger.
+- [x] Timer resets on screen change too.
 
 **Verify:** Sit on the menu screen without touching anything past the
 threshold; banner appears. Tap anywhere; banner clears and timer resets.
 Confirm it does *not* appear on `session-idle`/`games`/`conversation-starters`.
 
-## Task 2 — POS: idle-table badge
+## Task 2 — POS: idle-table badge — DONE
 
 **Files:** `apps/pos/src/pages/Billing.tsx`, new
-`apps/pos/src/lib/timeSince.ts`
+`apps/pos/src/lib/timeSince.ts`, new migration `0057` (see deviation note
+below — the plan's "zero migrations" premise was wrong)
 
-- [ ] Extract `Kitchen.tsx`'s inline `getTimeSince` into a shared
-      `apps/pos/src/lib/timeSince.ts` (two call sites now; don't duplicate).
-      Update `Kitchen.tsx` to import it — behavior unchanged.
-- [ ] Add a periodic fetch (piggyback on the existing table refresh interval,
-      or a new ~60s interval — match whatever cadence `fetchTables` already
-      uses) that pulls, for tables where `restaurant_tables.status = 'occupied'`:
-      `table_state.order_id` and `MAX(table_events.created_at)` for that
-      table's current `span_id`. A single query per refresh, not per table —
-      join or batch it.
-- [ ] Compute `isIdleAbandoned` per table client-side: `order_id IS NULL`
-      AND `now - lastActivity > IDLE_BADGE_THRESHOLD_MS`.
-- [ ] Render a new badge on the table grid card, same absolute-positioned
-      slot pattern as the existing bill/water badges (`Billing.tsx`'s
-      `hasBill`/`hasWater` rendering) — an amber clock icon. Priority order:
-      bill request > water request > idle-abandoned, if a table somehow
-      matches more than one (bill/water badges already only show one at a
-      time by priority; add idle as the third tier, lowest priority, since
-      it's informational, not a customer-initiated request).
-- [ ] No new "acknowledge" state. The badge is purely derived from live data
-      — it clears itself the moment the table stops matching (an order gets
-      submitted, or staff hit End Service and free the table). Staff decide
-      what to do; there's nothing separate to dismiss.
+- [x] Extracted `Kitchen.tsx`'s inline `getTimeSince` into
+      `apps/pos/src/lib/timeSince.ts` (two call sites: `Kitchen.tsx`'s KOT
+      age, `Billing.tsx`'s idle-badge tooltip). `Kitchen.tsx` imports it —
+      behavior unchanged.
+- [x] Added a 60s interval (`fetchIdleSignals`) that pulls, for tables where
+      `restaurant_tables.status = 'occupied'`: `table_state.order_id`/`span_id`
+      in one batched query, then `table_events` last-activity only for the
+      spans still missing an order, in a second batched query (not per-table).
+- [x] Computed `isIdleAbandoned` per table client-side: `order_id IS NULL`
+      AND `now - lastActivity > 12 min`.
+- [x] Rendered an amber clock badge, same absolute-positioned slot as the
+      bill/water badges, lowest priority of the three.
+- [x] No new "acknowledge" state — badge is purely derived from live data.
+- **Found while implementing:** the plan's "zero migrations needed" premise
+      assumed `table_events` was already client-readable like `table_state`.
+      Verified against local Postgres — false: RLS enabled, zero SELECT
+      policies, so the query above would have silently returned nothing.
+      Added migration `0057_table_events_staff_read.sql` (staff-only SELECT
+      policy, same pattern as `0022`/`0047`). Full reasoning in
+      `docs/notes/2026-08-03-idle-table-notification-implementation.md`.
 
 **Verify:** Open a session on the kiosk, don't submit, wait past the
 threshold (or lower it temporarily for testing). Badge appears on that
@@ -131,14 +128,13 @@ table's card in POS. Submit an order from the kiosk — badge clears
 immediately on next refresh. Separately: open a session, submit an order —
 badge never appears regardless of elapsed time (order_id is no longer NULL).
 
-## Task 3 — Docs
+## Task 3 — Docs — DONE
 
-- [ ] Add a short note to `docs/notes/` recording the chosen thresholds and
-      the "notify only, staff decides" call, so a future revisit isn't
-      re-litigating a decision that was already made — reference this plan.
-- [ ] No ADR needed — this doesn't touch the ledger's write path or state
-      machine (ADR 0019's chokepoint), it's a read-only client-side signal
-      layered on top of data that already exists.
+- [x] Added `docs/notes/2026-08-03-idle-table-notification-implementation.md`
+      recording the chosen thresholds, the "notify only, staff decides"
+      call, and the migration-0057 deviation.
+- [x] No ADR — confirmed migration `0057` is read-only and doesn't touch the
+      ledger's write path or state machine (ADR 0019's chokepoint).
 
 ---
 

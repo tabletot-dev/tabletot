@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2, Clock, CheckCircle, ChefHat, Bell, Wifi, WifiOff } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { getTimeSince } from '@/lib/timeSince';
 
 interface KOTTicket {
   id: string;
@@ -134,13 +135,6 @@ export default function Kitchen() {
       case 'ready': return 'bg-emerald-500/20 text-emerald-600 border-emerald-500';
       default: return 'bg-muted text-muted-foreground';
     }
-  };
-
-  const getTimeSince = (date: string) => {
-    const mins = Math.floor((Date.now() - new Date(date).getTime()) / 60000);
-    if (mins < 1) return 'Just now';
-    if (mins === 1) return '1 min ago';
-    return `${mins} mins ago`;
   };
 
   const filteredTickets = filter === 'all'
