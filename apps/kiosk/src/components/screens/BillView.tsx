@@ -14,6 +14,7 @@ interface BillViewProps {
   onClose: () => void;
   onBillSubmitted?: () => void;
   onContinueOrdering?: () => void;
+  onBackToStatus?: () => void;
 }
 
 export default function BillView({
@@ -23,6 +24,7 @@ export default function BillView({
   onClose,
   onBillSubmitted,
   onContinueOrdering,
+  onBackToStatus,
 }: BillViewProps) {
   const [stage, setStage] = useState<"summary" | "phone" | "loading" | "sent">(
     alreadyRequested ? "sent" : "summary"
@@ -33,7 +35,14 @@ export default function BillView({
   const tax = subtotal * TAX_RATE;
   const total = subtotal + tax;
   const sanitizedPhone = phone.replace(/[^\d+]/g, "");
-  const canSubmitPhone = sanitizedPhone.replace(/\D/g, "").length >= 10;
+  // Indian mobile convention: 10 digits, starting 6-9 (project-wide rule, see
+  // CLAUDE.md). Previously accepted any 10+ digit string. Strips an optional
+  // country code (+91/91) before checking the local number.
+  const digitsOnly = sanitizedPhone.replace(/\D/g, "");
+  const localDigits = digitsOnly.length > 10 && digitsOnly.startsWith("91")
+    ? digitsOnly.slice(2)
+    : digitsOnly;
+  const canSubmitPhone = /^[6-9]\d{9}$/.test(localDigits);
 
   const submitBillRequest = async () => {
     if (!canSubmitPhone) return;
@@ -91,6 +100,11 @@ export default function BillView({
         <p className="bill-flow-copy">
           A server will bring the bill to your table.
         </p>
+        {onBackToStatus && (
+          <button className="secondary-btn" onClick={onBackToStatus}>
+            Back to my order
+          </button>
+        )}
       </section>
     );
   }

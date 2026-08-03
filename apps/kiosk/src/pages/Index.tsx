@@ -144,7 +144,22 @@ const IndexInner = () => {
     };
     refetch();
     const unsubscribe = subscribeTableState(refetch);
-    return unsubscribe;
+
+    // Realtime is a poke, not a guarantee (ADR 0019). If the settle poke lands
+    // during a network gap, the kiosk never resets — the next customer sits
+    // down to the previous party's waiting screen. A 30s fallback poll plus a
+    // refetch on wake bound how long a missed poke can go unnoticed.
+    const pollId = window.setInterval(refetch, 30_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refetch();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      unsubscribe();
+      window.clearInterval(pollId);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [tableUuid, handleEndSession]);
 
   // Source defaults to "main_menu" so cart-side surfaces (MiniCartSidebar,
@@ -165,20 +180,14 @@ const IndexInner = () => {
     [updateQuantity],
   );
 
+  // Used to fabricate a fallback pairing (signature anchor → chef's pick →
+  // any coffee/tea item → any menu item at all) when nothing was curated,
+  // rendered under "Pairs well with" as if it were. An uncurated suggestion
+  // presented as curated is worse than showing nothing — no panel now if
+  // there's no real pairing (audit M6).
   const getDetailPairings = useCallback(
-    (item: MenuItem) => {
-      const directPairings = pairingsByItemId[item.id] ?? [];
-      if (directPairings.length > 0) return directPairings;
-
-      const fallback =
-        anchors.find((anchor) => anchor.id !== item.id && anchor.anchorType === "signature") ??
-        anchors.find((anchor) => anchor.id !== item.id && anchor.anchorType === "chef_pick") ??
-        menuItems.find((entry) => entry.id !== item.id && /coffee|tea|chocolate/i.test(entry.category)) ??
-        menuItems.find((entry) => entry.id !== item.id);
-
-      return fallback ? [{ ...fallback, context: "suggested_pairing", priority: 0 }] : [];
-    },
-    [anchors, menuItems, pairingsByItemId],
+    (item: MenuItem) => pairingsByItemId[item.id] ?? [],
+    [pairingsByItemId],
   );
 
   const handleVoiceDone = useCallback(
@@ -285,6 +294,9 @@ const IndexInner = () => {
     setIsSubmitting(true);
     try {
       await confirmOrder();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setToast(`Order could not be sent: ${msg}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -313,6 +325,9 @@ const IndexInner = () => {
       }
       await wait(1150);
       await confirmOrder();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setToast(`Order could not be sent: ${msg}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -336,7 +351,16 @@ const IndexInner = () => {
               await startSession();
               setCurrentScreen("menu");
             }}
-            onSelectItem={(item) => {
+            onSelectItem={async (item) => {
+              // Mirrors "Start Ordering": append_event writes span_id = NULL
+              // for analytics fired while idle, so a hero-dish tap that skips
+              // straight to item-detail had every item_added/recommendation
+              // event on that path (including pairing_chip adds) landing
+              // unattributed — get_aov_summary joins on span_id, which NULL
+              // never matches. session_started is idempotent for an
+              // already-open span, so this is a no-op if the customer later
+              // also taps "Start Ordering".
+              await startSession();
               setSelectedItem(item);
               setCurrentScreen("item-detail");
             }}
@@ -431,7 +455,7 @@ const IndexInner = () => {
                           item={selectedItem}
                           pairings={getDetailPairings(selectedItem)}
                           onAdd={handleAddFromDetail}
-                          onAddItem={(i) => handleAddToOrder(i, "detail_view")}
+                          onAddItem={(i) => handleAddToOrder(i, "pairing_chip")}
                           onUpdateQuantity={handleUpdateQuantity}
                           getQuantity={getOrderQuantity}
                           onBack={() => setCurrentScreen("menu")}
@@ -492,15 +516,18 @@ const IndexInner = () => {
             onRequestWater={async () => {
               try {
                 const tableUuid = await resolveTableId();
-                await supabase.from("table_requests").insert({
+                const { error } = await supabase.from("table_requests").insert({
                   table_id: tableUuid,
                   request_type: "water",
                   status: "pending",
                 });
+                if (error) throw error;
+                setToast("Water requested");
               } catch {
-                // non-blocking — toast still shows
+                // Previously showed "Water requested" even when the insert
+                // failed (audit M2) — staff never got the request either way.
+                setToast("Couldn't request water — please ask a server");
               }
-              setToast("Water requested");
             }}
           />
         );
@@ -529,6 +556,7 @@ const IndexInner = () => {
                 setVoiceTurns([]);
               }}
               onContinueOrdering={() => setCurrentScreen("menu")}
+              onBackToStatus={() => setCurrentScreen("session-idle")}
             />
           </Suspense>
         );

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 import { FeatureGate } from '@/components/FeatureGate';
 
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
@@ -40,17 +40,27 @@ function dateRangeParams(range: DateRange): { start: string; end: string } {
 export default function AovView() {
   const [data, setData] = useState<AovSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  // A failed query previously fell through to `data === null` → the same
+  // render path as "0 accepted", so a broken RPC and an honest zero were
+  // indistinguishable on the headline number shown to the restaurant owner.
+  const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<DateRange>('7d');
 
   const fetchSummary = useCallback(async (r: DateRange) => {
     setLoading(true);
+    setError(null);
     const { start, end } = dateRangeParams(r);
-    const { data: rows } = await supabase.rpc('get_aov_summary' as never, {
+    const { data: rows, error: rpcError } = await supabase.rpc('get_aov_summary' as never, {
       p_restaurant_id: RESTAURANT_ID,
       p_start_at: start,
       p_end_at: end,
     } as never);
-    setData((rows as AovSummary[] | null)?.[0] ?? null);
+    if (rpcError) {
+      setError(rpcError.message);
+      setData(null);
+    } else {
+      setData((rows as AovSummary[] | null)?.[0] ?? null);
+    }
     setLoading(false);
   }, []);
 
@@ -98,6 +108,14 @@ export default function AovView() {
               <div className="flex items-center gap-2 text-muted-foreground text-sm">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading…
               </div>
+            ) : error ? (
+              <div className="flex flex-col items-center gap-2 py-4 text-center">
+                <p className="flex items-center gap-2 text-sm text-destructive">
+                  <AlertTriangle className="h-4 w-4" /> Couldn't load this data — not a real zero.
+                </p>
+                <p className="text-xs text-muted-foreground">{error}</p>
+                <Button variant="outline" size="sm" onClick={() => fetchSummary(range)}>Retry</Button>
+              </div>
             ) : acceptedCount === 0 ? (
               <p className="text-muted-foreground text-sm py-4 text-center">
                 No recommendations accepted in this date range yet.
@@ -142,6 +160,13 @@ export default function AovView() {
             {loading ? (
               <div className="flex items-center gap-2 text-muted-foreground text-sm">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+              </div>
+            ) : error ? (
+              <div className="flex flex-col items-center gap-2 py-4 text-center">
+                <p className="flex items-center gap-2 text-sm text-destructive">
+                  <AlertTriangle className="h-4 w-4" /> Couldn't load this data.
+                </p>
+                <Button variant="outline" size="sm" onClick={() => fetchSummary(range)}>Retry</Button>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">

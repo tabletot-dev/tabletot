@@ -1,6 +1,8 @@
+import { useEffect, useRef } from "react";
 import type { MenuItem } from "@/data/menu";
 import type { PairedItem } from "@/lib/menuStore";
 import { itemImageBackground } from "@/lib/menuImages";
+import { track } from "@/lib/eventBus";
 import DietMark from "@/components/DietMark";
 import { Mic, X } from "lucide-react";
 
@@ -55,6 +57,31 @@ export default function DetailView({
   const bg = itemImageBackground(item);
   const visiblePairings = pairings.slice(0, 4);
   const itemQty = getQuantity?.(item.id) ?? 0;
+
+  // Same pattern as DishCard's inline pairing panel: log one shown event per
+  // pairing per "panel visible" cycle. Previously this panel fired no
+  // recommendation_shown/tapped at all (audit M6) — acceptance rate for the
+  // grid-card pairing chip existed, but this surface was invisible to it.
+  const shownPairingIds = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (visiblePairings.length === 0) {
+      shownPairingIds.current.clear();
+      return;
+    }
+    visiblePairings.forEach((p) => {
+      if (shownPairingIds.current.has(p.id)) return;
+      shownPairingIds.current.add(p.id);
+      track("recommendation_shown", { itemId: p.id, surface: "inline_pairing" });
+    });
+  }, [visiblePairings]);
+
+  const handleAddPairing = (p: MenuItem) => {
+    track("recommendation_tapped", { itemId: p.id, surface: "inline_pairing" });
+    // item_added itself is fired by the cart hook when the parent calls
+    // addToOrder(p, "pairing_chip") via onAddItem — single emitter, no
+    // double-counting.
+    onAddItem?.(p);
+  };
 
   return (
     <section className="view detail-view">
@@ -142,7 +169,7 @@ export default function DetailView({
                         <button
                           type="button"
                           className="mini-plus"
-                          onClick={() => onAddItem?.(p)}
+                          onClick={() => handleAddPairing(p)}
                           aria-label={`Add ${p.name}`}
                         >
                           +

@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { RESTAURANT_ID } from '@/lib/restaurant';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Loader2, Download, Calendar, IndianRupee, ShoppingBag,
-  TrendingUp, MoonStar, AlertTriangle,
+  TrendingUp, MoonStar, AlertTriangle, ArrowRight,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
@@ -64,7 +66,6 @@ export default function Reports() {
   const [openOrders, setOpenOrders] = useState<OpenOrder[]>([]);
   const [todayOrders, setTodayOrders] = useState<HistoryOrder[]>([]);
   const [dayCloseLoading, setDayCloseLoading] = useState(true);
-  const [closing, setClosing] = useState(false);
 
   // ── Summary tab data ────────────────────────────────────────────────────────
 
@@ -88,19 +89,28 @@ export default function Reports() {
 
   // ── Day close tab data ──────────────────────────────────────────────────────
 
+  // 'served' isn't in the filter — nothing sets orders.status to 'served' yet
+  // (see docs/plans/2026-08-02-three-app-hardening.md Task 4.4). Filtering on
+  // a status nothing writes is a no-op today; re-add once 4.4 lands.
   const fetchDayCloseData = useCallback(async () => {
     setDayCloseLoading(true);
     const [openRes, todayRes] = await Promise.all([
       supabase
         .from('orders')
         .select('id, order_id, table_no, status, total, created_at')
-        .in('status', ['new', 'preparing', 'ready', 'served'])
+        .eq('restaurant_id', RESTAURANT_ID)
+        .in('status', ['new', 'preparing', 'ready'])
         .order('created_at'),
+      // order_history has no restaurant_id column (single-tenant pilot; see
+      // 0043's comment) — cannot scope this query until that's added.
+      // order_created_at, not created_at (archive-write time), to match
+      // fetchOrders' date basis so History and Day Close never disagree on
+      // which day an order belongs to.
       supabase
         .from('order_history')
         .select('*')
-        .gte('created_at', todayStart())
-        .order('created_at', { ascending: false }),
+        .gte('order_created_at', todayStart())
+        .order('order_created_at', { ascending: false }),
     ]);
     setOpenOrders(openRes.data || []);
     setTodayOrders(todayRes.data || []);
@@ -108,27 +118,6 @@ export default function Reports() {
   }, []);
 
   useEffect(() => { fetchDayCloseData(); }, [fetchDayCloseData]);
-
-  const handleCloseDay = async () => {
-    if (openOrders.length > 0) {
-      const confirmed = window.confirm(
-        `${openOrders.length} order(s) are still open. Close day anyway and mark them completed?`,
-      );
-      if (!confirmed) return;
-    }
-    setClosing(true);
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: 'completed' })
-      .in('status', ['new', 'preparing', 'ready', 'served']);
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Day closed', description: 'All open orders marked completed.' });
-      fetchDayCloseData();
-    }
-    setClosing(false);
-  };
 
   // ── Derived metrics ─────────────────────────────────────────────────────────
 
@@ -405,24 +394,36 @@ export default function Reports() {
                 </CardContent>
               </Card>
 
-              {/* Close day button */}
+              {/* End of service checklist — read-only. Previously a "Close Day"
+                  button bulk-updated orders.status with no restaurant/table
+                  filter and no ledger event, so it never archived to
+                  order_history, never recorded a payment, and left every
+                  occupied table's kiosk stranded (table_state kept believing
+                  the span was still live). Settling is the only correct path
+                  now — this just makes it easy to see who's left to settle. */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Close Day</CardTitle>
+                  <CardTitle>End of Service</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Marks all open orders (new, preparing, ready, served) as completed. Run this at end of service.
-                  </p>
-                  <Button
-                    variant="destructive"
-                    onClick={handleCloseDay}
-                    disabled={closing}
-                  >
-                    {closing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    <MoonStar className="h-4 w-4 mr-2" />
-                    Close Day
-                  </Button>
+                  {openOrders.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No open orders. Every table has been settled.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-sm text-muted-foreground">
+                        {openOrders.length} table{openOrders.length > 1 ? 's' : ''} still open.
+                        Settle each from Billing — there is no bulk "close day" action,
+                        so revenue and the kiosk state always stay in sync.
+                      </p>
+                      <Button asChild variant="outline">
+                        <Link to="/billing">
+                          Go to Billing <ArrowRight className="h-4 w-4 ml-2" />
+                        </Link>
+                      </Button>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </>

@@ -12,7 +12,7 @@ import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.routers.voice import router as voice_router
@@ -200,8 +200,8 @@ async def refresh_menu(request: Request) -> dict:
     Call this from POS admin after editing menu items to propagate changes
     without waiting for the 6-hour background cycle.
     """
-    from fastapi import HTTPException
     from src.loader import load_menu_data_from_db, load_menu_from_db
+    from src.menu_graph import load_menu_graph_from_db
 
     admin_key = os.environ.get("ADMIN_API_KEY", "")
     if not admin_key:
@@ -216,9 +216,19 @@ async def refresh_menu(request: Request) -> dict:
     total_items = 0
     for rid, cfg in restaurant_configs.items():
         db_rid = getattr(cfg, "db_restaurant_id", None)
-        menu_data = await asyncio.to_thread(load_menu_data_from_db, db_url, db_rid)
-        index = await asyncio.to_thread(load_menu_from_db, db_url, db_rid)
+        # Same atomic-assignment pattern as _refresh_loop: load all three
+        # concurrently, then assign both dicts with no await between them, so
+        # a session created mid-refresh can't see a new _menus entry paired
+        # with a stale _menu_graphs entry. This endpoint previously only
+        # refreshed _menus — pairing data (item_pairings, anchor_items) stayed
+        # stale until the next 6-hour background cycle.
+        menu_data, index, graph = await asyncio.gather(
+            asyncio.to_thread(load_menu_data_from_db, db_url, db_rid),
+            asyncio.to_thread(load_menu_from_db, db_url, db_rid),
+            asyncio.to_thread(load_menu_graph_from_db, db_url, db_rid),
+        )
         session_manager._menus[rid] = (menu_data, index)
+        session_manager._menu_graphs[rid] = graph
         total_items += len(index.items_by_id)
         logger.info("Menu refreshed via /admin/refresh-menu: %d items for %s", len(index.items_by_id), rid)
 

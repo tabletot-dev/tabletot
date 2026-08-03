@@ -1,15 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { RESTAURANT_ID } from '@/lib/restaurant';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Clock, CheckCircle, ChefHat, Bell } from 'lucide-react';
+import { Loader2, Clock, CheckCircle, ChefHat, Bell, Wifi, WifiOff } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 interface KOTTicket {
   id: string;
+  restaurant_id: string | null;
   kot_number: string;
   table_number: string | null;
   items: any;
@@ -23,6 +25,25 @@ export default function Kitchen() {
   const [tickets, setTickets] = useState<KOTTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'accepted' | 'preparing' | 'ready'>('all');
+  const [isConnected, setIsConnected] = useState(true);
+  const fetchTicketsRef = useRef<() => Promise<void>>();
+
+  const fetchTickets = async () => {
+    const { data, error } = await supabase
+      .from('kot_tickets')
+      .select('*')
+      .eq('restaurant_id', RESTAURANT_ID)
+      .in('status', ['accepted', 'preparing', 'ready'])
+      .order('printed_at', { ascending: true });
+
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      setTickets(data || []);
+    }
+    setLoading(false);
+  };
+  fetchTicketsRef.current = fetchTickets;
 
   useEffect(() => {
     fetchTickets();
@@ -30,6 +51,11 @@ export default function Kitchen() {
     const channel = supabase
       .channel('kot_tickets')
       // New accepted tickets appended directly — no round-trip fetch needed.
+      // Guarded against duplicates: a ticket can also arrive via the refresh
+      // below (reconnect or the 30s poll) while this event is in flight.
+      // Realtime postgres_changes only supports one filter clause per
+      // subscription, so restaurant_id is checked client-side rather than
+      // encoded into `filter` alongside status=eq.accepted.
       .on(
         'postgres_changes',
         {
@@ -39,7 +65,11 @@ export default function Kitchen() {
           filter: 'status=eq.accepted',
         },
         (payload) => {
-          setTickets((prev) => [...prev, payload.new as KOTTicket]);
+          const incoming = payload.new as KOTTicket;
+          if (incoming.restaurant_id !== RESTAURANT_ID) return;
+          setTickets((prev) =>
+            prev.some((t) => t.id === incoming.id) ? prev : [...prev, incoming]
+          );
         }
       )
       // Status changes and deletions require a full refresh to reflect current DB state.
@@ -58,29 +88,31 @@ export default function Kitchen() {
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'kot_tickets' },
-        () => fetchTickets()
+        () => fetchTicketsRef.current?.()
       )
-      .subscribe();
+      // A dropped WebSocket means new KOTs never appear and the screen looks
+      // like a quiet evening — this is the one screen where a missed event
+      // means food never gets cooked. Refetch on every (re)subscribe so a
+      // reconnect after a network blip picks up whatever was missed, and
+      // surface connection state so staff aren't trusting a stale screen.
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setIsConnected(true);
+          fetchTicketsRef.current?.();
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setIsConnected(false);
+        }
+      });
+
+    // Fallback poll: belt-and-braces in case a reconnect never fires SUBSCRIBED
+    // again (some networks silently drop without a clean close).
+    const pollId = window.setInterval(() => fetchTicketsRef.current?.(), 30_000);
 
     return () => {
+      window.clearInterval(pollId);
       supabase.removeChannel(channel);
     };
   }, []);
-
-  const fetchTickets = async () => {
-    const { data, error } = await supabase
-      .from('kot_tickets')
-      .select('*')
-      .in('status', ['accepted', 'preparing', 'ready'])
-      .order('printed_at', { ascending: true });
-
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      setTickets(data || []);
-    }
-    setLoading(false);
-  };
 
   const updateStatus = async (id: string, status: string) => {
     const { error } = await supabase
@@ -140,13 +172,19 @@ export default function Kitchen() {
             <p className="text-sm text-muted-foreground">Manage incoming orders</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {acceptedCount > 0 && (
             <Badge variant="destructive" className="animate-pulse">
               <Bell className="h-3 w-3 mr-1" />
               {acceptedCount} New
             </Badge>
           )}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            {isConnected
+              ? <Wifi className="h-3.5 w-3.5 text-emerald-500" />
+              : <WifiOff className="h-3.5 w-3.5 text-rose-500" />}
+            <span>{isConnected ? 'Live' : 'Offline'}</span>
+          </div>
         </div>
       </div>
 
@@ -229,10 +267,13 @@ export default function Kitchen() {
                   {/* Items List */}
                   <div className="space-y-2 max-h-48 overflow-auto">
                     {Array.isArray(ticket.items) && ticket.items.map((item: any, idx: number) => (
-                      <div key={idx} className="flex justify-between items-center text-sm p-2 bg-muted/50 rounded">
+                      <div key={idx} className="flex flex-col text-sm p-2 bg-muted/50 rounded">
                         <span className="font-medium">
                           {item.quantity || item.qty}x {item.name || item.item_name}
                         </span>
+                        {Array.isArray(item.modifiers) && item.modifiers.length > 0 && (
+                          <span className="text-xs text-muted-foreground">{item.modifiers.join(', ')}</span>
+                        )}
                       </div>
                     ))}
                   </div>

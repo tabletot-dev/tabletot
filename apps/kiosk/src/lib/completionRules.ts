@@ -34,6 +34,10 @@ export function findMatchingRule(
 
     const s = rule.suggestion as Record<string, unknown>;
     if (typeof s.text !== "string" || typeof s.item_id !== "string") continue;
+    // Without this, accepting the nudge (or already having the item) re-matched
+    // on the next Confirm tap — any has_category rule stays true forever, and a
+    // missing_category rule keeps suggesting a different category (audit H5).
+    if (order.some((item) => item.id === s.item_id)) continue;
 
     return { text: s.text, itemId: s.item_id };
   }

@@ -48,3 +48,42 @@ const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
 
 - `recommendation_events` UPDATE queries (flipping `item_accepted`) use the row's `id` (UUID PK) — no `restaurant_id` filter needed there.
 - `anchor_items` uses `menu_items!inner(...)` join — the restaurant filter on `anchor_items` is sufficient; the join already constrains to items belonging to those anchors.
+
+## POS (added 2026-08-02, `docs/plans/2026-08-02-three-app-hardening.md` Task 2.2)
+
+Kiosk was scoped above; the POS never was. Single-tenant pilot today, so no
+live impact, but at restaurant #2 the kitchen would see the other café's
+tickets. `RESTAURANT_ID` imported from `apps/pos/src/lib/restaurant.ts`.
+
+### Files and queries updated
+
+- `src/pages/Menu.tsx` — `menu_items` SELECT and INSERT scoped.
+- `src/pages/AdminMenuItems.tsx` — `menu_items` SELECT and INSERT scoped.
+- `src/pages/Kitchen.tsx` — `kot_tickets` SELECT scoped. Realtime `INSERT`
+  listener filters on `status=eq.accepted` already — Postgres Changes only
+  supports one filter clause per subscription, so `restaurant_id` is checked
+  client-side in the callback instead of a second `filter` clause.
+- `src/pages/Orders.tsx` — `orders` SELECT and its Realtime channel scoped
+  (single filter clause, no conflict with another clause here).
+- `src/pages/Billing.tsx` — `fetchTables`'s `restaurant_tables` SELECT and its
+  Realtime channel scoped.
+- `src/pages/Reports.tsx` — `fetchDayCloseData`'s live `orders` query scoped
+  (2026-08-02, Phase 1 Task 1.1).
+
+### Not scoped — schema gap, not an oversight
+
+`order_history` has **no `restaurant_id` column** (0043's comment: "restaurant
+scoping is implicit" — a single-tenant-pilot assumption baked into the schema,
+not enforced). `Reports.tsx` (both `order_history` queries) and `Orders.tsx`
+(the settled-orders union, added alongside this scoping pass) read it
+unscoped. Needs a migration (add the column) before a second restaurant is
+onboarded — and there's no way to backfill history written before the column
+existed, since the source `orders` row is deleted by the time it's archived.
+Worth an ADR, not a quiet column add.
+
+### Not scoped — out of Task 2.2's list, may still be a gap
+
+`bill_requests` and `table_requests` (read in `Billing.tsx`'s
+`fetchBillRequests`/`fetchTableRequests`) were not in this task's file list
+and weren't checked for a `restaurant_id` column. Flagging for a follow-up
+pass, not fixed here.

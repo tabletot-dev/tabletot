@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase, hasSupabaseConfig } from "@/integrations/supabase/client";
 import type { OrderRound } from "@/hooks/useDeviceNavigation";
 import { getDisplayName } from "@/lib/orderSubmission";
+import { categoryGradient } from "@/lib/categoryGradients";
 
 interface WaitingViewProps {
   previousOrders: OrderRound[];
@@ -24,30 +25,32 @@ const STATUS_STAGE: Record<KitchenStatus, { label: string; pct: number }> = {
   unknown:   { label: "Queued",    pct: 28 },
 };
 
+// Previously hotlinked four Unsplash images with fashion/travel/audio copy —
+// unrelated to the restaurant and broken on Wi-Fi without internet (flagged
+// highest-severity in the UX audit: "reads as broken or unfinished"). No real
+// restaurant marketing assets exist to swap in, so this uses the same
+// category-gradient palette already established for dish-image fallbacks
+// (`categoryGradients.ts`) instead of fabricating more off-brand content —
+// zero network dependency, and generic enough to fit any restaurant on
+// Tabletot rather than hardcoding one pilot's branding into shared kiosk code.
 const PROMOS = [
   {
-    id: "ad-travel",
-    title: "Weekend Escape",
-    copy: "Discover limited-time city breaks, spa stays, and last-minute travel offers.",
-    image: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1600&q=80",
+    id: "promo-fresh",
+    title: "Freshly made, just for you",
+    copy: "Every order is prepared after you send it — good things are worth the short wait.",
+    gradient: categoryGradient("Hot Coffee"),
   },
   {
-    id: "ad-audio",
-    title: "Studio Sound",
-    copy: "Wireless headphones, deep bass, and everyday listening made beautifully simple.",
-    image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1600&q=80",
+    id: "promo-ask",
+    title: "Got a craving?",
+    copy: "Tap Order More any time — round two is just as easy as round one.",
+    gradient: categoryGradient("Desserts"),
   },
   {
-    id: "ad-fashion",
-    title: "New Season Edit",
-    copy: "Lightweight essentials, clean tailoring, and fresh arrivals for the week ahead.",
-    image: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1600&q=80",
-  },
-  {
-    id: "ad-wellness",
-    title: "Reset & Recharge",
-    copy: "Wellness offers, fitness plans, and recovery treatments curated for busy days.",
-    image: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1600&q=80",
+    id: "promo-allergy",
+    title: "Allergies or preferences?",
+    copy: "Flag anything you need when you request the bill, and a server will take care of it.",
+    gradient: categoryGradient("Signature Coffee"),
   },
 ];
 
@@ -137,9 +140,9 @@ export default function WaitingView({
   return (
     <section className="view idle-view">
       <div className="idle-slideshow panel">
-        <div className="idle-slideshow-media" style={{ backgroundImage: `url('${promo.image}')` }} />
+        <div className="idle-slideshow-media" style={{ background: promo.gradient }} />
         <div className="idle-slideshow-copy">
-          <p className="eyebrow">Now showing</p>
+          <p className="eyebrow">While you wait</p>
           <strong>{promo.title}</strong>
           <span>{promo.copy}</span>
           <div className="idle-dots">
@@ -201,7 +204,12 @@ export default function WaitingView({
       </div>
 
       <div className="idle-cta-row">
-        <button className="primary-btn" onClick={onOrderMore}>
+        <button
+          className="primary-btn"
+          onClick={onOrderMore}
+          disabled={billRequested}
+          title={billRequested ? "Bill requested — ask staff to reopen ordering" : undefined}
+        >
           Order More
         </button>
         <button

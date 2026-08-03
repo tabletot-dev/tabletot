@@ -45,35 +45,16 @@ function cartRound(qty = 1) {
   return items.map((i) => ({ id: i.id, name: i.name, qty, price: i.price, modifiers: [] }));
 }
 
-describe('golden session (pre-ledger baseline)', () => {
-  it('submit_order round 1 creates an order with DB-priced subtotal', async () => {
-    const sessionKey = crypto.randomUUID();
-    await admin.from('sessions').insert({
-      restaurant_id: RESTAURANT_ID,
-      table_id: table.id,
-      table_number: table.table_number,
-      session_key: sessionKey,
-      status: 'active',
-    });
-
-    const { data, error } = await kiosk.rpc('submit_order', {
-      p_restaurant_id: RESTAURANT_ID,
-      p_table_id: table.id,
-      p_table_number: table.table_number,
-      p_session_key: sessionKey,
-      p_new_items: cartRound(),
-      p_existing_order_id: null,
-      p_display_name: null,
-    });
-    expect(error).toBeNull();
-    const expectedSubtotal = items.reduce((s, i) => s + Number(i.price), 0);
-    expect(Number(data![0].subtotal)).toBeCloseTo(expectedSubtotal, 2);
-
-    const { data: order } = await admin
-      .from('orders').select('*').eq('id', data![0].order_id).single();
-    expect(order!.status).toBe('new');
-  });
-});
+// The "pre-ledger baseline" suite that used to live here tested `submit_order`
+// (migrations 0044/0045) — superseded by `append_event` (0047-0050, ADR
+// 0019) and, per a repo-wide grep, called from nowhere in app code anymore.
+// It's SECURITY INVOKER (unlike append_event), so its internal
+// `SELECT ... FOR UPDATE` on `sessions` depended on the anon role having an
+// UPDATE policy on that table — the exact grant migration 0056 revokes,
+// since the ledger's SECURITY DEFINER RPC is now the sole writer and that
+// grant was dead weight the single-writer invariant shouldn't have depended
+// on. Removed the test along with the dependency rather than keeping a
+// direct-write RLS hole open to keep dead code green.
 
 describe('ledger core (0047)', () => {
   it('append_event is idempotent by event_id', async () => {

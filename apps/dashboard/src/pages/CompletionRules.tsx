@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { FeatureGate } from '@/components/FeatureGate';
 
 // TODO: set to Silver Specialty Coffee UUID — run: SELECT id FROM restaurants WHERE name = 'Silver Specialty Coffee';
@@ -24,11 +25,12 @@ export default function CompletionRules() {
 
   const fetchRules = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('meal_completion_rules')
       .select('id, rule_name, priority, active, condition, suggestion')
       .eq('restaurant_id', RESTAURANT_ID)
       .order('priority', { ascending: false });
+    if (error) toast.error('Error loading completion rules');
     if (data) setRules(data as MealRuleRow[]);
     setLoading(false);
   }, []);

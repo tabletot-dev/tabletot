@@ -211,6 +211,7 @@ export default function Billing() {
     const { data, error } = await supabase
       .from('restaurant_tables')
       .select('*')
+      .eq('restaurant_id', RESTAURANT_ID)
       .order('table_number');
     if (!error) setTables(data || []);
     else setIsConnected(false);
@@ -240,7 +241,7 @@ export default function Billing() {
 
     const tableChannel = supabase
       .channel('billing-tables')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurant_tables' }, fetchTables)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurant_tables', filter: `restaurant_id=eq.${RESTAURANT_ID}` }, fetchTables)
       .subscribe((s) => setIsConnected(s === 'SUBSCRIBED'));
 
     const billReqChannel = supabase
@@ -351,27 +352,33 @@ export default function Billing() {
       // (migration 0048). This kills the old {quantity,total} shape and the
       // tax-free `total = subtotal` overwrite (audit M4). id must be the
       // menu_items UUID (menu_item_id); the RPC casts it and looks up the price.
+      // modifiers carries variant + addon names — previously always sent as
+      // [], so a server's "large, oat milk" selection never reached the
+      // kitchen ticket (audit finding, Task 2.3).
+      const specialNotes = pendingItems.filter((i) => i.notes).map((i) => `${i.name}: ${i.notes}`).join('; ');
       const items = pendingItems.map((it) => ({
         id: it.menu_item_id,
         name: it.name,
         qty: it.quantity,
         price: it.price,
-        modifiers: [] as string[],
+        modifiers: [
+          ...it.variants.map((v) => v.name),
+          ...it.addons.map((a) => a.name),
+        ],
       }));
       const { data, error: rpcErr } = await supabase.rpc('append_event', {
         p_event_id: crypto.randomUUID(),
         p_restaurant_id: RESTAURANT_ID,
         p_table_id: selectedTable.id,
         p_event_type: 'order_submitted',
-        p_payload: { items, display_name: null, source: 'pos' },
+        p_payload: { items, display_name: null, source: 'pos', special_notes: specialNotes || null },
       });
       if (rpcErr) throw rpcErr;
       const result = data as unknown as { order_id: string; kot_id: string };
 
-      // The RPC's KOT row stores the canonical item shape (qty, no variants), so
-      // show the richer local pendingItems on the ticket; only the kot_number is
-      // server-owned.
-      const specialNotes = pendingItems.filter((i) => i.notes).map((i) => `${i.name}: ${i.notes}`).join('; ');
+      // The RPC's KOT row now carries special_notes + modifiers server-side
+      // (migration 0052); still show the richer local pendingItems on the
+      // POS's own ticket preview — only the kot_number is server-owned.
       const { data: kotRow } = await supabase
         .from('kot_tickets')
         .select('kot_number, printed_at')
@@ -415,7 +422,6 @@ export default function Billing() {
   // ─── Payment complete ──────────────────────────────────────────────────────
 
   const handlePaymentComplete = () => {
-    const orderId = activeOrder?.id;
     setActiveOrder(null);
     setDiscountAmount(0);
     setShowPayment(false);
@@ -423,22 +429,9 @@ export default function Billing() {
     if (billReqForTable) {
       supabase.from('bill_requests').update({ status: 'settled' }).eq('id', billReqForTable.id);
     }
-    // B2: Archive all KOTs for this order — removes them from the kitchen queue.
-    if (orderId) {
-      supabase
-        .from('kot_tickets')
-        .update({ status: 'archived' })
-        .eq('order_id', orderId)
-        .in('status', ['accepted', 'preparing', 'ready']);
-    }
-    // Close the session — this resets the kiosk screen via Realtime
-    if (selectedTable) {
-      supabase
-        .from('sessions')
-        .update({ status: 'closed', ended_at: new Date().toISOString() })
-        .eq('table_id', selectedTable.id)
-        .in('status', ['active', 'bill_requested']);
-    }
+    // The payment_settled ledger event (migration 0049, KOT archive added in
+    // 0052) already closes the session, archives KOTs, and frees the table —
+    // no direct writes needed here. PaymentModal is the RPC caller.
     fetchTables();
     fetchBillRequests();
   };
@@ -446,14 +439,27 @@ export default function Billing() {
   const handleEndService = async () => {
     if (!selectedTable) return;
     if (!window.confirm(`End service for Table ${selectedTable.table_number}? This resets the kiosk.`)) return;
-    await supabase
-      .from('sessions')
-      .update({ status: 'closed', ended_at: new Date().toISOString() })
-      .eq('table_id', selectedTable.id)
-      .in('status', ['active', 'bill_requested']);
-    setActiveOrder(null);
-    setDiscountAmount(0);
-    fetchTables();
+    try {
+      // service_ended (migration 0052): same table-freeing cleanup as
+      // payment_settled, without a payments row — this is a walkout/staff
+      // reset, not a paid order. Previously this only closed the `sessions`
+      // projection; since 0049 dropped the trigger that used to free the
+      // table on session close, that left the table occupied and the kiosk
+      // never reset, despite this button's own confirm text.
+      const { error } = await supabase.rpc('append_event', {
+        p_event_id: crypto.randomUUID(),
+        p_restaurant_id: RESTAURANT_ID,
+        p_table_id: selectedTable.id,
+        p_event_type: 'service_ended',
+        p_payload: { created_by: user?.id ?? null },
+      });
+      if (error) throw error;
+      setActiveOrder(null);
+      setDiscountAmount(0);
+      fetchTables();
+    } catch (err: any) {
+      toast({ title: 'End service failed', description: err.message, variant: 'destructive' });
+    }
   };
 
   // ─── Stale session cleanup ─────────────────────────────────────────────────
@@ -469,7 +475,7 @@ export default function Billing() {
       // not from started_at, so we don't pre-filter by date here.
       const { data: openSessions, error } = await supabase
         .from('sessions')
-        .select('id, session_key, started_at')
+        .select('id, session_key, started_at, table_id')
         .in('status', ['active', 'bill_requested']);
 
       if (error) throw error;
@@ -527,23 +533,36 @@ export default function Billing() {
         staleOrders.filter((o) => openKotOrderIds.has(o.id)).map((o) => o.session_id),
       );
 
-      const safeIds = staleSessions
-        .filter((s) => !sessionsWithOpenKots.has(s.session_key))
-        .map((s) => s.id);
+      const safeSessions = staleSessions.filter((s) => !sessionsWithOpenKots.has(s.session_key));
 
-      if (!safeIds.length) {
+      if (!safeSessions.length) {
         toast({ title: 'Nothing safe to close', description: 'All stale sessions have open KOTs.' });
         return;
       }
 
-      const { error: closeErr } = await supabase
-        .from('sessions')
-        .update({ status: 'closed', ended_at: new Date().toISOString() })
-        .in('id', safeIds);
+      // One service_ended event per table — same reasoning as handleEndService:
+      // this must go through the ledger so the table actually frees and the
+      // kiosk actually resets, not just the sessions projection.
+      let closed = 0;
+      let failed = 0;
+      for (const s of safeSessions) {
+        if (!s.table_id) { failed++; continue; }
+        const { error: rpcErr } = await supabase.rpc('append_event', {
+          p_event_id: crypto.randomUUID(),
+          p_restaurant_id: RESTAURANT_ID,
+          p_table_id: s.table_id,
+          p_event_type: 'service_ended',
+          p_payload: { created_by: user?.id ?? null },
+        });
+        if (rpcErr) failed++; else closed++;
+      }
 
-      if (closeErr) throw closeErr;
-
-      toast({ title: `${safeIds.length} session(s) closed`, description: 'Stale kiosk sessions cleaned up.' });
+      if (closed > 0) {
+        toast({ title: `${closed} session(s) closed`, description: 'Stale kiosk sessions cleaned up.' });
+      }
+      if (failed > 0) {
+        toast({ title: `${failed} session(s) failed to close`, variant: 'destructive' });
+      }
       fetchTables();
     } catch (err: any) {
       toast({ title: 'Cleanup failed', description: err.message, variant: 'destructive' });

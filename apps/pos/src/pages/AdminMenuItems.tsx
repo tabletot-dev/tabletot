@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { RESTAURANT_ID } from '@/lib/restaurant';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -69,6 +70,7 @@ export default function AdminMenuItems() {
     const { data, error } = await supabase
       .from('menu_items')
       .select('id, name, category, price, active, tags')
+      .eq('restaurant_id', RESTAURANT_ID)
       .order('name', { ascending: true });
 
     if (error) {
@@ -149,9 +151,11 @@ export default function AdminMenuItems() {
         fetchItems();
       }
     } else {
+      // restaurant_id has no DB default (0033 only covered restaurant_tables)
+      // — omitting it left new items invisible to the kiosk (audit H3).
       const { error } = await supabase
         .from('menu_items')
-        .insert(payload);
+        .insert({ ...payload, restaurant_id: RESTAURANT_ID });
 
       if (error) {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
