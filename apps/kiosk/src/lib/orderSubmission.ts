@@ -92,6 +92,19 @@ export async function startSession(displayName?: string): Promise<void> {
   }
 }
 
+function cartKey(cart: OrderItem[]): string {
+  return cart.map((item) => `${item.id}:${item.quantity}`).sort().join('|');
+}
+
+// Keyed by cart contents so a retry of the SAME submission (same items/qty)
+// reuses its event_id, while a genuinely new round (cart changed since the
+// last attempt) gets a fresh one. Previously eventId was minted fresh on
+// every submitOrder() call, so a retry after a lost response (RPC committed
+// server-side, only the network reply was lost) generated a NEW key —
+// exactly the case idempotency was supposed to cover — and the kitchen could
+// receive the round twice.
+let pendingSubmit: { key: string; eventId: string } | null = null;
+
 // Each "Send to Kitchen" call appends one order_submitted event to the
 // ledger. The RPC (0048) is the sole writer of round identity — no client
 // order id involved — so round 2+ always merges into the right order
@@ -107,9 +120,12 @@ export async function submitOrder(
     modifiers: [] as string[],
   }));
 
-  // One event_id per submit attempt-group: a retry of THIS submission reuses
-  // the id, so the kitchen can never receive the round twice.
-  const eventId = crypto.randomUUID();
+  const key = cartKey(cart);
+  if (!pendingSubmit || pendingSubmit.key !== key) {
+    pendingSubmit = { key, eventId: crypto.randomUUID() };
+  }
+  const eventId = pendingSubmit.eventId;
+
   let data: Json;
   try {
     data = await appendEvent(
@@ -118,12 +134,14 @@ export async function submitOrder(
       eventId,
     );
   } catch (error) {
+    // Leave pendingSubmit set — a retry of this same cart reuses eventId.
     const msg = (error as Error).message ?? '';
     if (msg.includes('ordering is closed')) throw new OrderSubmissionError('session', msg);
     if (msg.includes('not found')) throw new OrderSubmissionError('order', msg);
     throw new OrderSubmissionError('kot', msg);
   }
 
+  pendingSubmit = null;
   const result = data as unknown as { order_id: string; kot_id: string; total: number };
   return { orderId: result.order_id, kotId: result.kot_id };
 }

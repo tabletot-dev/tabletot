@@ -33,12 +33,13 @@ export default function AnchorItems() {
   const [adding, setAdding] = useState(false);
 
   const fetchMenuItems = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('menu_items')
       .select('id, name')
       .eq('restaurant_id', RESTAURANT_ID)
       .eq('active', true)
       .order('name');
+    if (error) toast.error('Error loading menu items');
     if (data) setMenuItems(data as MenuItemOption[]);
   }, []);
 
@@ -98,6 +99,7 @@ export default function AnchorItems() {
   };
 
   const deleteAnchor = async (id: string) => {
+    if (!confirm('Delete this anchor item?')) return;
     const { error } = await supabase.from('anchor_items').delete().eq('id', id);
     if (error) toast.error('Delete failed');
     else fetchAnchors();
@@ -109,10 +111,16 @@ export default function AnchorItems() {
     if (swapIdx < 0 || swapIdx >= anchors.length) return;
     const a = anchors[idx];
     const b = anchors[swapIdx];
-    await Promise.all([
+    // Neither result was checked before — a partial failure (one write lands,
+    // one doesn't) left two anchors sharing a priority, after which the
+    // up/down buttons swap equal values and appear dead with no error shown.
+    const [resA, resB] = await Promise.all([
       supabase.from('anchor_items').update({ priority: b.priority }).eq('id', a.id),
       supabase.from('anchor_items').update({ priority: a.priority }).eq('id', b.id),
     ]);
+    if (resA.error || resB.error) {
+      toast.error('Failed to reorder — priorities may be out of sync, reloading current state.');
+    }
     fetchAnchors();
   };
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { RESTAURANT_ID } from '@/lib/restaurant';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,10 +21,31 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 
 const VOICE_ENGINE_URL = (import.meta.env.VITE_VOICE_ENGINE_URL as string | undefined) || '';
+const VOICE_ADMIN_KEY = (import.meta.env.VITE_VOICE_ADMIN_KEY as string | undefined) || '';
 
+// Previously sent no X-Admin-Key, so the voice engine's 403 was swallowed by
+// .catch(() => {}) — menu edits only reached voice via the 6-hour background
+// cycle, silently. Surfaced now instead of hidden.
 function refreshVoiceMenu() {
   if (!VOICE_ENGINE_URL) return;
-  fetch(`${VOICE_ENGINE_URL}/admin/refresh-menu`, { method: 'POST' }).catch(() => {});
+  fetch(`${VOICE_ENGINE_URL}/admin/refresh-menu`, {
+    method: 'POST',
+    headers: VOICE_ADMIN_KEY ? { 'X-Admin-Key': VOICE_ADMIN_KEY } : {},
+  }).then((res) => {
+    if (!res.ok) {
+      toast({
+        title: 'Voice menu refresh failed',
+        description: `Voice engine returned ${res.status}. Voice ordering may show stale prices/items until the next background refresh.`,
+        variant: 'destructive',
+      });
+    }
+  }).catch(() => {
+    toast({
+      title: 'Voice menu refresh unreachable',
+      description: 'Could not reach the voice engine. Voice ordering may show stale prices/items until the next background refresh.',
+      variant: 'destructive',
+    });
+  });
 }
 
 interface MenuItem {
@@ -59,6 +81,7 @@ export default function Menu() {
       const { data, error } = await supabase
         .from('menu_items')
         .select('id, name, price, category, description, image_url, active')
+        .eq('restaurant_id', RESTAURANT_ID)
         .order('category', { ascending: true });
 
       if (error) throw error;
@@ -87,7 +110,10 @@ export default function Menu() {
         if (error) throw error;
         toast({ title: 'Item updated successfully' });
       } else {
-        const { error } = await supabase.from('menu_items').insert(itemData);
+        // restaurant_id has no DB default (0033 only covered restaurant_tables)
+        // — omitting it left new items invisible to the kiosk, which filters
+        // menu_items by restaurant_id (audit H3).
+        const { error } = await supabase.from('menu_items').insert({ ...itemData, restaurant_id: RESTAURANT_ID });
         if (error) throw error;
         toast({ title: 'Item added successfully' });
       }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { RESTAURANT_ID } from '@/lib/restaurant';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,11 @@ interface Order {
   items_json: Json;
   created_at: string;
   source: string | null;
+  // Settled orders come from order_history — payment_settled (0049) deletes
+  // the live `orders` row after archiving, so without this union a table's
+  // order became unfindable here the moment it was paid (audit finding).
+  settled: boolean;
+  payment_method?: string | null;
 }
 
 export default function Orders() {
@@ -47,24 +53,55 @@ export default function Orders() {
 
   const fetchOrders = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const [liveRes, historyRes] = await Promise.all([
+        supabase
+          .from('orders')
+          .select('*')
+          .eq('restaurant_id', RESTAURANT_ID)
+          .order('created_at', { ascending: false }),
+        // order_history has no restaurant_id column (single-tenant pilot
+        // assumption baked into 0043) — cannot scope this query until that's
+        // added. Flagged in CHANGELOG.md alongside the same gap in Reports.tsx.
+        supabase
+          .from('order_history')
+          .select('*')
+          .order('order_created_at', { ascending: false })
+          .limit(100),
+      ]);
+      if (liveRes.error) throw liveRes.error;
+      if (historyRes.error) throw historyRes.error;
 
-      if (error) throw error;
+      const liveOrders: Order[] = (liveRes.data || []).map((o) => ({ ...o, settled: false }));
+      const settledOrders: Order[] = (historyRes.data || []).map((o) => ({
+        id: o.original_order_id ?? o.id,
+        order_id: o.order_id ?? '',
+        order_type: o.order_type ?? '',
+        table_no: o.table_no,
+        status: 'paid',
+        subtotal: o.subtotal,
+        tax: o.tax,
+        total: o.total,
+        items_json: o.items_json,
+        created_at: o.order_created_at ?? o.created_at,
+        source: o.source,
+        settled: true,
+        payment_method: o.payment_method,
+      }));
+      const merged = [...liveOrders, ...settledOrders].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
 
       const currentIds = prevOrderIdsRef.current;
       const newlyAdded = new Set<string>();
 
-      (data || []).forEach(order => {
+      liveOrders.forEach(order => {
         if (!currentIds.has(order.id)) newlyAdded.add(order.id);
         currentIds.add(order.id);
       });
 
       if (newlyAdded.size > 0 && prevOrderIdsRef.current.size > 0) {
         setRecentlyAdded(newlyAdded);
-        const tabletotOrders = (data || []).filter(o => newlyAdded.has(o.id) && o.source === 'Tabletot');
+        const tabletotOrders = liveOrders.filter(o => newlyAdded.has(o.id) && o.source === 'Tabletot');
         if (tabletotOrders.length > 0) {
           toast({
             title: '🔔 New Tabletot Order!',
@@ -74,7 +111,7 @@ export default function Orders() {
         setTimeout(() => setRecentlyAdded(new Set()), 3000);
       }
 
-      setOrders(data || []);
+      setOrders(merged);
       setIsConnected(true);
     } catch {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to load orders.' });
@@ -91,7 +128,7 @@ export default function Orders() {
       .channel('orders-realtime')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
+        { event: '*', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${RESTAURANT_ID}` },
         () => fetchOrders(),
       )
       .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'));
@@ -179,6 +216,7 @@ export default function Orders() {
                       <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
                       {getSourceBadge(order.source)}
                       {order.table_no && <Badge variant="secondary">Table {order.table_no}</Badge>}
+                      {order.settled && <Badge variant="outline" className="capitalize">Settled{order.payment_method ? ` · ${order.payment_method}` : ''}</Badge>}
                       {recentlyAdded.has(order.id) && <Badge className="bg-primary animate-bounce">NEW</Badge>}
                     </div>
                     <p className="text-sm text-muted-foreground">
@@ -189,16 +227,18 @@ export default function Orders() {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <Select value={order.status} onValueChange={status => updateOrderStatus(order.id, status)}>
-                      <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="new">New</SelectItem>
-                        <SelectItem value="served">Served</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="paid">Paid</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {!order.settled && (
+                      <Select value={order.status} onValueChange={status => updateOrderStatus(order.id, status)}>
+                        <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="new">New</SelectItem>
+                          <SelectItem value="served">Served</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="paid">Paid</SelectItem>
+                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                     <Button
                       variant="outline"
                       size="icon"

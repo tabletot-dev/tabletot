@@ -68,6 +68,10 @@ export function useDeviceNavigation() {
     track("item_removed", { itemId });
   }, []);
 
+  // Throws on failure instead of alert()ing — a blocking native dialog has no
+  // "try again" path and stalls the whole kiosk. The cart is left untouched
+  // on failure either way; callers surface the error (toast) and let the
+  // customer retry Confirm.
   const confirmOrder = useCallback(async () => {
     if (order.length > 0) {
       let orderId: string;
@@ -75,10 +79,8 @@ export function useDeviceNavigation() {
         const result = await submitOrder(order);
         orderId = result.orderId;
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
         console.error("Order submission failed:", err);
-        alert(`Order could not be sent: ${msg}`);
-        return;
+        throw err;
       }
       setPreviousOrders((prev) => [
         ...prev,
@@ -129,7 +131,10 @@ export function useDeviceNavigation() {
   }, []);
 
   const totalBill = order.reduce((sum, o) => sum + o.price * o.quantity, 0);
-  const sessionTotal = previousOrders.reduce((sum, r) => sum + r.total, 0) + totalBill;
+  // Submitted rounds only — BillView itemizes previousOrders, not the unsent
+  // cart, so including totalBill here made the displayed total exceed the
+  // sum of its own listed lines (and what POS actually charges) (audit M1).
+  const sessionTotal = previousOrders.reduce((sum, r) => sum + r.total, 0);
   const currentRoundOrderId = previousOrders.length > 0
     ? previousOrders[previousOrders.length - 1].orderId
     : null;

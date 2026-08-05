@@ -34,12 +34,13 @@ export default function ItemPairings() {
   const [adding, setAdding] = useState(false);
 
   const fetchMenuItems = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('menu_items')
       .select('id, name')
       .eq('restaurant_id', RESTAURANT_ID)
       .eq('active', true)
       .order('name');
+    if (error) toast.error('Error loading menu items');
     if (data) setMenuItems(data as MenuItemOption[]);
   }, []);
 
@@ -89,6 +90,7 @@ export default function ItemPairings() {
   };
 
   const deletePairing = async (id: string) => {
+    if (!confirm('Delete this pairing?')) return;
     const { error } = await supabase.from('item_pairings').delete().eq('id', id);
     if (error) toast.error('Delete failed');
     else fetchPairings();
