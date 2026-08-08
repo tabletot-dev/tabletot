@@ -5772,6 +5772,13 @@ body {
   white-space: nowrap;
 }
 
+.tt-cart-name-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--tt-space-1);
+}
+
 .tt-cart-totals {
   display: flex;
   flex-direction: column;

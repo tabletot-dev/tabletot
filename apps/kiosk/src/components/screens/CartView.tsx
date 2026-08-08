@@ -1,16 +1,20 @@
+import { useState } from "react";
 import type { OrderItem } from "@/data/menu";
 import type { OrderRound } from "@/hooks/useDeviceNavigation";
 import TabletotLogo from "@/components/TabletotLogo";
 import { itemImageBackground } from "@/lib/menuImages";
 import { computeTotals } from "@/lib/pricing";
 
+const MAX_NAME_LENGTH = 24;
+
 interface CartViewProps {
   order: OrderItem[];
   totalBill: number;
   previousOrders: OrderRound[];
   isSubmitting: boolean;
+  showNameField?: boolean;
   onContinue: () => void;
-  onConfirm: () => void;
+  onConfirm: (displayName?: string) => void;
   onUpdateQuantity: (itemId: string, delta: number) => void;
 }
 
@@ -19,11 +23,13 @@ export default function CartView({
   totalBill,
   previousOrders,
   isSubmitting,
+  showNameField = false,
   onContinue,
   onConfirm,
   onUpdateQuantity,
 }: CartViewProps) {
   const { subtotal, tax, total } = computeTotals(totalBill);
+  const [displayName, setDisplayName] = useState("");
 
   return (
     <section className="tt-cart">
@@ -86,6 +92,20 @@ export default function CartView({
         </div>
       )}
 
+      {showNameField && (
+        <label className="tt-cart-name-field">
+          <span className="tt-badge">Name for this order</span>
+          <input
+            className="tt-field"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="Optional"
+            maxLength={MAX_NAME_LENGTH}
+            aria-label="Name for this order"
+          />
+        </label>
+      )}
+
       <div className="tt-cart-totals">
         <div className="summary-line">
           <span>Subtotal</span>
@@ -104,7 +124,7 @@ export default function CartView({
       <div className="tt-cart-actions">
         <button
           className="tt-btn--primary"
-          onClick={onConfirm}
+          onClick={() => onConfirm(showNameField ? displayName.trim() || undefined : undefined)}
           disabled={order.length === 0 || isSubmitting}
         >
           {isSubmitting ? "Sending…" : "Send to kitchen"}

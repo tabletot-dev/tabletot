@@ -7,7 +7,6 @@ import type { TableState } from "@/lib/ledger";
 export type ScreenType =
   | "idle"
   | "home"
-  | "identity"
   | "listening"
   | "menu"
   | "item-detail"

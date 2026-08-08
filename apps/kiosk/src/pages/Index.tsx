@@ -11,7 +11,6 @@ import SentView from "@/components/screens/SentView";
 import CancelConfirm from "@/components/screens/CancelConfirm";
 import ConfirmationView from "@/components/screens/ConfirmationView";
 import WaitingView from "@/components/screens/WaitingView";
-import IdentityView from "@/components/screens/IdentityView";
 const BillView = lazy(() => import("@/components/screens/BillView"));
 const GamesView = lazy(() => import("@/components/screens/GamesView"));
 const ConversationStartersView = lazy(() => import("@/components/screens/ConversationStartersView"));
@@ -53,7 +52,7 @@ function wait(ms: number) {
 // Pre-submit browsing screens only — session-idle/games/conversation-starters
 // are static screens where no activity is expected by design (see
 // docs/plans/2026-08-03-idle-table-notification.md).
-const NUDGE_ELIGIBLE_SCREENS = new Set(["home", "menu", "item-detail", "order-summary", "identity"]);
+const NUDGE_ELIGIBLE_SCREENS = new Set(["home", "menu", "item-detail", "order-summary"]);
 const NUDGE_THRESHOLD_MS = 3.5 * 60 * 1000;
 
 const IndexInner = () => {
@@ -353,11 +352,13 @@ const IndexInner = () => {
     [order],
   );
 
-  const handleConfirmOrder = useCallback(async () => {
+  const handleConfirmOrder = useCallback(async (displayName?: string) => {
     if (isSubmitting) return;
     if (promptForIdentity && !isIdentityResolved()) {
-      setCurrentScreen("identity");
-      return;
+      if (displayName) {
+        await setSessionDisplayName(displayName);
+      }
+      markIdentityResolved();
     }
     setIsSubmitting(true);
     try {
@@ -413,19 +414,6 @@ const IndexInner = () => {
             }}
             onInfoToast={(msg) => setToast(msg)}
             tableId={TABLE_ID}
-          />
-        );
-      case "identity":
-        return (
-          <IdentityView
-            onContinue={async (displayName) => {
-              if (displayName) {
-                await setSessionDisplayName(displayName);
-              }
-              markIdentityResolved();
-              setCurrentScreen("order-summary");
-              await handleConfirmOrder();
-            }}
           />
         );
       case "listening":
@@ -498,6 +486,7 @@ const IndexInner = () => {
             totalBill={totalBill}
             previousOrders={previousOrders}
             isSubmitting={isSubmitting}
+            showNameField={promptForIdentity && !isIdentityResolved()}
             onContinue={() => setCurrentScreen("menu")}
             onConfirm={handleConfirmOrder}
             onUpdateQuantity={handleUpdateQuantity}
