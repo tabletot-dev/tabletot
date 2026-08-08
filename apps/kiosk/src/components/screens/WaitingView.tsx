@@ -14,6 +14,7 @@ interface WaitingViewProps {
   onGames: () => void;
   onConversationStarters: () => void;
   onRequestWater?: () => void;
+  onCallStaff?: () => void;
 }
 
 type KitchenStatus = "new" | "preparing" | "ready" | "served" | "unknown";
@@ -54,6 +55,7 @@ export default function WaitingView({
   onGames,
   onConversationStarters,
   onRequestWater,
+  onCallStaff,
 }: WaitingViewProps) {
   const { promos } = useRestaurant();
   const [promoIndex, setPromoIndex] = useState(0);
@@ -123,68 +125,71 @@ export default function WaitingView({
   const promo = promos[promoIndex];
 
   return (
-    <section className="view idle-view">
+    <section className="tt-status">
       {promo && (
-        <div className="idle-slideshow panel">
+        <div className="tt-status-promo">
           <div
-            className="idle-slideshow-media"
+            className="tt-status-promo-media"
             style={{ background: PROMO_GRADIENTS[promoIndex % PROMO_GRADIENTS.length] }}
           />
-          <div className="idle-slideshow-copy">
-            <p className="eyebrow">While you wait</p>
+          <div className="tt-status-promo-copy">
+            <p className="tt-badge">While you wait</p>
             <strong>{promo.title}</strong>
             <span>{promo.copy}</span>
-            <div className="idle-dots">
+            <div className="tt-status-promo-dots">
               {promos.map((p, i) => (
-                <span key={p.id} className={`idle-dot${i === promoIndex ? " active" : ""}`} />
+                <span key={p.id} className={`tt-status-promo-dot${i === promoIndex ? " active" : ""}`} />
               ))}
             </div>
           </div>
         </div>
       )}
 
-      <div className="idle-status panel">
-        <div className="idle-status-copy">
-          <p className="eyebrow">Order Status</p>
-          <h2>
-            {(() => {
-              const name = getDisplayName();
-              if (kitchenStatus === "served") {
-                return name ? `Your order has arrived, ${name}!` : "Your order has arrived!";
-              }
-              return name
-                ? `Your order is being prepared, ${name}`
-                : "Your order is being prepared";
-            })()}
-          </h2>
-          <p className="hero-sub">
-            {itemCount > 0 ? `${itemCount} item${itemCount === 1 ? "" : "s"} in progress. ` : ""}
-            {kitchenStatus === "served"
-              ? "Enjoy your meal!"
-              : `The kitchen is currently at the `}
-            {kitchenStatus !== "served" && <strong>{stage.toLowerCase()}</strong>}
-            {kitchenStatus !== "served" && " stage."}
-          </p>
-          {sentItems.length > 0 && (
-            <div className="status-order-summary" aria-label="Already ordered items">
-              <div>
-                <span>Already ordered</span>
-                <strong>{sentItems.length} item{sentItems.length === 1 ? "" : "s"}</strong>
-              </div>
-              <div className="status-order-list">
-                {sentItems.slice(0, 4).map((item) => (
-                  <span key={`${item.roundNumber}-${item.id}`}>
-                    {item.quantity}x {item.name}
-                  </span>
-                ))}
-                {sentItems.length > 4 && <span>+{sentItems.length - 4} more</span>}
-              </div>
+      <div className="tt-status-card">
+        <p className="tt-badge">Order Status</p>
+        <h2>
+          {(() => {
+            const name = getDisplayName();
+            if (kitchenStatus === "served") {
+              return name ? `Your order has arrived, ${name}!` : "Your order has arrived!";
+            }
+            return name
+              ? `Your order is being prepared, ${name}`
+              : "Your order is being prepared";
+          })()}
+        </h2>
+        <p className="tt-status-sub">
+          {itemCount > 0 ? `${itemCount} item${itemCount === 1 ? "" : "s"} in progress. ` : ""}
+          {kitchenStatus === "served"
+            ? "Enjoy your meal!"
+            : `The kitchen is currently at the `}
+          {kitchenStatus !== "served" && <strong>{stage.toLowerCase()}</strong>}
+          {kitchenStatus !== "served" && " stage."}
+        </p>
+        {sentItems.length > 0 && (
+          <div className="tt-status-summary" aria-label="Already ordered items">
+            <div className="tt-status-summary-head">
+              <span>Already ordered</span>
+              <strong>{sentItems.length} item{sentItems.length === 1 ? "" : "s"}</strong>
             </div>
-          )}
-        </div>
+            <div className="tt-status-summary-list">
+              {sentItems.slice(0, 4).map((item) => (
+                <span key={`${item.roundNumber}-${item.id}`}>
+                  {item.quantity}x {item.name}
+                </span>
+              ))}
+              {sentItems.length > 4 && <span>+{sentItems.length - 4} more</span>}
+            </div>
+          </div>
+        )}
         <div className="tt-stages" aria-label={`Kitchen stage: ${stage}`}>
           {STAGES.map((label, i) => (
-            <div key={label} className={`tt-stages-step${i === stageIndex ? " active" : ""}`}>
+            <div
+              key={label}
+              className={`tt-stages-step${
+                i === stageIndex ? " active" : i < stageIndex ? " done" : ""
+              }`}
+            >
               {label}
             </div>
           ))}
@@ -200,28 +205,37 @@ export default function WaitingView({
         >
           Order More
         </button>
-        <button
-          className="tt-btn--secondary"
-          onClick={onRequestBill}
-        >
-          {billRequested ? "Bill Requested" : "Request Bill"}
-        </button>
-        {onRequestWater && (
+        <div className="tt-status-actions-row">
+          <button className="tt-btn--secondary" onClick={onGames}>
+            Games
+          </button>
+          <button className="tt-btn--secondary" onClick={onConversationStarters}>
+            Conversation Starters
+          </button>
+        </div>
+        <div className="tt-status-actions-row">
+          {onRequestWater && (
+            <button
+              className="tt-btn--secondary"
+              onClick={onRequestWater}
+              aria-label="Request for water"
+            >
+              <span>Water</span>
+              <WaterIcon />
+            </button>
+          )}
+          {onCallStaff && (
+            <button className="tt-btn--secondary" onClick={onCallStaff}>
+              Call Staff
+            </button>
+          )}
           <button
             className="tt-btn--secondary"
-            onClick={onRequestWater}
-            aria-label="Request for water"
+            onClick={onRequestBill}
           >
-            <span>Request for water</span>
-            <WaterIcon />
+            {billRequested ? "Bill Requested" : "Bill"}
           </button>
-        )}
-        <button className="tt-btn--secondary" onClick={onGames}>
-          Games
-        </button>
-        <button className="tt-btn--secondary" onClick={onConversationStarters}>
-          Conversation Starters
-        </button>
+        </div>
       </div>
     </section>
   );

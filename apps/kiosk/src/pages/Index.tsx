@@ -536,6 +536,20 @@ const IndexInner = () => {
                 setToast("Couldn't request water — please ask a server");
               }
             }}
+            onCallStaff={async () => {
+              try {
+                const tableUuid = await resolveTableId();
+                const { error } = await supabase.from("table_requests").insert({
+                  table_id: tableUuid,
+                  request_type: "assistance",
+                  status: "pending",
+                });
+                if (error) throw error;
+                setToast("Staff on the way");
+              } catch {
+                setToast("Couldn't reach staff — please wave someone down");
+              }
+            }}
           />
         );
       case "games":

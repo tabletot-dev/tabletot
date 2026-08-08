@@ -1255,149 +1255,6 @@ button {
   height: min(54vw, 300px);
 }
 
-.idle-view {
-  min-height: 100%;
-  display: grid;
-  grid-template-rows: minmax(0, 1.2fr) auto auto;
-  gap: 16px;
-}
-
-.idle-slideshow,
-.idle-status {
-  padding: 0;
-  overflow: hidden;
-}
-
-.idle-slideshow {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-}
-
-.idle-slideshow-media {
-  min-height: 340px;
-  background-position: center;
-  background-size: cover;
-}
-
-.idle-slideshow-copy {
-  padding: 22px 24px 24px;
-  display: grid;
-  gap: 10px;
-}
-
-.idle-slideshow-copy strong,
-.idle-status-copy h2 {
-  font-family: "Sora", sans-serif;
-  letter-spacing: -0.04em;
-}
-
-.idle-slideshow-copy strong {
-  font-size: clamp(34px, 3.4vw, 52px);
-  line-height: 0.98;
-}
-
-.idle-slideshow-copy span {
-  color: var(--muted);
-  font-size: 18px;
-  line-height: 1.5;
-}
-
-.idle-dots {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 4px;
-}
-
-.idle-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 999px;
-  background: rgba(42, 21, 15, 0.18);
-}
-
-.idle-dot.active {
-  background: var(--brand);
-}
-
-.idle-status {
-  padding: 22px 24px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
-  gap: 18px;
-  align-items: center;
-}
-
-.idle-status-copy h2 {
-  margin: 8px 0 0;
-  font-size: clamp(28px, 2.6vw, 42px);
-  line-height: 1.02;
-}
-
-.status-order-summary {
-  margin-top: 14px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 14px;
-  padding: 12px;
-  border-radius: 18px;
-  background: rgba(255, 255, 252, 0.72);
-  border: 1px solid rgba(35, 28, 22, 0.1);
-}
-
-.status-order-summary > div:first-child {
-  display: grid;
-  gap: 3px;
-}
-
-.status-order-summary span {
-  color: rgba(21, 22, 20, 0.58);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.status-order-summary > div:first-child span {
-  color: var(--brand);
-  font-family: "JetBrains Mono", monospace;
-  font-size: 9px;
-  font-weight: 900;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.status-order-summary strong {
-  color: #151614;
-  font-size: 17px;
-  line-height: 1;
-}
-
-.status-order-list {
-  min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  justify-content: flex-end;
-}
-
-.status-order-list span {
-  max-width: 170px;
-  padding: 7px 10px;
-  border-radius: 999px;
-  background: rgba(21, 22, 20, 0.06);
-  color: #151614;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-
-
-
-
-
-
-
 
 
 
@@ -5526,6 +5383,106 @@ body {
   margin-top: var(--tt-space-4);
 }
 
+/* ── Table Status ───────────────────────────────────────────── */
+
+.tt-status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tt-space-3);
+}
+
+.tt-status-promo {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--tt-radius-card);
+  border: 2px solid var(--tt-line);
+  overflow: hidden;
+}
+
+.tt-status-promo-media {
+  min-height: calc(120px * var(--tt-scale));
+  background-size: cover;
+  background-position: center;
+}
+
+.tt-status-promo-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--tt-space-1);
+  padding: var(--tt-pad-card);
+  background: var(--tt-paper);
+}
+
+.tt-status-promo-dots {
+  display: flex;
+  gap: var(--tt-space-1);
+  margin-top: var(--tt-space-1);
+}
+
+.tt-status-promo-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--tt-line);
+}
+
+.tt-status-promo-dot.active {
+  background: var(--tt-ink);
+}
+
+.tt-status-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tt-space-3);
+  padding: var(--tt-pad-card);
+  border-radius: var(--tt-radius-card);
+  background: var(--tt-paper);
+  border: 2px solid var(--tt-line);
+}
+
+.tt-status-card h2 {
+  font-family: var(--tt-font-display);
+  font-weight: 700;
+  font-size: var(--tt-size-heading);
+  margin: 0;
+}
+
+.tt-status-sub {
+  margin: 0;
+  color: var(--tt-ink-60);
+  font-size: var(--tt-size-body);
+}
+
+.tt-status-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tt-space-1);
+  padding: var(--tt-space-2);
+  border-radius: var(--tt-radius-chip);
+  background: var(--tt-field);
+  border: 2px solid var(--tt-line);
+}
+
+.tt-status-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tt-status-summary-head span {
+  color: var(--tt-ink-60);
+  font-size: var(--tt-size-meta);
+}
+
+.tt-status-summary-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tt-space-1);
+  color: var(--tt-ink-60);
+  font-size: var(--tt-size-meta);
+}
+
 /* ── Stages (Table Status) ─────────────────────────────────── */
 
 .tt-stages {
@@ -5543,20 +5500,37 @@ body {
   gap: var(--tt-space-1);
   border-radius: var(--tt-radius-chip);
   background: var(--tt-field);
+  border: 2px solid var(--tt-line);
   color: var(--tt-ink-60);
   font-weight: 700;
   font-size: var(--tt-size-meta);
 }
 
-.tt-stages-step.active {
+.tt-stages-step.done {
   background: var(--tt-ink);
+  border-color: var(--tt-ink);
   color: var(--tt-on-dark);
+}
+
+.tt-stages-step.active {
+  background: var(--tt-action);
+  border-color: var(--tt-action);
+  color: #fff;
 }
 
 .tt-status-actions {
   display: flex;
   flex-direction: column;
   gap: var(--tt-space-2);
+}
+
+.tt-status-actions-row {
+  display: flex;
+  gap: var(--tt-space-2);
+}
+
+.tt-status-actions-row .tt-btn--secondary {
+  flex: 1;
 }
 
 .tt-status-actions button {
