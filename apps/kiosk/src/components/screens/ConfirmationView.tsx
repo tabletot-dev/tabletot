@@ -12,18 +12,14 @@ export default function ConfirmationView({ onReset }: ConfirmationViewProps) {
   }, [onReset]);
 
   return (
-    <section className="view confirmation-view">
-      <div className="confirmation-panel">
-        <div className="confirmation-logo-stage">
-          <TabletotLogo className="confirmation-boot-mark" />
-        </div>
-        <p className="eyebrow">Order confirmed</p>
-        <h1>Order sent to the kitchen.</h1>
-        <p className="hero-sub">
-          Your order has been placed successfully. This screen will switch to your table display in
-          5 seconds.
-        </p>
-      </div>
+    <section className="tt-confirmation">
+      <TabletotLogo className="tt-confirmation-logo" />
+      <p className="tt-badge">Order confirmed</p>
+      <h1>Order sent to the kitchen.</h1>
+      <p className="tt-confirmation-sub">
+        Your order has been placed successfully. This screen will switch to your table display in
+        5 seconds.
+      </p>
     </section>
   );
 }

@@ -1,14 +1,14 @@
 import TabletotLogo from "@/components/TabletotLogo";
+import { useRestaurant } from "@/lib/restaurantContext";
 
 const IdleScreen = ({ onActivate }: { onActivate: () => void }) => {
+  const { venueName } = useRestaurant();
+
   return (
-    <button className="idle-attract-screen" onClick={onActivate} aria-label="Touch anywhere to continue">
-      <TabletotLogo className="idle-tabletot-logo" />
-      <div className="idle-attract-lockup" aria-hidden="true">
-        <strong>SILVER</strong>
-        <span>SPECIALTY COFFEE</span>
-      </div>
-      <p>Touch anywhere to continue</p>
+    <button className="tt-attract" onClick={onActivate} aria-label="Touch anywhere to continue">
+      <TabletotLogo className="tt-attract-logo" />
+      <p className="tt-attract-venue">{venueName || "Tabletot"}</p>
+      <p className="tt-attract-prompt">Touch anywhere to continue</p>
     </button>
   );
 };

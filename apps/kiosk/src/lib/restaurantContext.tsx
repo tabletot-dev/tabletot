@@ -6,6 +6,7 @@ interface RestaurantCtx {
   tableId: string;
   voiceEnabled: boolean;
   promptForIdentity: boolean;
+  venueName: string;
 }
 
 const RestaurantContext = createContext<RestaurantCtx>({
@@ -13,6 +14,7 @@ const RestaurantContext = createContext<RestaurantCtx>({
   tableId: "",
   voiceEnabled: true,
   promptForIdentity: false,
+  venueName: "",
 });
 
 export function RestaurantProvider({ children }: { children: React.ReactNode }) {
@@ -24,19 +26,23 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
   // should go straight to menu, same as before this feature existed.
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [promptForIdentity, setPromptForIdentity] = useState(false);
+  const [venueName, setVenueName] = useState("");
 
   useEffect(() => {
     if (!restaurantId || !hasSupabaseConfig) return;
 
     supabase
       .from("restaurants")
-      .select("config")
+      .select("name, config")
       .eq("id", restaurantId)
       .single()
       .then(({ data, error }) => {
         if (error) {
           console.error("[RestaurantProvider] Failed to load restaurant config:", error.message);
           return;
+        }
+        if (data?.name) {
+          setVenueName(data.name);
         }
         if (data?.config && typeof data.config === "object") {
           const cfg = data.config as Record<string, unknown>;
@@ -51,7 +57,7 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
   }, [restaurantId]);
 
   return (
-    <RestaurantContext.Provider value={{ restaurantId, tableId, voiceEnabled, promptForIdentity }}>
+    <RestaurantContext.Provider value={{ restaurantId, tableId, voiceEnabled, promptForIdentity, venueName }}>
       {children}
     </RestaurantContext.Provider>
   );

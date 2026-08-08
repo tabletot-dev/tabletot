@@ -15,9 +15,9 @@ const GamesView = lazy(() => import("@/components/screens/GamesView"));
 const ConversationStartersView = lazy(() => import("@/components/screens/ConversationStartersView"));
 import CompletionNudge from "@/components/CompletionNudge";
 import VoiceOrderButton from "@/components/VoiceOrderButton";
-import MiniCartSidebar from "@/components/MiniCartSidebar";
 import VoiceConversationPanel from "@/components/VoiceConversationPanel";
 import AppShell from "@/components/AppShell";
+import OrderBar from "@/components/OrderBar";
 import { RestaurantProvider, useRestaurant } from "@/lib/restaurantContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -53,7 +53,7 @@ const NUDGE_ELIGIBLE_SCREENS = new Set(["home", "menu", "item-detail", "order-su
 const NUDGE_THRESHOLD_MS = 3.5 * 60 * 1000;
 
 const IndexInner = () => {
-  const { voiceEnabled, promptForIdentity } = useRestaurant();
+  const { voiceEnabled, promptForIdentity, venueName } = useRestaurant();
   const {
     currentScreen,
     setCurrentScreen,
@@ -194,7 +194,7 @@ const IndexInner = () => {
     };
   }, [tableUuid, handleEndSession]);
 
-  // Source defaults to "main_menu" so cart-side surfaces (MiniCartSidebar,
+  // Source defaults to "main_menu" so cart-side surfaces (OrderBar,
   // CartView) can call without thinking about attribution. High-stakes
   // attribution paths — pairing chip, completion nudge, detail view, voice —
   // pass their source explicitly.
@@ -427,94 +427,79 @@ const IndexInner = () => {
       case "menu":
       case "item-detail":
         return (
-          <div className="browse-layout">
-            <div className="browse-main">
-              <div className="browse-content">
-                <MenuView
-                  onSelect={handleSelectItem}
-                  onAddToCart={handleAddToOrder}
-                  onUpdateQuantity={handleUpdateQuantity}
-                  order={order}
-                  voiceDock={
-                    voiceEnabled ? (
-                      <VoiceOrderButton
-                        onDone={handleVoiceDone}
-                        order={order}
-                        restaurantId={RESTAURANT_ID}
-                        tableId={TABLE_ID}
-                        onOpenConversation={() => setVoiceConversationOpen(true)}
-                        onSessionReady={setVoiceSessionId}
-                        onTtsReady={(h) => { voiceTtsHandleRef.current = h; }}
-                      />
-                    ) : null
-                  }
-                  voicePanel={
-                    voiceEnabled && voiceConversationOpen ? (
-                      <VoiceConversationPanel
-                        sessionId={voiceSessionId}
-                        turns={voiceTurns}
-                        order={order}
-                        getQuantity={getOrderQuantity}
-                        onClose={() => setVoiceConversationOpen(false)}
-                        onDone={handleVoiceDone}
-                        onAddItem={handleAddToOrder}
-                        onUpdateQuantity={handleUpdateQuantity}
-                        onSelectItem={handleSelectItem}
-                        ttsHandle={voiceTtsHandleRef}
-                      />
-                    ) : null
-                  }
-                />
-                <AnimatePresence>
-                  {currentScreen === "item-detail" && selectedItem && (
-                    <motion.div
-                      className="item-modal-backdrop"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      onClick={() => setCurrentScreen("menu")}
-                    >
-                      <motion.div
-                        className="item-modal-panel"
-                        initial={{ y: 28, opacity: 0, scale: 0.98 }}
-                        animate={{ y: 0, opacity: 1, scale: 1 }}
-                        exit={{ y: 28, opacity: 0, scale: 0.98 }}
-                        transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <DetailView
-                          item={selectedItem}
-                          pairings={getDetailPairings(selectedItem)}
-                          onAdd={handleAddFromDetail}
-                          onAddItem={(i) => handleAddToOrder(i, "pairing_chip")}
-                          onUpdateQuantity={handleUpdateQuantity}
-                          getQuantity={getOrderQuantity}
-                          onBack={() => setCurrentScreen("menu")}
-                          onSelectPairing={handleSelectItem}
-                          onOpenVoice={() => {
-                            setCurrentScreen("menu");
-                            setVoiceConversationOpen(true);
-                          }}
-                        />
-                      </motion.div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-
-              </div>
-
-              <MiniCartSidebar
-                order={order}
-                previousOrders={previousOrders}
-                onAddToCart={handleAddToOrder}
-                onUpdateQuantity={handleUpdateQuantity}
-                onSelect={handleSelectItem}
-                onGoToCart={() => setCurrentScreen("order-summary")}
-              />
-            </div>
-          </div>
+          <>
+            <MenuView
+              onSelect={handleSelectItem}
+              onAddToCart={handleAddToOrder}
+              onUpdateQuantity={handleUpdateQuantity}
+              order={order}
+              voiceDock={
+                voiceEnabled ? (
+                  <VoiceOrderButton
+                    onDone={handleVoiceDone}
+                    order={order}
+                    restaurantId={RESTAURANT_ID}
+                    tableId={TABLE_ID}
+                    onOpenConversation={() => setVoiceConversationOpen(true)}
+                    onSessionReady={setVoiceSessionId}
+                    onTtsReady={(h) => { voiceTtsHandleRef.current = h; }}
+                  />
+                ) : null
+              }
+              voicePanel={
+                voiceEnabled && voiceConversationOpen ? (
+                  <VoiceConversationPanel
+                    sessionId={voiceSessionId}
+                    turns={voiceTurns}
+                    order={order}
+                    getQuantity={getOrderQuantity}
+                    onClose={() => setVoiceConversationOpen(false)}
+                    onDone={handleVoiceDone}
+                    onAddItem={handleAddToOrder}
+                    onUpdateQuantity={handleUpdateQuantity}
+                    onSelectItem={handleSelectItem}
+                    ttsHandle={voiceTtsHandleRef}
+                  />
+                ) : null
+              }
+            />
+            <AnimatePresence>
+              {currentScreen === "item-detail" && selectedItem && (
+                <motion.div
+                  className="item-modal-backdrop"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  onClick={() => setCurrentScreen("menu")}
+                >
+                  <motion.div
+                    className="item-modal-panel"
+                    initial={{ y: 28, opacity: 0, scale: 0.98 }}
+                    animate={{ y: 0, opacity: 1, scale: 1 }}
+                    exit={{ y: 28, opacity: 0, scale: 0.98 }}
+                    transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <DetailView
+                      item={selectedItem}
+                      pairings={getDetailPairings(selectedItem)}
+                      onAdd={handleAddFromDetail}
+                      onAddItem={(i) => handleAddToOrder(i, "pairing_chip")}
+                      onUpdateQuantity={handleUpdateQuantity}
+                      getQuantity={getOrderQuantity}
+                      onBack={() => setCurrentScreen("menu")}
+                      onSelectPairing={handleSelectItem}
+                      onOpenVoice={() => {
+                        setCurrentScreen("menu");
+                        setVoiceConversationOpen(true);
+                      }}
+                    />
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>
         );
 
       case "order-summary":
@@ -600,9 +585,19 @@ const IndexInner = () => {
   return (
     <AppShell
       currentScreen={currentScreen}
-      onNavigate={setCurrentScreen}
       tableId={TABLE_ID}
-      showStatusReturn={previousOrders.length > 0 && currentScreen !== "session-idle"}
+      venueName={venueName || "Tabletot"}
+      orderBar={
+        currentScreen === "menu" || currentScreen === "item-detail" ? (
+          <OrderBar
+            itemCount={order.reduce((s, o) => s + o.quantity, 0)}
+            total={totalBill}
+            roundNumber={previousOrders.length + 1}
+            disabled={isSubmitting}
+            onReview={() => setCurrentScreen("order-summary")}
+          />
+        ) : null
+      }
     >
       <div style={{ position: "relative", height: "100%" }}>
         {renderScreen()}
