@@ -7,6 +7,8 @@ import ListeningScreen from "@/components/screens/ListeningScreen";
 import MenuView from "@/components/screens/MenuView";
 import DetailView from "@/components/screens/DetailView";
 import CartView from "@/components/screens/CartView";
+import SentView from "@/components/screens/SentView";
+import CancelConfirm from "@/components/screens/CancelConfirm";
 import ConfirmationView from "@/components/screens/ConfirmationView";
 import WaitingView from "@/components/screens/WaitingView";
 import IdentityView from "@/components/screens/IdentityView";
@@ -18,6 +20,8 @@ import VoiceOrderButton from "@/components/VoiceOrderButton";
 import VoiceConversationPanel from "@/components/VoiceConversationPanel";
 import AppShell from "@/components/AppShell";
 import OrderBar from "@/components/OrderBar";
+import StatusStrip from "@/components/StatusStrip";
+import { useRoundHold } from "@/hooks/useRoundHold";
 import { RestaurantProvider, useRestaurant } from "@/lib/restaurantContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -60,6 +64,7 @@ const IndexInner = () => {
     selectedItem,
     setSelectedItem,
     order,
+    setOrder,
     addToOrder,
     updateQuantity,
     removeItem,
@@ -71,6 +76,22 @@ const IndexInner = () => {
     currentRoundOrderId,
     previousOrders,
   } = useDeviceNavigation();
+
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+
+  // The hold's expiry is the ONLY path that reaches submitOrder. Pressing
+  // "Send to kitchen" starts the countdown; it does not submit.
+  const hold = useRoundHold(
+    useCallback(async () => {
+      try {
+        await confirmOrder();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setToast(`Order could not be sent: ${msg}`);
+        setCurrentScreen("order-summary");
+      }
+    }, [confirmOrder, setCurrentScreen]),
+  );
 
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [billRequested, setBillRequested] = useState(false);
@@ -323,16 +344,9 @@ const IndexInner = () => {
   const handleCompletionSkip = useCallback(async () => {
     setCompletionSuggestion(null);
     if (isSubmitting) return;
-    setIsSubmitting(true);
-    try {
-      await confirmOrder();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setToast(`Order could not be sent: ${msg}`);
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [confirmOrder, isSubmitting]);
+    hold.startHold(order);
+    setCurrentScreen("sent");
+  }, [hold, order, setCurrentScreen, isSubmitting]);
 
   const getOrderQuantity = useCallback(
     (itemId: string) => order.find((item) => item.id === itemId)?.quantity ?? 0,
@@ -356,14 +370,15 @@ const IndexInner = () => {
         }
       }
       await wait(1150);
-      await confirmOrder();
+      hold.startHold(order);
+      setCurrentScreen("sent");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setToast(`Order could not be sent: ${msg}`);
     } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, order, confirmOrder, promptForIdentity, setCurrentScreen]);
+  }, [isSubmitting, order, hold, promptForIdentity, setCurrentScreen]);
 
   const [toast, setToast] = useState<string>("");
   useEffect(() => {
@@ -488,6 +503,18 @@ const IndexInner = () => {
             onUpdateQuantity={handleUpdateQuantity}
           />
         );
+      case "sent":
+        return (
+          <SentView
+            items={hold.heldItems ?? order}
+            roundNumber={previousOrders.length + 1}
+            secondsLeft={hold.secondsLeft}
+            onEdit={() => { hold.cancelHold(); setCurrentScreen("order-summary"); }}
+            onCancel={() => setCancelConfirmOpen(true)}
+            onSendNow={hold.sendNow}
+            onOrderMore={() => setCurrentScreen("menu")}
+          />
+        );
       case "order-confirmation":
         return (
           <ConfirmationView
@@ -572,6 +599,15 @@ const IndexInner = () => {
           />
         ) : null
       }
+      statusStrip={
+        hold.isHolding && currentScreen !== "sent" ? (
+          <StatusStrip
+            label={`Round ${previousOrders.length + 1} → kitchen`}
+            detail={`${hold.secondsLeft}s · tap to change`}
+            onTap={() => setCurrentScreen("sent")}
+          />
+        ) : null
+      }
     >
       <div style={{ position: "relative", height: "100%" }}>
         {renderScreen()}
@@ -625,6 +661,20 @@ const IndexInner = () => {
               setCurrentScreen("order-summary");
             }}
             onSkip={handleCompletionSkip}
+          />
+        )}
+
+        {cancelConfirmOpen && (
+          <CancelConfirm
+            itemCount={order.reduce((s, o) => s + o.quantity, 0)}
+            hasCookingRounds={previousOrders.length > 0}
+            onKeep={() => setCancelConfirmOpen(false)}
+            onCancel={() => {
+              hold.cancelHold();
+              setOrder([]);
+              setCancelConfirmOpen(false);
+              setCurrentScreen(previousOrders.length > 0 ? "session-idle" : "menu");
+            }}
           />
         )}
 

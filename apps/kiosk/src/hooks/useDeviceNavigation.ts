@@ -12,6 +12,7 @@ export type ScreenType =
   | "menu"
   | "item-detail"
   | "order-summary"
+  | "sent"
   | "order-confirmation"
   | "session-idle"
   | "games"
