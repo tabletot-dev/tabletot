@@ -110,12 +110,21 @@ remove the fallback.
 pairings, anchor items. It is not a menu CRUD tool. Menu CRUD belongs in
 apps/pos and only for restaurants without their own POS admin.
 
-## Current status (as of 2026-06-03)
+## Current status (as of 2026-08-08)
 
 All four services deployed on Railway: kiosk, POS, dashboard, order-engine.
 
-**Active phase:** Hardware testing on a Lenovo Tab K9. Not yet in the
-restaurant. Fixing bugs surfaced by real-device usage.
+**Active phase:** Kiosk v1.0 visual redesign (`docs/plans/2026-08-08-kiosk-v1-redesign.md`).
+Sprints 0–5 ("simple scope" — Attract, Menu, Detail, Cart/Sent with the new
+2-minute kitchen hold, Confirmation, Table Status, Bill) are shipped and
+committed on branch `kiosk-redesign`, not yet pushed or deployed. Games,
+Table Talk, and the voice UI are intentionally unrebuilt (Sprints 6–7) and
+still run on the old "Warm Espresso" palette via a CSS bridge — see
+`docs/design-system.md`. Next step is showing the client Sprints 0–5 before
+deciding on 6–7. See `docs/notes/2026-08-08-kiosk-redesign-sprint-*.md` and
+ADR `docs/decisions/0021-two-minute-kitchen-hold.md`.
+
+Still on a Lenovo Tab K9 for hardware testing, not yet in the restaurant.
 
 **Next major milestone:** AOV data accuracy for the pilot restaurant.
 The system must produce trustworthy AOV numbers before Silver Specialty Coffee
@@ -124,4 +133,9 @@ can use them to measure lift. This means:
   anchor-on-empty, pre-submit nudge)
 - orders and order_items recorded with accurate amounts and item counts
 - AOV baseline vs. nudged sessions distinguishable in the data
+
+The redesign's Sprint 0 added a regression test
+(`apps/kiosk/src/components/__tests__/aov-attribution.test.tsx`) guarding this
+invariant, and Sprint 3 fixed a real attribution bug found along the way
+(DetailView's pairing stepper wasn't passing `source: "pairing_chip"`).
 

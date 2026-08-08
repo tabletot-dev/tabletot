@@ -142,6 +142,10 @@ final `items_json`. Therefore:
 
 ## Sprint 0 — Safety net
 
+**✅ Done (2026-08-08).** Committed on `kiosk-redesign`; no dedicated sprint
+note (nothing user-visible changed). See `docs/notes/2026-08-08-kiosk-redesign-sprint-1.md`
+onward for Sprints 1–5.
+
 **Nothing in this sprint changes how the kiosk looks.** It exists so the next six
 sprints can't silently break the AOV number or fail invisibly on the tablet.
 Do not skip it.
@@ -395,6 +399,8 @@ git commit -m "feat: Sentry error monitoring for the unattended kiosk"
 ---
 
 ## Sprint 1 — Token foundation
+
+**✅ Done (2026-08-08).** See `docs/notes/2026-08-08-kiosk-redesign-sprint-1.md`.
 
 After this sprint the app will look **broken** — old class names, new tokens,
 no layout rules. That is expected and it is fixed in Sprint 2. Do not try to
@@ -829,6 +835,8 @@ git commit -m "feat: component library classes with all six interactive states"
 
 ## Sprint 2 — Shell and docked bars
 
+**✅ Done (2026-08-08).** See `docs/notes/2026-08-08-kiosk-redesign-sprint-2.md`.
+
 ### Task 2.1: AppBar, OrderBar, StatusStrip
 
 **Files:**
@@ -1105,6 +1113,8 @@ git commit -m "feat: Attract and Confirmation on the v1.0 token set"
 ---
 
 ## Sprint 3 — Browse and Detail (AOV-critical)
+
+**✅ Done (2026-08-08).** See `docs/notes/2026-08-08-kiosk-redesign-sprint-3.md`.
 
 **Read this before starting.** `DishCard`'s pairing panel is the single highest-value
 AOV surface in the product. Its event logic — the `shownPairingIds` ref, the
@@ -1383,6 +1393,10 @@ git commit -m "feat: DetailView as full-screen push; real descriptions; fix pair
 ---
 
 ## Sprint 4 — Review, the 2-minute hold, and Sent
+
+**✅ Done (2026-08-08).** See `docs/notes/2026-08-08-kiosk-redesign-sprint-4.md`
+and ADR `docs/decisions/0021-two-minute-kitchen-hold.md`. Known gap: `extendHold`
+is not wired to any UI control — flagged in the ADR, not implemented.
 
 **The rule, in one sentence:** pressing "Send to kitchen" does **not** call
 `submitOrder`. It starts a 2-minute countdown. `submitOrder` runs when the
@@ -1919,6 +1933,11 @@ git commit -m "feat: 2-minute kitchen hold with Sent screen and cancel confirm"
 ---
 
 ## Sprint 5 — Status and Bill
+
+**✅ Done (2026-08-08).** See `docs/notes/2026-08-08-kiosk-redesign-sprint-5.md`.
+This closes "simple scope" (Sprints 0–5) — the whole visual story per this
+plan's own framing. Sprints 6–7 below are not started; show the client and
+decide before picking them up.
 
 ### Task 5.1: Table Status
 
