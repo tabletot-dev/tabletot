@@ -1,8 +1,20 @@
 # Tabletot Kiosk Design System
 
+> **Partially superseded (2026-08-08).** The v1.0 redesign
+> (`docs/plans/2026-08-08-kiosk-v1-redesign.md`) replaced this "Warm
+> Espresso" palette with the token set in `apps/kiosk/src/styles/tokens.css`
+> for Attract, Menu, Detail, Cart/Sent, Table Status, Bill, and
+> Confirmation. **This document is still accurate for Games, Table Talk,
+> and the voice UI** — those screens are intentionally unrebuilt (plan
+> Sprints 6–7, not yet started) and still run on the palette described
+> below via a temporary CSS bridge. Once Task 7.0 in that plan removes the
+> bridge, this document should be replaced outright rather than patched
+> further.
+
 **Approved direction:** Variant A — "Warm Espresso"  
 **Approved:** 2026-05-07  
-**Applies to:** `apps/kiosk` (customer-facing PWA)
+**Applies to:** `apps/kiosk` (customer-facing PWA) — Games, Table Talk, and
+voice screens only, as of 2026-08-08. See the notice above.
 
 ---
 

@@ -1,12 +1,15 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase, hasSupabaseConfig } from "@/integrations/supabase/client";
 
+export type Promo = { id: string; title: string; copy: string };
+
 interface RestaurantCtx {
   restaurantId: string;
   tableId: string;
   voiceEnabled: boolean;
   promptForIdentity: boolean;
   venueName: string;
+  promos: Promo[];
 }
 
 const RestaurantContext = createContext<RestaurantCtx>({
@@ -15,6 +18,7 @@ const RestaurantContext = createContext<RestaurantCtx>({
   voiceEnabled: true,
   promptForIdentity: false,
   venueName: "",
+  promos: [],
 });
 
 export function RestaurantProvider({ children }: { children: React.ReactNode }) {
@@ -27,6 +31,7 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [promptForIdentity, setPromptForIdentity] = useState(false);
   const [venueName, setVenueName] = useState("");
+  const [promos, setPromos] = useState<Promo[]>([]);
 
   useEffect(() => {
     if (!restaurantId || !hasSupabaseConfig) return;
@@ -52,12 +57,15 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
           if ("prompt_for_identity" in cfg) {
             setPromptForIdentity(Boolean(cfg.prompt_for_identity));
           }
+          if (Array.isArray(cfg.promos)) {
+            setPromos(cfg.promos as Promo[]);
+          }
         }
       });
   }, [restaurantId]);
 
   return (
-    <RestaurantContext.Provider value={{ restaurantId, tableId, voiceEnabled, promptForIdentity, venueName }}>
+    <RestaurantContext.Provider value={{ restaurantId, tableId, voiceEnabled, promptForIdentity, venueName, promos }}>
       {children}
     </RestaurantContext.Provider>
   );

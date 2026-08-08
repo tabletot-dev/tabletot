@@ -1,5 +1,16 @@
 # Tabletot Kiosk — Current Visual Design (as-built)
 
+> **Partially outdated (2026-08-08).** The three-layer CSS mess this
+> document exists to document was cut down to one layer plus a temporary
+> bridge in the v1.0 redesign (`docs/plans/2026-08-08-kiosk-v1-redesign.md`,
+> Task 1.2) — `tabletot.css` is ~5900 lines now, not 9258, and only one
+> `:root` block remains. Attract, Menu, Detail, Cart/Sent, Table Status,
+> Bill, and Confirmation are on the new `src/styles/tokens.css` system.
+> **Games, Table Talk, and voice screens are unchanged** and still match
+> what's described below, running on the old palette via the bridge. This
+> whole document should be re-audited and replaced once Task 7.0 removes
+> the bridge (after Sprints 6–7), not patched piecemeal before then.
+
 **Prepared:** 2026-07-29
 **Covers:** `apps/kiosk` (customer-facing tablet PWA), as it actually renders today.
 **Purpose:** handoff reference for a frontend designer doing refactoring/enhancement work.
