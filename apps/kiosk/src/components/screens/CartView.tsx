@@ -58,6 +58,7 @@ export default function CartView({
               </div>
               <div className="tt-stepper" aria-label={`${item.name} quantity`}>
                 <button
+                  className={item.quantity === 1 ? "tt-stepper-minus--floor" : undefined}
                   onClick={() => onUpdateQuantity(item.id, -1)}
                   aria-label={`Decrease ${item.name}`}
                 >

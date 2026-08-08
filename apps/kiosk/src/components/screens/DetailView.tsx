@@ -120,7 +120,12 @@ export default function DetailView({
                     </span>
                     {pairingQty > 0 ? (
                       <span className="tt-stepper" aria-label={`${p.name} quantity`}>
-                        <button type="button" onClick={() => onUpdateQuantity?.(p.id, -1, "pairing_chip")} aria-label={`Decrease ${p.name}`}>
+                        <button
+                          type="button"
+                          className={pairingQty === 1 ? "tt-stepper-minus--floor" : undefined}
+                          onClick={() => onUpdateQuantity?.(p.id, -1, "pairing_chip")}
+                          aria-label={`Decrease ${p.name}`}
+                        >
                           −
                         </button>
                         <span>{pairingQty}</span>
@@ -171,7 +176,12 @@ export default function DetailView({
         </div>
         {itemQty > 0 ? (
           <div className="tt-stepper" aria-label={`${item.name} quantity`}>
-            <button type="button" onClick={() => onUpdateQuantity?.(item.id, -1)} aria-label={`Decrease ${item.name}`}>
+            <button
+              type="button"
+              className={itemQty === 1 ? "tt-stepper-minus--floor" : undefined}
+              onClick={() => onUpdateQuantity?.(item.id, -1)}
+              aria-label={`Decrease ${item.name}`}
+            >
               −
             </button>
             <span>{itemQty}</span>

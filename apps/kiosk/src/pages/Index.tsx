@@ -391,7 +391,19 @@ const IndexInner = () => {
   const renderScreen = () => {
     switch (currentScreen) {
       case "idle":
-        return <IdleScreen onActivate={() => setCurrentScreen("home")} />;
+        return (
+          <IdleScreen
+            onActivate={async () => {
+              // Mirrors HomeView's "Start Ordering" — session_started must
+              // fire before menu so recommendation/order events get a
+              // span_id to attribute to (see AOV note in CLAUDE.md).
+              await startSession();
+              setCurrentScreen("menu");
+            }}
+            tableId={TABLE_ID}
+            onInfoToast={(msg) => setToast(msg)}
+          />
+        );
       case "home":
         return (
           <HomeView

@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, type ReactNode } from "react";
 import { useMenu } from "@/lib/menuStore";
 import DishCard from "@/components/DishCard";
-import CategoryIcon from "@/components/CategoryIcon";
+import DietMark from "@/components/DietMark";
 import type { MenuItem, OrderItem } from "@/data/menu";
 import type { Source } from "@/lib/eventBus";
 
@@ -82,17 +82,13 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, orde
             onClick={() => setActiveCategory(cat)}
             aria-pressed={resolvedCategory === cat}
           >
-            <CategoryIcon category={cat} />
             <span>{cat}</span>
           </button>
         ))}
       </div>
 
       <div className="tt-menu-header">
-        <div>
-          <p className="tt-badge">Now browsing</p>
-          <h1>{resolvedCategory}</h1>
-        </div>
+        <h1>{filteredItems.length} dishes</h1>
         <div className="tt-segmented">
           {(["all", "veg", "nonveg"] as DietFilter[]).map((d) => (
             <button
@@ -101,11 +97,12 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, orde
               onClick={() => setDiet(d)}
               aria-pressed={diet === d}
             >
+              {d === "veg" && <DietMark isVeg compact />}
+              {d === "nonveg" && <DietMark isVeg={false} compact />}
               {d === "all" ? "All" : d === "veg" ? "Veg" : "Non-Veg"}
             </button>
           ))}
         </div>
-        <span className="tt-menu-count">{filteredItems.length} items</span>
       </div>
 
       {filteredItems.length === 0 ? (
