@@ -75,9 +75,9 @@ function DishCard({
   const displayTags = item.tags.slice(0, 2);
 
   return (
-    <article className={`dish-card${showPairingPanel ? " has-inline-pairing" : ""}`}>
+    <article className={`tt-dishcard${showPairingPanel ? " has-inline-pairing" : ""}`}>
       <div
-        className="dish-media"
+        className="tt-dishcard-media"
         style={{ background: bg, cursor: "pointer" }}
         onClick={() => onSelect(item)}
         role="button"
@@ -96,7 +96,7 @@ function DishCard({
         )}
       </div>
 
-      <div className="dish-body">
+      <div className="tt-dishcard-body">
         <div
           className="dish-text"
           onClick={() => onSelect(item)}
@@ -109,10 +109,10 @@ function DishCard({
           <h3>{item.name}</h3>
         </div>
 
-        <div className="dish-meta">
+        <div className="tt-dishcard-meta">
           <strong>₹{item.price}</strong>
           {qty > 0 ? (
-            <div className="card-stepper" aria-label={`${item.name} quantity`}>
+            <div className="tt-stepper" aria-label={`${item.name} quantity`}>
               <button
                 onClick={() => onUpdateQuantity(item.id, -1, "main_menu")}
                 aria-label={`Decrease ${item.name}`}
@@ -128,23 +128,20 @@ function DishCard({
               </button>
             </div>
           ) : (
-            <button className="chip-action" onClick={() => onAddToCart(item)}>
+            <button className="tt-btn--accent" onClick={() => onAddToCart(item)}>
               Add
             </button>
           )}
         </div>
 
         {showPairingPanel && (
-          <div className="card-pairing-panel">
-            <div>
-              <p className="eyebrow">Pairs well with</p>
-              <strong>Complete your order</strong>
-            </div>
+          <div className="tt-pairing-panel">
+            <p className="tt-badge">Goes well with</p>
             <div className="card-pairing-list">
               {pairings.slice(0, 2).map((paired) => (
                 <div
                   key={paired.id}
-                  className="pairing-chip"
+                  className="tt-pairing-row"
                 >
                   <span
                     className="pairing-thumb"
@@ -161,7 +158,7 @@ function DishCard({
                       <small>₹{paired.price}</small>
                     </span>
                     {(getQuantity?.(paired.id) ?? 0) > 0 ? (
-                      <span className="card-stepper pairing-stepper" aria-label={`${paired.name} quantity`}>
+                      <span className="tt-stepper pairing-stepper" aria-label={`${paired.name} quantity`}>
                         <button
                           type="button"
                           onClick={() => onUpdateQuantity(paired.id, -1, "pairing_chip")}
@@ -181,7 +178,7 @@ function DishCard({
                     ) : (
                       <button
                         type="button"
-                        className="pairing-add"
+                        className="tt-btn--accent"
                         onClick={() => handleAddPairing(paired)}
                         aria-label={`Add ${paired.name} — ₹${paired.price}`}
                       >

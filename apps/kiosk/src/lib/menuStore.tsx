@@ -58,7 +58,7 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
       const [menuRes, pairingsRes, anchorsRes, rulesRes] = await Promise.all([
         supabase
           .from('menu_items')
-          .select('id, name, category, price, tags, is_veg, image_url')
+          .select('id, name, category, price, tags, is_veg, image_url, description')
           .eq('restaurant_id', RESTAURANT_ID)
           .eq('active', true)
           .order('category', { ascending: true })
@@ -100,6 +100,7 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
         tags: Array.isArray(row.tags) ? (row.tags as string[]) : [],
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         is_veg: (row as any).is_veg ?? false,
+        description: row.description ?? undefined,
         image: row.image_url ?? undefined,
       })).map(hydrateMenuItemImage);
 

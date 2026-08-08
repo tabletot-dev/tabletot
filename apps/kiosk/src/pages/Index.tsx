@@ -425,82 +425,56 @@ const IndexInner = () => {
         ) : null;
 
       case "menu":
-      case "item-detail":
         return (
-          <>
-            <MenuView
-              onSelect={handleSelectItem}
-              onAddToCart={handleAddToOrder}
-              onUpdateQuantity={handleUpdateQuantity}
-              order={order}
-              voiceDock={
-                voiceEnabled ? (
-                  <VoiceOrderButton
-                    onDone={handleVoiceDone}
-                    order={order}
-                    restaurantId={RESTAURANT_ID}
-                    tableId={TABLE_ID}
-                    onOpenConversation={() => setVoiceConversationOpen(true)}
-                    onSessionReady={setVoiceSessionId}
-                    onTtsReady={(h) => { voiceTtsHandleRef.current = h; }}
-                  />
-                ) : null
-              }
-              voicePanel={
-                voiceEnabled && voiceConversationOpen ? (
-                  <VoiceConversationPanel
-                    sessionId={voiceSessionId}
-                    turns={voiceTurns}
-                    order={order}
-                    getQuantity={getOrderQuantity}
-                    onClose={() => setVoiceConversationOpen(false)}
-                    onDone={handleVoiceDone}
-                    onAddItem={handleAddToOrder}
-                    onUpdateQuantity={handleUpdateQuantity}
-                    onSelectItem={handleSelectItem}
-                    ttsHandle={voiceTtsHandleRef}
-                  />
-                ) : null
-              }
-            />
-            <AnimatePresence>
-              {currentScreen === "item-detail" && selectedItem && (
-                <motion.div
-                  className="item-modal-backdrop"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  onClick={() => setCurrentScreen("menu")}
-                >
-                  <motion.div
-                    className="item-modal-panel"
-                    initial={{ y: 28, opacity: 0, scale: 0.98 }}
-                    animate={{ y: 0, opacity: 1, scale: 1 }}
-                    exit={{ y: 28, opacity: 0, scale: 0.98 }}
-                    transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <DetailView
-                      item={selectedItem}
-                      pairings={getDetailPairings(selectedItem)}
-                      onAdd={handleAddFromDetail}
-                      onAddItem={(i) => handleAddToOrder(i, "pairing_chip")}
-                      onUpdateQuantity={handleUpdateQuantity}
-                      getQuantity={getOrderQuantity}
-                      onBack={() => setCurrentScreen("menu")}
-                      onSelectPairing={handleSelectItem}
-                      onOpenVoice={() => {
-                        setCurrentScreen("menu");
-                        setVoiceConversationOpen(true);
-                      }}
-                    />
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </>
+          <MenuView
+            onSelect={handleSelectItem}
+            onAddToCart={handleAddToOrder}
+            onUpdateQuantity={handleUpdateQuantity}
+            order={order}
+            voiceDock={
+              voiceEnabled ? (
+                <VoiceOrderButton
+                  onDone={handleVoiceDone}
+                  order={order}
+                  restaurantId={RESTAURANT_ID}
+                  tableId={TABLE_ID}
+                  onOpenConversation={() => setVoiceConversationOpen(true)}
+                  onSessionReady={setVoiceSessionId}
+                  onTtsReady={(h) => { voiceTtsHandleRef.current = h; }}
+                />
+              ) : null
+            }
+            voicePanel={
+              voiceEnabled && voiceConversationOpen ? (
+                <VoiceConversationPanel
+                  sessionId={voiceSessionId}
+                  turns={voiceTurns}
+                  order={order}
+                  getQuantity={getOrderQuantity}
+                  onClose={() => setVoiceConversationOpen(false)}
+                  onDone={handleVoiceDone}
+                  onAddItem={handleAddToOrder}
+                  onUpdateQuantity={handleUpdateQuantity}
+                  onSelectItem={handleSelectItem}
+                  ttsHandle={voiceTtsHandleRef}
+                />
+              ) : null
+            }
+          />
         );
+      case "item-detail":
+        return selectedItem ? (
+          <DetailView
+            item={selectedItem}
+            pairings={getDetailPairings(selectedItem)}
+            onAdd={handleAddFromDetail}
+            onAddItem={(i) => handleAddToOrder(i, "pairing_chip")}
+            onUpdateQuantity={handleUpdateQuantity}
+            getQuantity={getOrderQuantity}
+            onBack={() => setCurrentScreen("menu")}
+            onSelectPairing={handleSelectItem}
+          />
+        ) : null;
 
       case "order-summary":
         return (
@@ -588,7 +562,7 @@ const IndexInner = () => {
       tableId={TABLE_ID}
       venueName={venueName || "Tabletot"}
       orderBar={
-        currentScreen === "menu" || currentScreen === "item-detail" ? (
+        currentScreen === "menu" ? (
           <OrderBar
             itemCount={order.reduce((s, o) => s + o.quantity, 0)}
             total={totalBill}
