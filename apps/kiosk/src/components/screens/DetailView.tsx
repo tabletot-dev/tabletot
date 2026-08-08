@@ -18,13 +18,6 @@ interface DetailViewProps {
   onOpenVoice?: () => void;
 }
 
-const TAG_CLASS: Record<string, string> = {
-  "Chef's Pick": "tag-dark",
-  "Best Seller": "tag-accent",
-  "Signature": "tag-light",
-  "New": "tag-green",
-};
-
 export default function DetailView({
   item,
   pairings,
@@ -77,9 +70,9 @@ export default function DetailView({
         <p className="tt-badge">{item.category}</p>
         <h1>{item.name}</h1>
         {item.tags.length > 0 && (
-          <div className="hero-tags" style={{ marginTop: 14 }}>
+          <div className="tt-tag-row">
             {item.tags.map((tag) => (
-              <span key={tag} className={`tag ${TAG_CLASS[tag] ?? "tag-light"}`}>
+              <span key={tag} className="tt-badge">
                 {tag}
               </span>
             ))}
@@ -89,49 +82,44 @@ export default function DetailView({
           <p className="tt-detail-copy">{item.description}</p>
         )}
 
-        <div className="detail-facts">
+        <div className="tt-detail-facts">
           <div>
             <span>Category</span>
             <strong>{item.category}</strong>
           </div>
           <div>
             <span>Diet</span>
-            <strong className="diet-fact">
+            <strong>
               <DietMark isVeg={item.is_veg} label />
             </strong>
           </div>
         </div>
 
         {visiblePairings.length > 0 && (
-          <div className="pairing-block detail-pairing-block">
-            <div className="section-title inline">
-              <div>
-                <p className="eyebrow">Pairs well with</p>
-                <h2>Complete the order elegantly</h2>
-              </div>
-            </div>
-            <div className="compact-grid">
+          <div className="tt-pairing-panel">
+            <p className="tt-badge">Goes well with</p>
+            <div className="tt-pairing-list">
               {visiblePairings.map((p) => {
                 const pairingQty = getQuantity?.(p.id) ?? 0;
 
                 return (
-                  <article key={p.id} className="compact-card">
+                  <div key={p.id} className="tt-pairing-row">
                     <button
                       type="button"
-                      className="compact-thumb"
+                      className="tt-pairing-thumb"
                       style={{ background: itemImageBackground(p) }}
                       onClick={() => onSelectPairing?.(p)}
                       aria-label={`View ${p.name}`}
                     />
-                    <div className="compact-copy">
-                      <strong>
+                    <span className="tt-pairing-info">
+                      <span className="tt-pairing-name">
                         <DietMark isVeg={p.is_veg} compact />
                         {p.name}
-                      </strong>
-                      <span>₹{p.price}</span>
-                    </div>
+                      </span>
+                      <span className="tt-pairing-price">₹{p.price}</span>
+                    </span>
                     {pairingQty > 0 ? (
-                      <div className="card-stepper compact-stepper" aria-label={`${p.name} quantity`}>
+                      <span className="tt-stepper" aria-label={`${p.name} quantity`}>
                         <button type="button" onClick={() => onUpdateQuantity?.(p.id, -1, "pairing_chip")} aria-label={`Decrease ${p.name}`}>
                           −
                         </button>
@@ -139,18 +127,18 @@ export default function DetailView({
                         <button type="button" onClick={() => onUpdateQuantity?.(p.id, 1, "pairing_chip")} aria-label={`Increase ${p.name}`}>
                           +
                         </button>
-                      </div>
+                      </span>
                     ) : (
                       <button
                         type="button"
-                        className="mini-plus"
+                        className="tt-pairing-add"
                         onClick={() => handleAddPairing(p)}
                         aria-label={`Add ${p.name}`}
                       >
                         +
                       </button>
                     )}
-                  </article>
+                  </div>
                 );
               })}
             </div>
@@ -178,11 +166,11 @@ export default function DetailView({
 
       <div className="tt-detail-footer">
         <div>
-          <p className="eyebrow">Item price</p>
-          <strong className="price">₹{item.price}</strong>
+          <p className="tt-badge">Item price</p>
+          <strong className="tt-detail-price">₹{item.price}</strong>
         </div>
         {itemQty > 0 ? (
-          <div className="card-stepper detail-stepper" aria-label={`${item.name} quantity`}>
+          <div className="tt-stepper" aria-label={`${item.name} quantity`}>
             <button type="button" onClick={() => onUpdateQuantity?.(item.id, -1)} aria-label={`Decrease ${item.name}`}>
               −
             </button>

@@ -5,15 +5,6 @@ import { itemImageBackground } from "@/lib/menuImages";
 import { track, type Source } from "@/lib/eventBus";
 import DietMark from "@/components/DietMark";
 
-const TAG_CLASS: Record<string, string> = {
-  "Chef's Pick": "tag-dark",
-  "Best Seller": "tag-accent",
-  "Signature": "tag-light",
-  "New": "tag-green",
-  "Pairs Well": "tag-light",
-  "Quick Add": "tag-light",
-};
-
 interface DishCardProps {
   item: MenuItem;
   qty: number;
@@ -86,9 +77,9 @@ function DishCard({
         aria-label={`View ${item.name} details`}
       >
         {displayTags.length > 0 && (
-          <div className="dish-tags">
+          <div className="tt-tag-row tt-tag-row--overlay">
             {displayTags.map((tag) => (
-              <span key={tag} className={`tag ${TAG_CLASS[tag] ?? "tag-light"}`}>
+              <span key={tag} className="tt-badge">
                 {tag}
               </span>
             ))}
@@ -137,55 +128,48 @@ function DishCard({
         {showPairingPanel && (
           <div className="tt-pairing-panel">
             <p className="tt-badge">Goes well with</p>
-            <div className="card-pairing-list">
+            <div className="tt-pairing-list">
               {pairings.slice(0, 2).map((paired) => (
-                <div
-                  key={paired.id}
-                  className="tt-pairing-row"
-                >
+                <div key={paired.id} className="tt-pairing-row">
                   <span
-                    className="pairing-thumb"
-                    style={{
-                      background: itemImageBackground(paired),
-                    }}
+                    className="tt-pairing-thumb"
+                    style={{ background: itemImageBackground(paired) }}
                   />
-                  <span className="pairing-info">
-                    <span className="pairing-topline">
-                      <span className="pairing-name">
-                        <DietMark isVeg={paired.is_veg} compact />
-                        {paired.name}
-                      </span>
-                      <small>₹{paired.price}</small>
+                  <span className="tt-pairing-info">
+                    <span className="tt-pairing-name">
+                      <DietMark isVeg={paired.is_veg} compact />
+                      {paired.name}
                     </span>
-                    {(getQuantity?.(paired.id) ?? 0) > 0 ? (
-                      <span className="tt-stepper pairing-stepper" aria-label={`${paired.name} quantity`}>
-                        <button
-                          type="button"
-                          onClick={() => onUpdateQuantity(paired.id, -1, "pairing_chip")}
-                          aria-label={`Decrease ${paired.name}`}
-                        >
-                          −
-                        </button>
-                        <span>{getQuantity?.(paired.id) ?? 0}</span>
-                        <button
-                          type="button"
-                          onClick={() => onUpdateQuantity(paired.id, 1, "pairing_chip")}
-                          aria-label={`Increase ${paired.name}`}
-                        >
-                          +
-                        </button>
-                      </span>
-                    ) : (
+                    <span className="tt-pairing-price">₹{paired.price}</span>
+                  </span>
+                  {(getQuantity?.(paired.id) ?? 0) > 0 ? (
+                    <span className="tt-stepper" aria-label={`${paired.name} quantity`}>
                       <button
                         type="button"
-                        className="tt-btn--accent"
-                        onClick={() => handleAddPairing(paired)}
-                        aria-label={`Add ${paired.name} — ₹${paired.price}`}
+                        onClick={() => onUpdateQuantity(paired.id, -1, "pairing_chip")}
+                        aria-label={`Decrease ${paired.name}`}
                       >
-                        Add
+                        −
                       </button>
-                    )}
-                  </span>
+                      <span>{getQuantity?.(paired.id) ?? 0}</span>
+                      <button
+                        type="button"
+                        onClick={() => onUpdateQuantity(paired.id, 1, "pairing_chip")}
+                        aria-label={`Increase ${paired.name}`}
+                      >
+                        +
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="tt-pairing-add"
+                      onClick={() => handleAddPairing(paired)}
+                      aria-label={`Add ${paired.name} — ₹${paired.price}`}
+                    >
+                      +
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
