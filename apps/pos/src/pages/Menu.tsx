@@ -94,13 +94,24 @@ export default function Menu() {
     }
   };
 
+  // A typo'd/differently-cased category (e.g. "pastas " vs "Pastas") used to
+  // create a second, visually separate category on the kiosk with no merge
+  // path (QA finding #7) — collapse whitespace and match case-insensitively
+  // against existing categories so it joins the existing one instead.
+  const normalizeCategory = (raw: string) => {
+    const trimmed = raw.trim().replace(/\s+/g, ' ');
+    if (!trimmed) return null;
+    const existing = categories.find(c => c.toLowerCase() === trimmed.toLowerCase());
+    return existing || trimmed;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const itemData = {
         name: formData.name,
         price: parseFloat(formData.price),
-        category: formData.category || null,
+        category: normalizeCategory(formData.category),
         description: formData.description || null,
         image_url: formData.image_url || null,
         active: formData.active,
@@ -212,10 +223,14 @@ export default function Menu() {
                   <Label htmlFor="category">Category</Label>
                   <Input
                     id="category"
+                    list="category-suggestions"
                     value={formData.category}
                     onChange={e => setFormData({ ...formData, category: e.target.value })}
                     required
                   />
+                  <datalist id="category-suggestions">
+                    {categories.map(c => <option key={c} value={c} />)}
+                  </datalist>
                 </div>
               </div>
               <div className="space-y-2">

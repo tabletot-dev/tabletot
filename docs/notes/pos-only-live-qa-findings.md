@@ -109,7 +109,11 @@ plan for that.
 
 ## Menu admin
 
-7. **Category is free text with zero normalization.** Added a menu item
+7. **Status: FIXED** (2026-08-15) in `apps/pos/src/pages/Menu.tsx` — see
+   `docs/notes/2026-08-15-category-normalization-fix.md` for verification.
+   Original finding kept below for context.
+
+   **Category is free text with zero normalization.** Added a menu item
    under `"pastas "` (lowercase, trailing space) alongside the existing
    `"Pastas"` category. Confirmed on the live kiosk menu: this created a
    second, visually separate category tab sitting right next to the
