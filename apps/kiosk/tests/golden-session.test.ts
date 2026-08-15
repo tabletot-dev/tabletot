@@ -235,3 +235,24 @@ describe('AOV v4 (0050)', () => {
     expect(Number(data![0].direct_revenue)).toBeCloseTo(Number(items[0].price), 2);
   });
 });
+
+describe('AOV v5 (0058, docs/notes/aov-dashboard-live-qa-findings.md #1)', () => {
+  it('order cancelled after submit is excluded from total_revenue and accepted_count', async () => {
+    const append = (type: string, payload: object = {}) => kiosk.rpc('append_event', {
+      p_event_id: crypto.randomUUID(), p_restaurant_id: RESTAURANT_ID,
+      p_table_id: table.id, p_event_type: type, p_payload: payload,
+    });
+    await append('item_added', { itemId: items[0].id, source: 'pairing_chip' });
+    const { data: submitResult } = await append('order_submitted', { items: cartRound(1), source: 'kiosk' });
+    await admin.from('orders').update({ status: 'cancelled' }).eq('id', (submitResult as any).order_id);
+
+    const { data, error } = await admin.rpc('get_aov_summary', {
+      p_restaurant_id: RESTAURANT_ID,
+      p_start_at: new Date(Date.now() - 60_000).toISOString(),
+      p_end_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+    expect(error).toBeNull();
+    expect(Number(data![0].total_revenue)).toBe(0); // v4 counted the cancelled order's total
+    expect(Number(data![0].accepted_count)).toBe(0); // v4 counted the pairing accept too
+  });
+});
