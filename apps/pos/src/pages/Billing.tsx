@@ -326,10 +326,13 @@ export default function Billing() {
 
     if (table.current_order_id) {
       // Normal path: table already has a linked order (set by trigger on orders INSERT)
+      // A cancelled order is never billable — treat it as no active order rather
+      // than showing it as the table's bill (pos-only-live-qa-findings.md #1).
       const { data, error } = await supabase
         .from('orders')
         .select('*')
         .eq('id', table.current_order_id)
+        .neq('status', 'cancelled')
         .maybeSingle();
       if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
       else setActiveOrder(data);
@@ -349,6 +352,7 @@ export default function Billing() {
           .from('orders')
           .select('*')
           .eq('session_id', session.session_key)
+          .neq('status', 'cancelled')
           .order('created_at', { ascending: true })
           .limit(1)
           .maybeSingle();
@@ -381,7 +385,7 @@ export default function Billing() {
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${activeOrder.id}` },
-        ({ new: updated }) => setActiveOrder(updated as Order),
+        ({ new: updated }) => setActiveOrder((updated as Order).status === 'cancelled' ? null : (updated as Order)),
       )
       .subscribe();
     return () => { supabase.removeChannel(ch); };
