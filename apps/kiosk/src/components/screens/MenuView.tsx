@@ -88,7 +88,7 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, orde
       </div>
 
       <div className="tt-menu-header">
-        <h1>{filteredItems.length} dishes</h1>
+        <h1>{filteredItems.length} {filteredItems.length === 1 ? "dish" : "dishes"}</h1>
         <div className="tt-segmented">
           {(["all", "veg", "nonveg"] as DietFilter[]).map((d) => (
             <button

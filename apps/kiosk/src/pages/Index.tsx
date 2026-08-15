@@ -79,17 +79,24 @@ const IndexInner = () => {
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
   // The hold's expiry is the ONLY path that reaches submitOrder. Pressing
-  // "Send to kitchen" starts the countdown; it does not submit.
+  // "Send to kitchen" starts the countdown; it does not submit. Identity is
+  // applied here too, not at the tap — a cancelled hold must leave no trace,
+  // and this is the only place that's still true (see orderName leak fix,
+  // docs/notes/2026-08-15-order-name-leak-fix.md).
   const hold = useRoundHold(
-    useCallback(async () => {
+    useCallback(async (_items, displayName) => {
       try {
+        if (promptForIdentity && !isIdentityResolved()) {
+          if (displayName) await setSessionDisplayName(displayName);
+          markIdentityResolved();
+        }
         await confirmOrder();
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setToast(`Order could not be sent: ${msg}`);
         setCurrentScreen("order-summary");
       }
-    }, [confirmOrder, setCurrentScreen]),
+    }, [confirmOrder, setCurrentScreen, promptForIdentity]),
   );
 
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
@@ -340,10 +347,15 @@ const IndexInner = () => {
     }
   }, [selectedItem, handleAddToOrder]);
 
+  // Bridges the displayName captured at "Send to kitchen" across the
+  // completion-nudge interstitial to wherever the hold actually starts —
+  // it must never be written to sessionStorage/Supabase before that point.
+  const pendingDisplayNameRef = useRef<string | undefined>(undefined);
+
   const handleCompletionSkip = useCallback(async () => {
     setCompletionSuggestion(null);
     if (isSubmitting) return;
-    hold.startHold(order);
+    hold.startHold(order, pendingDisplayNameRef.current);
     setCurrentScreen("sent");
   }, [hold, order, setCurrentScreen, isSubmitting]);
 
@@ -354,12 +366,7 @@ const IndexInner = () => {
 
   const handleConfirmOrder = useCallback(async (displayName?: string) => {
     if (isSubmitting) return;
-    if (promptForIdentity && !isIdentityResolved()) {
-      if (displayName) {
-        await setSessionDisplayName(displayName);
-      }
-      markIdentityResolved();
-    }
+    pendingDisplayNameRef.current = displayName;
     setIsSubmitting(true);
     try {
       {
@@ -371,7 +378,7 @@ const IndexInner = () => {
         }
       }
       await wait(1150);
-      hold.startHold(order);
+      hold.startHold(order, displayName);
       setCurrentScreen("sent");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -379,7 +386,7 @@ const IndexInner = () => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, order, hold, promptForIdentity, setCurrentScreen]);
+  }, [isSubmitting, order, hold, setCurrentScreen]);
 
   const [toast, setToast] = useState<string>("");
   useEffect(() => {
@@ -670,6 +677,7 @@ const IndexInner = () => {
             suggestionText={completionSuggestion.text}
             suggestedItemId={completionSuggestion.itemId}
             cartValueAtShow={totalBill}
+            menuItems={menuItems}
             onAdd={(item) => {
               handleAddToOrder(item, "completion_nudge");
               setCompletionSuggestion(null);

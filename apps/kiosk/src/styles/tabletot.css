@@ -1248,7 +1248,7 @@ button {
   border-radius: inherit;
   background:
     radial-gradient(circle at 50% 50%, rgba(243, 108, 49, 0.18), transparent 38%),
-    rgb(4, 7, 7);
+    var(--tt-paper);
 }
 
 .order-boot-mark {
@@ -4418,6 +4418,9 @@ body {
   background: var(--tt-paper);
   border-bottom: 2px solid var(--tt-line);
   overflow-x: auto;
+  /* Edge fade hints there's more to scroll to — applies at both ends so it
+     reads correctly regardless of scroll position. */
+  mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
 }
 
 .tt-scroll {
@@ -5411,6 +5414,14 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--tt-space-2);
+  /* Pinned to the bottom of the scroll area so "Send to kitchen" / "Continue
+     Browsing" stay reachable once the cart list grows past the fold. */
+  position: sticky;
+  bottom: calc(-1 * var(--tt-gutter));
+  margin: 0 calc(-1 * var(--tt-gutter)) calc(-1 * var(--tt-gutter));
+  padding: var(--tt-space-3) var(--tt-gutter) var(--tt-gutter);
+  background: var(--tt-paper);
+  border-top: 2px solid var(--tt-line);
 }
 
 /* ── Sent (2-minute hold) ───────────────────────────────────── */
@@ -5656,6 +5667,11 @@ body {
   border-radius: var(--tt-radius-chip);
   background: var(--tt-field);
   border: 2px solid var(--tt-line);
+  /* Pinned to the bottom of the scroll area — same treatment as
+     .tt-cart-actions so "Continue Ordering" stays reachable and both
+     screens' action rows behave consistently. */
+  position: sticky;
+  bottom: 0;
 }
 
 .tt-bill-settle h2 {

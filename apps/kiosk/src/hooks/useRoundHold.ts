@@ -9,7 +9,7 @@ import {
   type PendingRound,
 } from "@/lib/pendingRound";
 
-export function useRoundHold(onExpire: (items: OrderItem[]) => void) {
+export function useRoundHold(onExpire: (items: OrderItem[], displayName?: string) => void) {
   const [held, setHeld] = useState<PendingRound | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
 
@@ -26,7 +26,7 @@ export function useRoundHold(onExpire: (items: OrderItem[]) => void) {
     if (!stored) return;
     if (isExpired(stored)) {
       clearPendingRound();
-      onExpireRef.current(stored.items);
+      onExpireRef.current(stored.items, stored.displayName);
       return;
     }
     setHeld(stored);
@@ -42,7 +42,7 @@ export function useRoundHold(onExpire: (items: OrderItem[]) => void) {
       if (remaining <= 0) {
         clearPendingRound();
         setHeld(null);
-        onExpireRef.current(held.items);
+        onExpireRef.current(held.items, held.displayName);
         return;
       }
       setSecondsLeft(Math.ceil(remaining / 1000));
@@ -52,18 +52,19 @@ export function useRoundHold(onExpire: (items: OrderItem[]) => void) {
     return () => window.clearInterval(id);
   }, [held]);
 
-  const startHold = useCallback((items: OrderItem[]) => {
-    const round = { items, deadline: Date.now() + HOLD_DURATION_MS };
+  const startHold = useCallback((items: OrderItem[], displayName?: string) => {
+    const round = { items, deadline: Date.now() + HOLD_DURATION_MS, displayName };
     savePendingRound(round);
     setHeld(round);
   }, []);
 
   // Adding an item during the hold restarts the clock — otherwise an item
   // added at 1:58 would reach the kitchen two seconds later, on its own.
+  // The originally-captured displayName carries over unchanged.
   const extendHold = useCallback((items: OrderItem[]) => {
     setHeld((prev) => {
       if (!prev) return prev;
-      const round = { items, deadline: Date.now() + HOLD_DURATION_MS };
+      const round = { items, deadline: Date.now() + HOLD_DURATION_MS, displayName: prev.displayName };
       savePendingRound(round);
       return round;
     });
@@ -78,7 +79,7 @@ export function useRoundHold(onExpire: (items: OrderItem[]) => void) {
     if (!held) return;
     clearPendingRound();
     setHeld(null);
-    onExpireRef.current(held.items);
+    onExpireRef.current(held.items, held.displayName);
   }, [held]);
 
   return {

@@ -248,19 +248,28 @@ export default function Billing() {
 
   // table_id -> last table_events activity, for tables with no order yet.
   const [lastActivityByTable, setLastActivityByTable] = useState<Map<string, string>>(new Map());
+  // table_id -> table_state.state ('idle' unless a real ledger session is open).
+  // The ledger, not the raw restaurant_tables.status column, is source of
+  // truth for "is anything actually happening at this table" — status can lag
+  // or drift right after load (kiosk-pos-live-qa-findings.md #3 / pos-only #6),
+  // same pattern TableManagement.tsx already uses via its order_state field.
+  const [liveStateByTable, setLiveStateByTable] = useState<Map<string, string>>(new Map());
 
-  // Two batched queries (not per-table): table_state for occupied tables, then
-  // table_events last-activity only for the spans that still have no order —
-  // a table that's already ordered can't be idle-abandoned regardless of
-  // elapsed time, so there's nothing to look up for it.
+  // Two batched queries (not per-table): table_state for ALL tables (not just
+  // ones already marked occupied — that would exclude exactly the tables this
+  // is meant to catch drift on), then table_events last-activity only for the
+  // spans that still have no order — a table that's already ordered can't be
+  // idle-abandoned regardless of elapsed time, so there's nothing to look up
+  // for it.
   const fetchIdleSignals = useCallback(async () => {
-    const occupiedIds = tables.filter((t) => t.status === 'occupied').map((t) => t.id);
-    if (occupiedIds.length === 0) { setLastActivityByTable(new Map()); return; }
+    if (tables.length === 0) { setLastActivityByTable(new Map()); setLiveStateByTable(new Map()); return; }
 
     const { data: states } = await supabase
       .from('table_state')
-      .select('table_id, span_id, order_id')
-      .in('table_id', occupiedIds);
+      .select('table_id, span_id, order_id, state')
+      .in('table_id', tables.map((t) => t.id));
+
+    setLiveStateByTable(new Map((states || []).map((s) => [s.table_id, s.state])));
 
     const spanIds = (states || [])
       .filter((s) => s.order_id === null && s.span_id)
@@ -325,10 +334,45 @@ export default function Billing() {
   const loadActiveOrder = useCallback(async (table: Table) => {
     setLoadingOrder(true);
 
-    if (table.current_order_id) {
-      // Normal path: table already has a linked order (set by trigger on orders INSERT)
-      // A cancelled order is never billable — treat it as no active order rather
-      // than showing it as the table's bill (pos-only-live-qa-findings.md #1).
+    // Resolve via the table's most recent LIVE session first, not the raw
+    // current_order_id pointer. That pointer is write-once (0019's "first
+    // order wins" trigger guard: it only sets current_order_id when it was
+    // NULL) and is only ever cleared by payment_settled/service_ended — a
+    // session that never reaches either (abandoned test debris, a forgotten
+    // table) leaves it stuck pointing at that order forever, and no later
+    // order for the table can ever displace it. Billing.tsx trusting that
+    // pointer blindly is what let a days-old stuck `ready` order resurface
+    // as "the current bill" right after a fresh order was placed and settled
+    // (kiosk-pos-live-qa-findings.md #2). A live session is the source of
+    // truth for "what's actually happening at this table right now."
+    const { data: session } = await supabase
+      .from('sessions')
+      .select('session_key')
+      .eq('table_id', table.id)
+      .in('status', ['active', 'bill_requested'])
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (session?.session_key) {
+      // A cancelled order is never billable — treat it as no active order
+      // rather than showing it as the table's bill (pos-only-live-qa-findings.md #1).
+      // One order per session (later rounds merge KOTs into it), so the
+      // oldest row for this session is the canonical one.
+      const { data: order, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('session_id', session.session_key)
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      setActiveOrder(order ?? null);
+    } else if (table.current_order_id) {
+      // No live session found for this table (e.g. the sessions row itself
+      // is stale/missing) — fall back to the pointer rather than blanking
+      // the table out unnecessarily.
       const { data, error } = await supabase
         .from('orders')
         .select('*')
@@ -338,29 +382,7 @@ export default function Billing() {
       if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
       else setActiveOrder(data);
     } else {
-      // Fallback: kiosk session exists but no order yet (between session start and first KOT)
-      const { data: session } = await supabase
-        .from('sessions')
-        .select('session_key')
-        .eq('table_id', table.id)
-        .in('status', ['active', 'bill_requested'])
-        .order('started_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (session?.session_key) {
-        const { data: order } = await supabase
-          .from('orders')
-          .select('*')
-          .eq('session_id', session.session_key)
-          .neq('status', 'cancelled')
-          .order('created_at', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        setActiveOrder(order ?? null);
-      } else {
-        setActiveOrder(null);
-      }
+      setActiveOrder(null);
     }
 
     setLoadingOrder(false);
@@ -640,9 +662,15 @@ export default function Billing() {
 
   // ─── Render helpers ────────────────────────────────────────────────────────
 
-  const tableHasBillReq = (tableId: string) => billRequests.some((r) => r.table_id === tableId);
+  const isTableLive = (tableId: string) => (liveStateByTable.get(tableId) ?? 'idle') !== 'idle';
+
+  // Gated on a live ledger session so a pending row left behind by a session
+  // that already ended (stuck test debris, an abandoned table) can't keep
+  // flashing a bell/water badge on a table that's actually free again.
+  const tableHasBillReq = (tableId: string) =>
+    isTableLive(tableId) && billRequests.some((r) => r.table_id === tableId);
   const tableHasWaterReq = (tableId: string) =>
-    tableRequests.some((r) => r.table_id === tableId && r.request_type === 'water');
+    isTableLive(tableId) && tableRequests.some((r) => r.table_id === tableId && r.request_type === 'water');
   const tableIsIdleAbandoned = (tableId: string) => {
     const lastActivity = lastActivityByTable.get(tableId);
     if (!lastActivity) return false;
@@ -697,7 +725,13 @@ export default function Billing() {
                 const hasWater = tableHasWaterReq(table.id);
                 const isIdle = !hasBill && !hasWater && tableIsIdleAbandoned(table.id);
                 const isSelected = table.id === selectedTableId;
-                const colorClass = STATUS_COLORS[table.status] ?? 'bg-muted border-border';
+                // status can transiently read 'available'/'free' while the ledger
+                // already has a live session open on this table (drift right after
+                // load — kiosk-pos-live-qa-findings.md #3). Never show "Free" for
+                // a table the ledger says is occupied; leave every other status as-is.
+                const isFreeLabel = table.status === 'available' || table.status === 'free';
+                const displayStatus = isFreeLabel && isTableLive(table.id) ? 'occupied' : table.status;
+                const colorClass = STATUS_COLORS[displayStatus] ?? 'bg-muted border-border';
 
                 return (
                   <button
@@ -736,7 +770,7 @@ export default function Billing() {
                       </p>
                     )}
                     <p className="text-xs mt-1 font-medium">
-                      {STATUS_LABEL[table.status] ?? table.status}
+                      {STATUS_LABEL[displayStatus] ?? displayStatus}
                     </p>
                     {table.assigned_captain && staffNameMap.get(table.assigned_captain) && (
                       <p className="text-xs mt-0.5 opacity-60 truncate">

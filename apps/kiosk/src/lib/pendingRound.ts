@@ -13,7 +13,7 @@ export const HOLD_DURATION_MS = 120_000;
 
 const KEY = "tt_pending_round";
 
-export type PendingRound = { items: OrderItem[]; deadline: number };
+export type PendingRound = { items: OrderItem[]; deadline: number; displayName?: string };
 
 export function savePendingRound(round: PendingRound): void {
   sessionStorage.setItem(KEY, JSON.stringify(round));

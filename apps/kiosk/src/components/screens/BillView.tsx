@@ -31,18 +31,27 @@ export default function BillView({
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const { subtotal, tax, total } = computeTotals(sessionTotal);
-  const sanitizedPhone = phone.replace(/[^\d+]/g, "");
   // Indian mobile convention: 10 digits, starting 6-9 (project-wide rule, see
   // CLAUDE.md). Previously accepted any 10+ digit string. Strips an optional
   // country code (+91/91) before checking the local number.
-  const digitsOnly = sanitizedPhone.replace(/\D/g, "");
-  const localDigits = digitsOnly.length > 10 && digitsOnly.startsWith("91")
-    ? digitsOnly.slice(2)
-    : digitsOnly;
-  const canSubmitPhone = /^[6-9]\d{9}$/.test(localDigits);
+  const localDigitsOf = (raw: string) => {
+    const digitsOnly = raw.replace(/[^\d+]/g, "").replace(/\D/g, "");
+    return digitsOnly.length > 10 && digitsOnly.startsWith("91") ? digitsOnly.slice(2) : digitsOnly;
+  };
+  const isValidLocalPhone = (digits: string) => /^[6-9]\d{9}$/.test(digits);
+  const localDigits = localDigitsOf(phone);
+  const isValidPhone = isValidLocalPhone(localDigits);
+  // Phone is optional — a blank field is fine, but a partially-typed number
+  // shouldn't silently submit as garbage. Only a non-empty, invalid number blocks.
+  const canSubmitPhone = localDigits.length === 0 || isValidPhone;
 
-  const submitBillRequest = async () => {
-    if (!canSubmitPhone) return;
+  // phoneOverride lets "Skip" submit without a number regardless of whatever
+  // partial text is still sitting in the input, without racing setState.
+  const submitBillRequest = async (phoneOverride?: string) => {
+    const effectivePhone = phoneOverride ?? phone;
+    const effectiveLocalDigits = localDigitsOf(effectivePhone);
+    const effectiveIsValid = isValidLocalPhone(effectiveLocalDigits);
+    if (effectiveLocalDigits.length > 0 && !effectiveIsValid) return;
     setError(null);
     setStage("loading");
 
@@ -59,19 +68,21 @@ export default function BillView({
     }
 
     // Phone capture is best-effort — the bill request already succeeded above.
-    try {
-      const tableUuid = await resolveTableId();
-      const latestOrderId = previousOrders.length > 0
-        ? previousOrders[previousOrders.length - 1].orderId
-        : null;
-      await supabase.from("bill_requests").insert({
-        table_id: tableUuid,
-        order_id: latestOrderId ?? null,
-        phone: sanitizedPhone,
-        status: "pending",
-      });
-    } catch {
-      // non-blocking — staff already have the ledger signal
+    if (effectiveIsValid) {
+      try {
+        const tableUuid = await resolveTableId();
+        const latestOrderId = previousOrders.length > 0
+          ? previousOrders[previousOrders.length - 1].orderId
+          : null;
+        await supabase.from("bill_requests").insert({
+          table_id: tableUuid,
+          order_id: latestOrderId ?? null,
+          phone: effectivePhone.replace(/[^\d+]/g, ""),
+          status: "pending",
+        });
+      } catch {
+        // non-blocking — staff already have the ledger signal
+      }
     }
 
     setStage("sent");
@@ -170,12 +181,12 @@ export default function BillView({
             }}
           >
             <p className="tt-badge">Guest record</p>
-            <h2 id="bill-phone-title">Where should we attach this bill request?</h2>
+            <h2 id="bill-phone-title">A server is bringing the card reader over</h2>
             <p>
-              Enter a phone number so the table request can be linked to this visit.
+              Optional — a phone number lets us link this request to your visit if there's a mix-up.
             </p>
             <label>
-              <span className="tt-badge">Phone number</span>
+              <span className="tt-badge">Phone number (optional)</span>
               <input
                 className="tt-field"
                 value={phone}
@@ -194,6 +205,9 @@ export default function BillView({
             <div className="tt-modal-actions">
               <button type="submit" className="tt-btn--primary" disabled={!canSubmitPhone}>
                 Submit
+              </button>
+              <button type="button" className="tt-btn--secondary" onClick={() => submitBillRequest("")}>
+                Skip — request without a number
               </button>
               <button type="button" className="tt-btn--secondary" onClick={() => setStage("summary")}>
                 Back

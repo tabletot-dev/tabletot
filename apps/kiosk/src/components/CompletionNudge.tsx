@@ -1,13 +1,12 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 import { MenuItem } from "@/data/menu";
 import { track } from "@/lib/eventBus";
-import { RESTAURANT_ID } from "@/lib/config";
 
 interface CompletionNudgeProps {
   suggestionText: string;
   suggestedItemId: string;
   cartValueAtShow: number;
+  menuItems: MenuItem[];
   onAdd: (item: MenuItem) => void;
   onSkip: () => void;
 }
@@ -15,40 +14,29 @@ interface CompletionNudgeProps {
 const CompletionNudge = ({
   suggestionText,
   suggestedItemId,
+  menuItems,
   onAdd,
   onSkip,
 }: CompletionNudgeProps) => {
-  const [item, setItem] = useState<{ id: string; name: string; price: number; is_veg: boolean } | null>(null);
-  const [ready, setReady] = useState(false);
+  // Looked up from the already-hydrated menu (same source DishCard reads)
+  // instead of a separate fetch — that fetch used to omit image_url, which
+  // is why items added here showed a gray placeholder in the cart.
+  const item = menuItems.find((i) => i.id === suggestedItemId) ?? null;
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const { data: itemData } = await supabase
-        .from("menu_items")
-        .select("id, name, price, is_veg")
-        .eq("restaurant_id", RESTAURANT_ID)
-        .eq("id", suggestedItemId)
-        .eq("active", true)
-        .single();
-
-      if (!mounted) return;
-
-      if (!itemData) {
-        // Suggested item not found or inactive — skip straight to order submission
-        onSkip();
-        return;
-      }
-
-      setItem(itemData as { id: string; name: string; price: number; is_veg: boolean });
-      track("recommendation_shown", {
-        itemId: itemData.id,
-        surface: "completion_nudge",
-      });
-      setReady(true);
-    })();
-    return () => { mounted = false; };
-  }, [suggestedItemId, onSkip]);
+    if (!item) {
+      // Suggested item not found or inactive — skip straight to order submission
+      onSkip();
+      return;
+    }
+    track("recommendation_shown", {
+      itemId: item.id,
+      surface: "completion_nudge",
+    });
+    // Only re-fire when the suggested item actually changes, not on every
+    // menuItems re-render (menuStore returns a fresh array reference often).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestedItemId]);
 
   const handleAdd = () => {
     if (!item) return;
@@ -58,7 +46,7 @@ const CompletionNudge = ({
     });
     // item_added is emitted by the cart hook when the parent calls
     // addToOrder(item, "completion_nudge") via the onAdd callback.
-    onAdd({ id: item.id, name: item.name, price: item.price, category: "", tags: [], is_veg: item.is_veg });
+    onAdd(item);
   };
 
   const handleSkip = () => {
@@ -66,7 +54,7 @@ const CompletionNudge = ({
     onSkip();
   };
 
-  if (!ready || !item) return null;
+  if (!item) return null;
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60">
