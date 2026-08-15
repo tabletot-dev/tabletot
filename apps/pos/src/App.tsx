@@ -12,7 +12,6 @@ import Billing from "./pages/Billing";
 import Menu from "./pages/Menu";
 import Orders from "./pages/Orders";
 import Kitchen from "./pages/Kitchen";
-import StaffManagement from "./pages/StaffManagement";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import TableManagement from "./pages/TableManagement";
@@ -61,11 +60,6 @@ const App = () => (
             <Route path="/menu" element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <Layout><Menu /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/staff" element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <Layout><StaffManagement /></Layout>
               </ProtectedRoute>
             } />
             <Route path="/settings" element={

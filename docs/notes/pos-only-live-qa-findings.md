@@ -45,7 +45,13 @@ plan for that.
    `trg_sync_order_status_from_kot` trigger direction only covers
    KOT→Order, not Order(cancelled)→KOT.
 
-3. **Staff Management doesn't create real logins — biggest gap found.**
+3. **Status: HIDDEN** (2026-08-15) — product decision (Rohan): no self-serve
+   staff login provisioning for now; staff accounts are created manually via
+   the Supabase dashboard, admin credential only. See
+   `docs/notes/2026-08-15-staff-management-hidden.md`. Original finding kept
+   below for context.
+
+   **Staff Management doesn't create real logins — biggest gap found.**
    "Add Staff" modal only collects Name/Role/Phone, no email/password.
    `StaffManagement.tsx:131` generates a random placeholder `user_id` via
    `crypto.randomUUID()` with a comment admitting "we don't have a real auth
@@ -82,7 +88,11 @@ plan for that.
 
 ## Table status is two disconnected systems
 
-5. **Table Management's Available/Occupied/Reserved/Cleaning status
+5. **Status: FIXED** (2026-08-15) in `apps/pos/src/pages/TableManagement.tsx`
+   — see `docs/notes/2026-08-15-table-status-guard-fix.md` for verification.
+   Original finding kept below for context.
+
+   **Table Management's Available/Occupied/Reserved/Cleaning status
    (`restaurant_tables.status`) is manual and untethered from real order
    state.** Table Management dashboard showed "0 Occupied" while Table T1
    had a live, unpaid, bill-requested order sitting in Billing. Manually

@@ -20,7 +20,6 @@ import {
   Grid3X3,
   TrendingUp,
   UtensilsCrossed,
-  Users,
   Settings,
   LogOut,
   Coffee,
@@ -60,7 +59,6 @@ const NAV_GROUPS = [
     label: 'Admin',
     items: [
       { title: 'Menu',     url: '/menu',     icon: UtensilsCrossed, roles: ['admin'] },
-      { title: 'Staff',    url: '/staff',    icon: Users,           roles: ['admin'] },
       { title: 'Settings', url: '/settings', icon: Settings,        roles: ['admin'] },
     ],
   },
