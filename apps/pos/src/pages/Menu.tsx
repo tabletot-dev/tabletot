@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
+import { confirm } from '@/hooks/use-confirm';
 import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
 import {
   Dialog,
@@ -141,7 +142,7 @@ export default function Menu() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this item?')) return;
+    if (!(await confirm({ description: 'Are you sure you want to delete this item?' }))) return;
     try {
       const { error } = await supabase.from('menu_items').delete().eq('id', id);
       if (error) throw error;

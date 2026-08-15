@@ -7,6 +7,7 @@ import { KOTView } from '@/components/billing/KOTView';
 import { CaptainAssignModal } from '@/components/billing/CaptainAssignModal';
 import { MenuGrid } from '@/components/billing/MenuGrid';
 import { toast } from '@/hooks/use-toast';
+import { confirm } from '@/hooks/use-confirm';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -500,7 +501,11 @@ export default function Billing() {
 
   const handleEndService = async () => {
     if (!selectedTable) return;
-    if (!window.confirm(`End service for Table ${selectedTable.table_number}? This resets the kiosk.`)) return;
+    if (!(await confirm({
+      title: 'End service?',
+      description: `End service for Table ${selectedTable.table_number}? This resets the kiosk.`,
+      confirmLabel: 'End Service',
+    }))) return;
     try {
       // service_ended (migration 0052): same table-freeing cleanup as
       // payment_settled, without a payments row — this is a walkout/staff

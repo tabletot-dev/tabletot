@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Plus, Pencil, Trash2, Loader2, Search, UserPlus } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { confirm } from '@/hooks/use-confirm';
 
 interface StaffMember {
   id: string;
@@ -152,7 +153,7 @@ export default function StaffManagement() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this staff member?')) return;
+    if (!(await confirm({ description: 'Are you sure you want to delete this staff member?' }))) return;
 
     const { error } = await supabase
       .from('staff')

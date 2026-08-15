@@ -59,7 +59,13 @@ plan for that.
    creation, or magic link) or the UI should stop implying login access is
    being configured.
 
-4. **Destructive actions use native `window.confirm()` dialogs, not the
+4. **Status: FIXED** (2026-08-15) for the 4 live call sites — see
+   `docs/notes/2026-08-15-confirm-dialog-fix.md` for verification. The 2 dead
+   call sites (`AdminMenuItems.tsx`, `AdminCategories.tsx`) were left alone
+   since they're unreachable (see #8). Original finding kept below for
+   context.
+
+   **Destructive actions use native `window.confirm()` dialogs, not the
    app's own modal.** Confirmed 6 call sites via grep: delete table
    (`TableManagement.tsx:138`), delete staff (`StaffManagement.tsx:155`),
    archive menu item (`AdminMenuItems.tsx:173` — dead code, see #8), delete

@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, Loader2, Users } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { confirm } from '@/hooks/use-confirm';
 import { cn } from '@/lib/utils';
 import { RESTAURANT_ID } from '@/lib/restaurant';
 
@@ -135,7 +136,7 @@ export default function TableManagement() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this table?')) return;
+    if (!(await confirm({ description: 'Are you sure you want to delete this table?' }))) return;
 
     const { error } = await supabase.from('restaurant_tables').delete().eq('id', id);
 
