@@ -30,7 +30,11 @@ plan for that.
    `Billing.tsx`'s "current order for table" query to exclude `cancelled`
    status, not just select the latest/oldest unsettled row.
 
-2. **Cancelling an order doesn't cascade to its kitchen ticket.** Same
+2. **Status: FIXED** in `supabase/migrations/0059_archive_kot_on_order_cancel.sql`
+   (2026-08-15) — see `docs/notes/2026-08-15-kot-cancel-cascade-fix.md` for
+   verification. Original finding kept below for context.
+
+   **Cancelling an order doesn't cascade to its kitchen ticket.** Same
    repro: after cancelling via `/orders`, the linked KOT is still sitting
    in Kitchen Display as `ready`, uncompleted, indefinitely — kitchen staff
    would still see it as something to prepare/serve. This is the same
