@@ -57,6 +57,7 @@ interface MenuItem {
   description: string | null;
   image_url: string | null;
   active: boolean;
+  is_veg: boolean;
 }
 
 export default function Menu() {
@@ -71,6 +72,7 @@ export default function Menu() {
     description: '',
     image_url: '',
     active: true,
+    is_veg: true,
   });
 
   useEffect(() => {
@@ -81,7 +83,7 @@ export default function Menu() {
     try {
       const { data, error } = await supabase
         .from('menu_items')
-        .select('id, name, price, category, description, image_url, active')
+        .select('id, name, price, category, description, image_url, active, is_veg')
         .eq('restaurant_id', RESTAURANT_ID)
         .order('category', { ascending: true });
 
@@ -115,6 +117,7 @@ export default function Menu() {
         description: formData.description || null,
         image_url: formData.image_url || null,
         active: formData.active,
+        is_veg: formData.is_veg,
       };
 
       if (editingItem) {
@@ -148,6 +151,7 @@ export default function Menu() {
       description: item.description || '',
       image_url: item.image_url || '',
       active: item.active,
+      is_veg: item.is_veg,
     });
     setDialogOpen(true);
   };
@@ -166,7 +170,7 @@ export default function Menu() {
 
   const resetForm = () => {
     setEditingItem(null);
-    setFormData({ name: '', price: '', category: '', description: '', image_url: '', active: true });
+    setFormData({ name: '', price: '', category: '', description: '', image_url: '', active: true, is_veg: true });
   };
 
   const categories = [...new Set(menuItems.map(item => item.category).filter(Boolean))];
@@ -252,6 +256,14 @@ export default function Menu() {
                 />
               </div>
               <div className="flex items-center justify-between">
+                <Label htmlFor="is_veg">Vegetarian</Label>
+                <Switch
+                  id="is_veg"
+                  checked={formData.is_veg}
+                  onCheckedChange={checked => setFormData({ ...formData, is_veg: checked })}
+                />
+              </div>
+              <div className="flex items-center justify-between">
                 <Label htmlFor="active">Available</Label>
                 <Switch
                   id="active"
@@ -280,6 +292,10 @@ export default function Menu() {
                   <div key={item.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-block h-3 w-3 border ${item.is_veg ? 'border-emerald-600 bg-emerald-100' : 'border-rose-600 bg-rose-100'}`}
+                          title={item.is_veg ? 'Vegetarian' : 'Non-vegetarian'}
+                        />
                         <h3 className="font-semibold">{item.name}</h3>
                         {!item.active && <Badge variant="secondary">Unavailable</Badge>}
                       </div>

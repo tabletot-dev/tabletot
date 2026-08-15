@@ -130,7 +130,17 @@ plan for that.
    original. One staff typo silently fragments the customer-facing menu
    into duplicate categories with no merge/dedupe path.
 
-8. **The live Menu Management page (`Menu.tsx`, routed at `/menu`) is
+8. **Status: PARTIALLY FIXED** (2026-08-15) — the veg/non-veg gap is closed,
+   see `docs/notes/2026-08-15-menu-veg-toggle-fix.md`. The category-picker
+   half was already effectively covered by #7's fix (normalization +
+   datalist autocomplete on the free-text field). `AdminMenuItems.tsx` /
+   `AdminCategories.tsx` themselves remain dead code, deliberately not
+   wired in — see the fix note for why (would've needed several unrelated
+   ports: confirm() dialog, voice-menu refresh, category normalization,
+   missing description/image_url fields — decided not worth it right now).
+   Original finding kept below for context.
+
+   **The live Menu Management page (`Menu.tsx`, routed at `/menu`) is
    missing a veg/non-veg diet-tag field and a real category picker** —
    both already fully built, working, and *better* than what's live, in
    `AdminMenuItems.tsx` + `AdminCategories.tsx`. Confirmed via grep: these
