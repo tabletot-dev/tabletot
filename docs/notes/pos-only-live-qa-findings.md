@@ -94,7 +94,11 @@ plan for that.
    state, or clarify in the UI that it's a manual front-of-house note
    (e.g. for "reserved"/"cleaning") independent of billing state.
 
-6. **Separately, the Billing sidebar's own Free/Occupied label is buggy.**
+6. **Status: INVESTIGATED, not reproducible (2026-08-15)** — see
+   `docs/notes/2026-08-15-free-occupied-label-investigation.md`. Original
+   finding kept below for context; no code changed.
+
+   **Separately, the Billing sidebar's own Free/Occupied label is buggy.**
    A table whose order is specifically in `ready` status shows "Free" even
    with bill-requested and water-requested flags active on the same card
    (reproduced twice, consistently, immediately after POS login — not a
