@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { resolveTableId } from "@/lib/orderSubmission";
 import { appendEvent } from "@/lib/ledger";
 import { computeTotals } from "@/lib/pricing";
+import { formatRupees } from "@/lib/formatCurrency";
 
 interface BillViewProps {
   previousOrders: OrderRound[];
@@ -132,7 +133,7 @@ export default function BillView({
                   <span>
                     {item.quantity} × {item.name}
                   </span>
-                  <strong>₹{item.price * item.quantity}</strong>
+                  <strong>{formatRupees(item.price * item.quantity)}</strong>
                 </div>
               ))}
             </div>
@@ -141,15 +142,15 @@ export default function BillView({
           <div className="tt-cart-totals">
             <div className="summary-line">
               <span>Subtotal</span>
-              <strong>₹{subtotal.toFixed(0)}</strong>
+              <strong>{formatRupees(subtotal)}</strong>
             </div>
             <div className="summary-line">
               <span>GST (5%)</span>
-              <strong>₹{tax.toFixed(0)}</strong>
+              <strong>{formatRupees(tax)}</strong>
             </div>
             <div className="summary-line total-line">
               <span>Total</span>
-              <strong>₹{total.toFixed(0)}</strong>
+              <strong>{formatRupees(total)}</strong>
             </div>
           </div>
         </div>

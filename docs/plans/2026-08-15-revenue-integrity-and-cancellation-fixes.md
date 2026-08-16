@@ -371,6 +371,68 @@ container so the test harness could run; not a fix, see the readiness doc's
 - [x] Updated `docs/notes/pre-launch-readiness-assessment.md`'s
       "Recommended path to shippability" section.
 
+## Task 9 — Browser QA follow-up: End Service hidden after cancel-only session — ✅ DONE (2026-08-16)
+
+Task 2's verify note flagged that full authenticated-browser click-path QA
+hadn't been run this plan. Ran it: kiosk order → POS cancel → Kitchen
+Display → discounted settle → Dashboard AOV, end to end in Chrome. Found and
+fixed one real blocker and one display inconsistency.
+
+**Bug found — table gets permanently stuck after its only order is
+cancelled.** Cancelling via POS `/orders` leaves `table_state.state` stuck
+at `'ordering'` forever, because that cancel is a direct write outside
+`append_event` (the exact gap flagged under "Explicitly out of scope"
+below). Two consequences compounded into a dead end for staff:
+- `Billing.tsx`'s "End Service" button was gated on `activeOrder`, which is
+  `null` for a cancelled order by design (line ~366, "a cancelled order is
+  never billable"). So the one button that calls `service_ended` — which
+  *does* correctly handle this exact case (archives the KOT, records the
+  real total to `order_history` with `amount_paid: 0`, frees
+  `table_state`/`sessions`/`restaurant_tables`) — never rendered.
+- `TableManagement.tsx`'s manual-override guard (from the `a4636c8` fix)
+  correctly refused to let staff force the table back to "Available" either,
+  since `table_state.state !== 'idle'`.
+- Net effect: once a table's only order was cancelled, it stayed occupied
+  forever with **no UI path to free it.** Reproduced live: table T1 stuck
+  after a QA cancel, confirmed via direct query
+  (`table_state.state = 'ordering'`, `orders.status = 'cancelled'`).
+
+**Fix — `apps/pos/src/pages/Billing.tsx`:** changed the "End Service"
+button's guard from `activeOrder &&` to `(activeOrder || isTableLive(selectedTable.id)) &&`,
+reusing the existing `isTableLive()` helper that already reads the same
+`table_state` ledger signal `TableManagement.tsx`'s guard trusts. No
+migration needed — the backend (`service_ended`, migration 0063) already
+did the right thing; only the button's visibility condition was wrong.
+Verified against the live-stuck T1: "End Service" now renders, clicking it
+frees the table (`restaurant_tables.status = 'available'`,
+`table_state.state = 'idle'`, `orders` row moved to `order_history` with
+`total: 714.00`, `amount_paid: 0`, `payment_method: null` — correctly not
+counted as revenue per ADR 0023).
+
+**Also found — inconsistent currency rounding.** POS's Bill Preview dialog
+showed a `.toFixed(0)`-rounded total (₹347) while the Payment modal one
+click later showed the unrounded value (₹346.50) for the same discounted
+order — same bug class present in ~20 spots across POS (`Billing.tsx`,
+`Reports.tsx`), an unused/still-rounding `formatRupees()` helper in Kiosk,
+and unformatted raw numbers in Dashboard's `AovView.tsx`. Standardized all
+computed/aggregated money displays (subtotals, GST, discounts, totals,
+revenue, AOV) to 2 decimal places via a shared `formatRupees()` helper per
+app (`apps/{kiosk,pos,dashboard}/src/lib/formatCurrency.ts`). Raw catalog
+item-price displays (always whole rupees, never a rounding-loss source)
+left as-is. All three apps typecheck clean.
+
+**Files:** `apps/pos/src/pages/Billing.tsx`,
+`apps/pos/src/components/billing/PaymentModal.tsx`,
+`apps/pos/src/pages/Reports.tsx`, `apps/pos/src/lib/formatCurrency.ts` (new),
+`apps/kiosk/src/lib/formatCurrency.ts`,
+`apps/kiosk/src/components/screens/{BillView,CartView,SentView}.tsx`,
+`apps/dashboard/src/lib/formatCurrency.ts` (new),
+`apps/dashboard/src/pages/AovView.tsx`.
+
+**Unrelated, surfaced by the Supabase advisor during this session's DB
+queries, not touched:** RLS is disabled on `public.voice_sessions`, exposing
+it to `anon`/`authenticated`. Flagging for a separate decision.
+
 ---
 
 ## Explicitly out of scope
@@ -380,7 +442,10 @@ container so the test harness could run; not a fix, see the readiness doc's
   write are direct table writes outside `append_event`. This plan works
   around that (by reading whatever ended up on the `orders` row at close
   time) rather than routing them through the ledger. Worth a future ADR if
-  more direct-write bugs turn up, not resolved here.
+  more direct-write bugs turn up, not resolved here. Task 9 fixed the one
+  concrete symptom this caused (table stuck occupied after cancel) at the
+  UI layer, without folding the write itself into the ledger — the
+  underlying direct-write gap is still open.
 - **Concurrency between a direct-write cancel and a ledger-mediated
   settle.** Flagged in the readiness assessment as untested; this plan
   doesn't add locking for it.

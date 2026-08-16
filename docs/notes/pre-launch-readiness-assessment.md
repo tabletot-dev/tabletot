@@ -241,3 +241,18 @@ of this.
    service_role;` + matching `ALTER DEFAULT PRIVILEGES` run directly against
    the container — **not saved anywhere**, so it will need to be re-applied
    (or properly root-caused) after the next `supabase db reset`/`stop`.
+8. ✅ **Done (2026-08-16).** First full authenticated-browser click-path QA
+   of items #1–#2 (kiosk order → POS cancel → Kitchen Display → discounted
+   settle → Dashboard AOV), the gap flagged in item 5. Found and fixed a
+   real blocker: once a table's only order was cancelled, `table_state`
+   never left `'ordering'` (the cancel is a direct write outside
+   `append_event`, per the still-open item above), which hid POS Billing's
+   "End Service" button (gated on `activeOrder`, which excludes cancelled
+   orders) — leaving staff with no way to free the table. Fixed at the UI
+   layer (`isTableLive()` guard instead of `activeOrder`); the backend
+   `service_ended` path already handled the cancelled-order case correctly.
+   Also fixed a currency-rounding inconsistency (Bill Preview showed ₹347,
+   Payment modal showed ₹346.50 for the same order) by standardizing all
+   computed money displays to 2 decimal places across all three apps. Full
+   detail: `docs/plans/2026-08-15-revenue-integrity-and-cancellation-fixes.md`,
+   Task 9.

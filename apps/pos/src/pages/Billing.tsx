@@ -23,6 +23,7 @@ import {
   Receipt, CreditCard, UserCheck, Minus, Wifi, WifiOff, Trash2, Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatRupees } from '@/lib/formatCurrency';
 import { getTimeSince } from '@/lib/timeSince';
 
 // A table is "idle-abandoned" once a session opened (state = 'ordering' via
@@ -820,7 +821,10 @@ export default function Billing() {
                     ? staffNameMap.get(selectedTable.assigned_captain)
                     : 'Assign Captain'}
                 </Button>
-                {activeOrder && (
+                {/* activeOrder excludes cancelled orders (they're not billable), but a
+                    cancelled order still leaves table_state non-idle — walkout-after-cancel
+                    needs End Service to free the table even with no billable order left. */}
+                {(activeOrder || isTableLive(selectedTable.id)) && (
                   <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive" onClick={handleEndService}>
                     End Service
                   </Button>
@@ -882,7 +886,7 @@ export default function Billing() {
                             <p className="font-medium">{item.quantity}× {item.name}</p>
                             {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
                           </div>
-                          <p className="font-medium shrink-0 ml-4">₹{item.total.toFixed(0)}</p>
+                          <p className="font-medium shrink-0 ml-4">{formatRupees(item.total)}</p>
                         </div>
                       ))
                     )}
@@ -892,19 +896,19 @@ export default function Billing() {
                 {/* Totals */}
                 <div className="border-t bg-card p-4 space-y-1 text-sm">
                   <div className="flex justify-between text-muted-foreground">
-                    <span>Subtotal</span><span>₹{itemsSubtotal.toFixed(0)}</span>
+                    <span>Subtotal</span><span>{formatRupees(itemsSubtotal)}</span>
                   </div>
                   {discountAmount > 0 && (
                     <div className="flex justify-between text-emerald-600">
-                      <span>Discount</span><span>−₹{discountAmount.toFixed(0)}</span>
+                      <span>Discount</span><span>−{formatRupees(discountAmount)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-muted-foreground">
-                    <span>GST {gstRate}%</span><span>₹{taxAmount.toFixed(0)}</span>
+                    <span>GST {gstRate}%</span><span>{formatRupees(taxAmount)}</span>
                   </div>
                   <Separator className="my-2" />
                   <div className="flex justify-between text-lg font-bold">
-                    <span>Total</span><span>₹{billTotal.toFixed(0)}</span>
+                    <span>Total</span><span>{formatRupees(billTotal)}</span>
                   </div>
                 </div>
 
@@ -920,7 +924,7 @@ export default function Billing() {
                     className="col-span-2 bg-emerald-600 hover:bg-emerald-700"
                     onClick={() => setShowPayment(true)}
                   >
-                    <CreditCard className="h-4 w-4 mr-2" />Settle — ₹{billTotal.toFixed(0)}
+                    <CreditCard className="h-4 w-4 mr-2" />Settle — {formatRupees(billTotal)}
                   </Button>
                 </div>
               </>
@@ -987,7 +991,7 @@ export default function Billing() {
               <div className="p-4 border-t space-y-2">
                 <div className="flex justify-between text-sm font-medium">
                   <span>Subtotal</span>
-                  <span>₹{pendingItems.reduce((s, i) => s + i.total, 0).toFixed(0)}</span>
+                  <span>{formatRupees(pendingItems.reduce((s, i) => s + i.total, 0))}</span>
                 </div>
                 <Button
                   className="w-full"
@@ -1015,7 +1019,7 @@ export default function Billing() {
             {allOrderItems.map((item, idx) => (
               <div key={idx} className="flex justify-between">
                 <span>{item.quantity}× {item.name}</span>
-                <span>₹{item.total.toFixed(0)}</span>
+                <span>{formatRupees(item.total)}</span>
               </div>
             ))}
           </div>
@@ -1035,18 +1039,18 @@ export default function Billing() {
           </div>
           <div className="space-y-1 text-sm">
             <div className="flex justify-between text-muted-foreground">
-              <span>Subtotal</span><span>₹{itemsSubtotal.toFixed(0)}</span>
+              <span>Subtotal</span><span>{formatRupees(itemsSubtotal)}</span>
             </div>
             {discountAmount > 0 && (
               <div className="flex justify-between text-emerald-600">
-                <span>Discount</span><span>−₹{discountAmount.toFixed(0)}</span>
+                <span>Discount</span><span>−{formatRupees(discountAmount)}</span>
               </div>
             )}
             <div className="flex justify-between text-muted-foreground">
-              <span>GST {gstRate}%</span><span>₹{taxAmount.toFixed(0)}</span>
+              <span>GST {gstRate}%</span><span>{formatRupees(taxAmount)}</span>
             </div>
             <div className="flex justify-between text-lg font-bold">
-              <span>Total</span><span>₹{billTotal.toFixed(0)}</span>
+              <span>Total</span><span>{formatRupees(billTotal)}</span>
             </div>
           </div>
           <Button

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { FeatureGate } from '@/components/FeatureGate';
+import { formatRupees } from '@/lib/formatCurrency';
 
 const RESTAURANT_ID = import.meta.env.VITE_RESTAURANT_ID as string;
 
@@ -123,7 +124,7 @@ export default function AovView() {
             ) : (
               <div className="space-y-4">
                 <div>
-                  <p className="text-3xl font-bold text-emerald-600">₹{directRevenue}</p>
+                  <p className="text-3xl font-bold text-emerald-600">{formatRupees(directRevenue)}</p>
                   <p className="text-sm text-muted-foreground mt-1">
                     directly generated from {acceptedCount} accepted recommendation
                     {acceptedCount === 1 ? '' : 's'}
@@ -143,7 +144,7 @@ export default function AovView() {
                     >
                       <span className="font-medium">{row.item_name}</span>
                       <span className="text-right text-muted-foreground">×{row.count}</span>
-                      <span className="text-right font-semibold">₹{row.revenue}</span>
+                      <span className="text-right font-semibold">{formatRupees(row.revenue)}</span>
                     </div>
                   ))}
                 </div>
@@ -174,7 +175,7 @@ export default function AovView() {
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">
                     Total revenue
                   </p>
-                  <p className="text-2xl font-bold mt-1">₹{totalRevenue}</p>
+                  <p className="text-2xl font-bold mt-1">{formatRupees(totalRevenue)}</p>
                   <p className="text-xs text-muted-foreground">across all orders in window</p>
                 </div>
                 <div className="rounded-lg border p-4">

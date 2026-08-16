@@ -4,6 +4,7 @@ import type { OrderRound } from "@/hooks/useDeviceNavigation";
 import TabletotLogo from "@/components/TabletotLogo";
 import { itemImageBackground } from "@/lib/menuImages";
 import { computeTotals } from "@/lib/pricing";
+import { formatRupees } from "@/lib/formatCurrency";
 
 const MAX_NAME_LENGTH = 24;
 
@@ -72,7 +73,7 @@ export default function CartView({
                   +
                 </button>
               </div>
-              <strong className="row-total">₹{item.price * item.quantity}</strong>
+              <strong className="row-total">{formatRupees(item.price * item.quantity)}</strong>
             </div>
           ))
         )}
@@ -87,7 +88,7 @@ export default function CartView({
               <span className="tt-cart-sent-items">
                 {round.items.map((i) => i.name).join(", ")}
               </span>
-              <strong>₹{round.total.toFixed(0)}</strong>
+              <strong>{formatRupees(round.total)}</strong>
             </div>
           ))}
         </div>
@@ -110,15 +111,15 @@ export default function CartView({
       <div className="tt-cart-totals">
         <div className="summary-line">
           <span>Subtotal</span>
-          <strong>₹{subtotal.toFixed(0)}</strong>
+          <strong>{formatRupees(subtotal)}</strong>
         </div>
         <div className="summary-line">
           <span>GST (5%)</span>
-          <strong>₹{tax.toFixed(0)}</strong>
+          <strong>{formatRupees(tax)}</strong>
         </div>
         <div className="summary-line total-line">
           <span>Total</span>
-          <strong>₹{total.toFixed(0)}</strong>
+          <strong>{formatRupees(total)}</strong>
         </div>
       </div>
 

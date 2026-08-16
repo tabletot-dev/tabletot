@@ -15,6 +15,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, CreditCard, Wallet, Smartphone, Share2 } from 'lucide-react';
+import { formatRupees } from '@/lib/formatCurrency';
 
 interface PaymentModalProps {
   cart: any[];
@@ -105,7 +106,7 @@ export function PaymentModal({ cart, total, orderId, tableId, tableNumber, onClo
           <div className="p-4 bg-muted rounded-lg space-y-2">
             <div className="flex justify-between text-lg font-bold">
               <span>Total Amount</span>
-              <span>₹{total.toFixed(2)}</span>
+              <span>{formatRupees(total)}</span>
             </div>
           </div>
 
@@ -167,7 +168,7 @@ export function PaymentModal({ cart, total, orderId, tableId, tableNumber, onClo
             <div className="p-3 bg-green-500/10 border border-green-500 rounded-lg">
               <div className="flex justify-between font-semibold text-green-700 dark:text-green-400">
                 <span>Change to Return</span>
-                <span>₹{change.toFixed(2)}</span>
+                <span>{formatRupees(change)}</span>
               </div>
             </div>
           )}

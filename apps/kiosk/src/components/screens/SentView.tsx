@@ -1,5 +1,6 @@
 import type { OrderItem } from "@/data/menu";
 import { computeTotals } from "@/lib/pricing";
+import { formatRupees } from "@/lib/formatCurrency";
 
 interface SentViewProps {
   items: OrderItem[];
@@ -29,7 +30,7 @@ export default function SentView({
       <p className="tt-badge">Round {roundNumber}</p>
       <h1>Going to the kitchen in {mmss(secondsLeft)}</h1>
       <p className="tt-sent-sub">
-        {count} item{count === 1 ? "" : "s"} · ₹{total.toFixed(0)} · added to your table bill
+        {count} item{count === 1 ? "" : "s"} · {formatRupees(total)} · added to your table bill
       </p>
       <p className="tt-sent-note">
         You can still change this round. After that it's on the pass.
