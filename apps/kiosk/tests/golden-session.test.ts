@@ -256,3 +256,96 @@ describe('AOV v5 (0058, docs/notes/aov-dashboard-live-qa-findings.md #1)', () =>
     expect(Number(data![0].accepted_count)).toBe(0); // v4 counted the pairing accept too
   });
 });
+
+describe('revenue integrity (0061-0063, docs/plans/2026-08-15-revenue-integrity-and-cancellation-fixes.md)', () => {
+  const append = (type: string, payload: object = {}) => kiosk.rpc('append_event', {
+    p_event_id: crypto.randomUUID(), p_restaurant_id: RESTAURANT_ID,
+    p_table_id: table.id, p_event_type: type, p_payload: payload,
+  });
+
+  it('payments.order_id survives settle (0061)', async () => {
+    const { data: sub } = await append('order_submitted', { items: cartRound(1), source: 'kiosk' });
+    await append('bill_requested');
+    await append('payment_settled', { payment_method: 'cash', amount_paid: 100, tips: 0, created_by: null });
+
+    const { data: pay } = await admin.from('payments')
+      .select('order_id').eq('order_id', (sub as any).order_id);
+    expect(pay!.length).toBe(1); // was NULL before 0061's FK drop
+  });
+
+  it('discount reaches revenue via payments, not the pre-discount total (bug 2, 0062)', async () => {
+    const { data: sub } = await append('order_submitted', { items: cartRound(1), source: 'kiosk' });
+    const orderId = (sub as any).order_id;
+    // Mirrors Billing.tsx's discount write (apps/pos/src/pages/Billing.tsx:1055-1060).
+    await admin.from('orders').update({ final_discount: 20, final_total: 80 }).eq('id', orderId);
+    await append('bill_requested');
+    await append('payment_settled', { payment_method: 'cash', amount_paid: 80, tips: 0, created_by: null });
+
+    const { data, error } = await admin.rpc('get_aov_summary', {
+      p_restaurant_id: RESTAURANT_ID,
+      p_start_at: new Date(Date.now() - 60_000).toISOString(),
+      p_end_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+    expect(error).toBeNull();
+    expect(Number(data![0].total_revenue)).toBe(80); // pre-fix would report the pre-discount total
+
+    const { data: hist } = await admin.from('order_history')
+      .select('total, discount').eq('original_order_id', orderId).single();
+    expect(Number(hist!.total)).toBe(80); // audit-accuracy fix (0063)
+    expect(Number(hist!.discount)).toBe(20);
+  });
+
+  it('cancelled-and-walked-out order is excluded from revenue but keeps its real order_history total (bug 3, 0062)', async () => {
+    const { data: sub } = await append('order_submitted', { items: cartRound(1), source: 'kiosk' });
+    const orderId = (sub as any).order_id;
+    const realTotal = Number((sub as any).total);
+    await admin.from('orders').update({ status: 'cancelled' }).eq('id', orderId);
+    await append('service_ended');
+
+    const { data, error } = await admin.rpc('get_aov_summary', {
+      p_restaurant_id: RESTAURANT_ID,
+      p_start_at: new Date(Date.now() - 60_000).toISOString(),
+      p_end_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+    expect(error).toBeNull();
+    expect(Number(data![0].total_revenue)).toBe(0); // no payments row for a walkout
+
+    const { data: hist } = await admin.from('order_history')
+      .select('total, payment_method').eq('original_order_id', orderId).single();
+    expect(Number(hist!.total)).toBe(realTotal); // honest audit record, just not counted as revenue
+    expect(hist!.payment_method).toBeNull();
+  });
+
+  it('pairing acceptance is excluded when the order walks out cancelled (0062)', async () => {
+    await append('item_added', { itemId: items[0].id, source: 'pairing_chip' });
+    const { data: sub } = await append('order_submitted', { items: cartRound(1), source: 'kiosk' });
+    await admin.from('orders').update({ status: 'cancelled' }).eq('id', (sub as any).order_id);
+    await append('service_ended');
+
+    const { data, error } = await admin.rpc('get_aov_summary', {
+      p_restaurant_id: RESTAURANT_ID,
+      p_start_at: new Date(Date.now() - 60_000).toISOString(),
+      p_end_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+    expect(error).toBeNull();
+    expect(Number(data![0].accepted_count)).toBe(0);
+  });
+
+  it('KOT lifecycle: cancel -> cancelled, then close -> archived (Tasks 1 + 5)', async () => {
+    const { data: sub } = await append('order_submitted', { items: cartRound(1), source: 'kiosk' });
+    const orderId = (sub as any).order_id;
+    const kotId = (sub as any).kot_id;
+    await admin.from('orders').update({ status: 'cancelled' }).eq('id', orderId);
+
+    const { data: afterCancel } = await admin.from('kot_tickets')
+      .select('status').eq('id', kotId).single();
+    expect(afterCancel!.status).toBe('cancelled'); // not 'archived' (0060)
+
+    await append('service_ended');
+    // service_ended deletes the orders row, which SETs kot_tickets.order_id
+    // NULL (0053's ON DELETE SET NULL) — query by the KOT's own id, not order_id.
+    const { data: afterClose } = await admin.from('kot_tickets')
+      .select('status').eq('id', kotId).single();
+    expect(afterClose!.status).toBe('archived'); // swept on close (0063)
+  });
+});
