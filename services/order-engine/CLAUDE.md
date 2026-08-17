@@ -101,13 +101,19 @@ Client plays audio — first sentence starts ~1–2s before LLM finishes
 
 | Layer | Technology |
 |---|---|
-| STT | Sarvam `saaras:v3` (WebSocket, auto language detection) |
-| TTS | Sarvam `bulbul:v3` (WebSocket streaming, persistent per session) |
+| STT | Configurable via `STT_PROVIDER` env var: `elevenlabs` (default, Scribe v2 Realtime) / `sarvam` (`saaras:v3`) |
+| TTS | Configurable via `TTS_PROVIDER` env var: `elevenlabs` (default, `eleven_flash_v2_5`) / `sarvam` (`bulbul:v3`) |
 | LLM | Configurable via `LLM_PROVIDER` env var: `claude` (default) / `openai` / `gemini` |
 | Backend | Python FastAPI (modular monolith) |
 | Database | Supabase PostgreSQL (`ap-south-1`) |
 | Frontend | React PWA (Android Chrome, kiosk mode) |
 | Auth (Sarvam) | `api-subscription-key` header |
+| Auth (ElevenLabs) | `xi-api-key` header |
+
+Both STT and TTS providers are selected independently via `create_stt_handler()`/
+`create_tts_handler()` (`voice_agent/factory.py`) — same shape as
+`LLM_PROVIDER`'s `create_provider()`. Sarvam remains fully wired as a
+fallback; see `docs/plans/2026-08-15-elevenlabs-voice-integration.md`.
 
 **Removed:** LiveKit, Deepgram, Cartesia — all gone.
 
@@ -198,9 +204,14 @@ Per-restaurant TTS configuration:
 
 ---
 
-## Sarvam API Quick Reference
+## Voice Provider API Quick Reference
 
-### STT WebSocket
+Two providers are wired, selected independently per STT/TTS via
+`STT_PROVIDER`/`TTS_PROVIDER` (both default to `elevenlabs`, both fall back
+to `sarvam`). See `voice_agent/factory.py` and
+`docs/plans/2026-08-15-elevenlabs-voice-integration.md`.
+
+### Sarvam STT WebSocket
 - Endpoint: `wss://api.sarvam.ai/speech-to-text/ws`
 - Model: `saaras:v3`
 - Language: `unknown` (auto-detect)
@@ -210,7 +221,7 @@ Per-restaurant TTS configuration:
 - `vad_signals=True` — get `speech_start`/`speech_end` events
 - **Session:** Open/close per PTT press (stateless)
 
-### TTS WebSocket
+### Sarvam TTS WebSocket
 - Endpoint: `wss://api.sarvam.ai/text-to-speech/ws`
 - Model: `bulbul:v3`
 - Config sent once after connect: `speaker`, `target_language_code`, `pace`, `min_buffer_size`, `max_chunk_length`, `output_audio_codec`
@@ -221,17 +232,40 @@ Per-restaurant TTS configuration:
 - `send_completion_event=True` to know when speech ends
 - **Session:** Persistent per table session
 
-### Auth
-Header: `api-subscription-key: <SARVAM_API_KEY>`  
+### Sarvam Auth
+Header: `api-subscription-key: <SARVAM_API_KEY>`
 Env var: `SARVAM_API_KEY`
+
+### ElevenLabs STT WebSocket (Scribe v2 Realtime)
+- Endpoint: `wss://api.elevenlabs.io/v1/speech-to-text/realtime`
+- Model: `scribe_v2_realtime`
+- Audio: `audio_format=pcm_16000` (matches the mic's existing 16kHz PCM)
+- Client sends `input_audio_chunk` messages (`audio_base_64`, `commit`, `sample_rate` — **snake_case**, not the `InputAudioChunk`/PascalCase the plan originally assumed)
+- Server sends `session_started` / `partial_transcript` / `committed_transcript` — no `speech_start`/`speech_end` events exist on this API, unlike Sarvam
+- **Session:** Open/close per PTT press (stateless) — same lifecycle as Sarvam
+
+### ElevenLabs TTS WebSocket
+- Endpoint: `wss://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream-input`
+- Model: `eleven_flash_v2_5` (~75ms latency)
+- Query params: `output_format=pcm_24000&model_id=eleven_flash_v2_5&inactivity_timeout=180` — the timeout is set explicitly since the API default is only 20s (vs. Sarvam's fixed 60s)
+- Client sends `InitializeConnection` (`{"text": " "}`) then `SendText` (`{"text": ..., "flush": true}`) — these ARE PascalCase-shaped field names per the real API, unlike the STT side
+- Server messages have **no discriminator field** — an `audio` key means audio data, an `isFinal` key means done
+- **Session:** Persistent per table session — same lifecycle as Sarvam
+
+### ElevenLabs Auth
+Header: `xi-api-key: <ELEVENLABS_API_KEY>`
+Env var: `ELEVENLABS_API_KEY`
 
 ---
 
 ## Environment Variables
 
 ```
-# Voice
+# Voice — provider selection (default: elevenlabs, falls back to sarvam)
+STT_PROVIDER=elevenlabs      # elevenlabs | sarvam
+TTS_PROVIDER=elevenlabs      # elevenlabs | sarvam
 SARVAM_API_KEY=
+ELEVENLABS_API_KEY=
 
 # LLM — provider selection (default: claude)
 LLM_PROVIDER=claude          # claude | openai | gemini
@@ -248,6 +282,9 @@ SUPABASE_KEY=
 ```
 
 The backend selects the correct API key automatically based on `LLM_PROVIDER`.
+Missing `SARVAM_API_KEY`/`ELEVENLABS_API_KEY` logs a warning at startup
+rather than crashing — a misconfigured deploy should degrade loudly, not
+fail to boot.
 
 ---
 

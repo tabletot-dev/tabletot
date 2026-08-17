@@ -945,6 +945,8 @@ export type Database = {
         Row: {
           config: Json
           created_at: string | null
+          elevenlabs_fallback_voice_id: string | null
+          elevenlabs_voice_id: string | null
           fallback_language_code: string | null
           fallback_speaker: string | null
           id: string
@@ -958,6 +960,8 @@ export type Database = {
         Insert: {
           config?: Json
           created_at?: string | null
+          elevenlabs_fallback_voice_id?: string | null
+          elevenlabs_voice_id?: string | null
           fallback_language_code?: string | null
           fallback_speaker?: string | null
           id?: string
@@ -971,6 +975,8 @@ export type Database = {
         Update: {
           config?: Json
           created_at?: string | null
+          elevenlabs_fallback_voice_id?: string | null
+          elevenlabs_voice_id?: string | null
           fallback_language_code?: string | null
           fallback_speaker?: string | null
           id?: string

@@ -27,8 +27,9 @@ _SSL_CTX = ssl.create_default_context(cafile=certifi.where())
 
 from src.models import Ambiguous, ConfidentMatch, NeedsVariantSelection, NoMatch, Unavailable
 from src.orchestrator import ResolverCall, TurnResult
+from voice_agent.elevenlabs_tts_handler import ElevenLabsTTSHandler
+from voice_agent.factory import create_stt_handler
 from voice_agent.session_manager import SessionManager, TURN_END
-from voice_agent.stt_handler import SarvamSTTHandler
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,10 @@ _SARVAM_STT_HEALTH_URL = (
     "&language-code=unknown"
     "&mode=transcribe"
 )
+_ELEVENLABS_STT_HEALTH_URL = (
+    "wss://api.elevenlabs.io/v1/speech-to-text/realtime"
+    "?model_id=scribe_v2_realtime"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -47,22 +52,33 @@ _SARVAM_STT_HEALTH_URL = (
 # ---------------------------------------------------------------------------
 
 
-@router.get("/health")
-async def health(request: Request) -> dict:
-    """Check Sarvam API connectivity."""
-    mgr: SessionManager = request.app.state.session_manager
-    sarvam_api_key = mgr._sarvam_api_key
+async def _check_reachable(url: str, headers: dict) -> str:
     try:
         async with websockets.connect(
-            _SARVAM_STT_HEALTH_URL,
-            additional_headers={"api-subscription-key": sarvam_api_key},
-            open_timeout=3,
-            ssl=_SSL_CTX,
+            url, additional_headers=headers, open_timeout=3, ssl=_SSL_CTX
         ):
             pass
-        return {"status": "ok", "sarvam": "reachable"}
-    except Exception as e:
-        return {"status": "degraded", "sarvam": "unreachable", "error": str(e)}
+        return "reachable"
+    except Exception:
+        return "unreachable"
+
+
+@router.get("/health")
+async def health(request: Request) -> dict:
+    """Check Sarvam and ElevenLabs API connectivity — either provider being
+    reachable is enough to report "ok", since STT_PROVIDER/TTS_PROVIDER
+    decides which one is actually in use.
+    """
+    mgr: SessionManager = request.app.state.session_manager
+
+    sarvam = await _check_reachable(
+        _SARVAM_STT_HEALTH_URL, {"api-subscription-key": mgr._sarvam_api_key}
+    )
+    elevenlabs = await _check_reachable(
+        _ELEVENLABS_STT_HEALTH_URL, {"xi-api-key": mgr._elevenlabs_api_key}
+    )
+    status = "ok" if "reachable" in (sarvam, elevenlabs) else "degraded"
+    return {"status": status, "sarvam": sarvam, "elevenlabs": elevenlabs}
 
 
 # ---------------------------------------------------------------------------
@@ -298,7 +314,9 @@ async def voice_stt(ws: WebSocket, session_id: str) -> None:
     turn_id = session.current_turn_id
     mgr.touch_session(session_id)
 
-    stt_handler = SarvamSTTHandler(mgr._sarvam_api_key)
+    stt_handler = create_stt_handler(
+        mgr._stt_provider, mgr._sarvam_api_key, mgr._elevenlabs_api_key
+    )
 
     t_stt_start = time.perf_counter()
     try:
@@ -398,7 +416,13 @@ async def voice_tts(ws: WebSocket, session_id: str) -> None:
     if not session.tts_handler.is_configured:
         config = mgr.get_restaurant_config(session)
         try:
-            await session.tts_handler.configure(config.language_code, config.speaker)
+            # ElevenLabs' "speaker" is a voice_id, not the Sarvam speaker name.
+            speaker = (
+                config.elevenlabs_voice_id
+                if isinstance(session.tts_handler, ElevenLabsTTSHandler)
+                else config.speaker
+            )
+            await session.tts_handler.configure(config.language_code, speaker)
             session.tts_handler.start_keepalive()
             logger.info("TTS configured for session %s", session_id)
         except Exception as e:
@@ -437,21 +461,33 @@ async def voice_tts(ws: WebSocket, session_id: str) -> None:
                     logger.info("TTS client disconnected before speech_complete session=%s", session_id)
                 continue
 
-            # Regular sentence string — speak it
+            # Regular sentence string — speak it. One retry on failure (e.g. a
+            # closed/stale WebSocket) so a transient error doesn't silently
+            # drop a sentence from the spoken audio while it still shows up
+            # in the displayed chat text.
             text: str = payload
-            try:
-                async for audio_chunk in session.tts_handler.speak(text):
-                    try:
-                        await ws.send_bytes(audio_chunk)
-                    except (WebSocketDisconnect, RuntimeError):
-                        logger.info("TTS client disconnected during audio stream session=%s", session_id)
-                        break
-            except Exception as e:
-                logger.exception("TTS speak error session=%s", session_id)
+            client_disconnected = False
+            for attempt in range(2):
                 try:
-                    await ws.send_json({"type": "error", "message": str(e)})
-                except (WebSocketDisconnect, RuntimeError):
-                    logger.info("TTS client disconnected before error message session=%s", session_id)
+                    async for audio_chunk in session.tts_handler.speak(text):
+                        try:
+                            await ws.send_bytes(audio_chunk)
+                        except (WebSocketDisconnect, RuntimeError):
+                            logger.info("TTS client disconnected during audio stream session=%s", session_id)
+                            client_disconnected = True
+                            break
+                    break
+                except Exception as e:
+                    if attempt == 0:
+                        logger.warning("TTS speak failed, retrying once session=%s: %s", session_id, e)
+                        continue
+                    logger.exception("TTS speak error session=%s", session_id)
+                    try:
+                        await ws.send_json({"type": "error", "message": str(e)})
+                    except (WebSocketDisconnect, RuntimeError):
+                        logger.info("TTS client disconnected before error message session=%s", session_id)
+            if client_disconnected:
+                break
 
     except WebSocketDisconnect:
         logger.info("TTS client disconnected: session=%s", session_id)

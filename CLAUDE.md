@@ -24,6 +24,13 @@ The knowledge graph is faster, cheaper (fewer tokens), and gives structural cont
 
 Fall back to Grep/Glob/Read **only** when graphify doesn't cover what you need.
 
+After any validated code change (tests pass / change confirmed working), run
+`/graphify` again to refresh the graph — a stale graph gives wrong answers to
+future queries. Scope refreshes to **code and docs only** (`.py`, `.ts`, `.tsx`,
+`.md`, etc.) — never re-extract images or other media (screenshots, menu
+photos) as part of a routine refresh; that content doesn't change with code
+edits and re-extracting it burns a lot of tokens for no benefit.
+
 ## Read these before making changes
 
 1. `docs/overview.md` — current state of the project, what's in scope right now.
