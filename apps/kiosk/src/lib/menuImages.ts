@@ -1,8 +1,19 @@
 import type { MenuItem } from "@/data/menu";
-import { categoryGradient } from "@/lib/categoryGradients";
 
 const PHOTO_OVERLAY =
   "linear-gradient(180deg, rgba(4,7,7,0) 0%, rgba(4,7,7,0.06) 48%, rgba(4,7,7,0.34) 100%), radial-gradient(circle at 78% 12%, rgba(243,108,49,0.1), transparent 34%)";
+
+// No-photo fallback: a flat field fill plus a dashed square + faint "T"
+// watermark, drawn as a single inline SVG layer so every consumer that
+// treats itemImageBackground()'s return value as a plain CSS `background`
+// string gets the new look with no markup changes of its own.
+const NO_PHOTO_SVG = encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">` +
+    `<rect x="10" y="10" width="180" height="180" rx="16" fill="none" stroke="#C9C7BF" stroke-width="3" stroke-dasharray="8 8"/>` +
+    `<text x="100" y="126" font-family="sans-serif" font-size="72" font-weight="700" fill="#8A8E87" fill-opacity="0.35" text-anchor="middle">T</text>` +
+    `</svg>`,
+);
+const NO_PHOTO_FALLBACK = `var(--tt-field) url("data:image/svg+xml,${NO_PHOTO_SVG}") center / 60% no-repeat`;
 
 // Images are served from Supabase Storage. Paths in the map below are relative
 // to the bucket root (strip the leading /images/ when uploading).
@@ -119,8 +130,8 @@ export function hydrateMenuItemImage<T extends { name: string; image?: string | 
   };
 }
 
-export function itemImageBackground(item: Pick<MenuItem, "name" | "category"> & { image?: string | null }): string {
+export function itemImageBackground(item: Pick<MenuItem, "name"> & { image?: string | null }): string {
   const image = item.image ?? menuImageForName(item.name);
-  if (!image) return categoryGradient(item.category);
+  if (!image) return NO_PHOTO_FALLBACK;
   return `${PHOTO_OVERLAY}, url("${image}")`;
 }

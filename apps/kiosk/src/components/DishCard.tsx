@@ -5,15 +5,6 @@ import { itemImageBackground } from "@/lib/menuImages";
 import { track, type Source } from "@/lib/eventBus";
 import DietMark from "@/components/DietMark";
 
-const TAG_CLASS: Record<string, string> = {
-  "Chef's Pick": "tag-dark",
-  "Best Seller": "tag-accent",
-  "Signature": "tag-light",
-  "New": "tag-green",
-  "Pairs Well": "tag-light",
-  "Quick Add": "tag-light",
-};
-
 interface DishCardProps {
   item: MenuItem;
   qty: number;
@@ -72,48 +63,41 @@ function DishCard({
   };
 
   const bg = itemImageBackground(item);
-  const displayTags = item.tags.slice(0, 2);
 
   return (
-    <article className={`dish-card${showPairingPanel ? " has-inline-pairing" : ""}`}>
-      <div
-        className="dish-media"
-        style={{ background: bg, cursor: "pointer" }}
-        onClick={() => onSelect(item)}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => e.key === "Enter" && onSelect(item)}
-        aria-label={`View ${item.name} details`}
-      >
-        {displayTags.length > 0 && (
-          <div className="dish-tags">
-            {displayTags.map((tag) => (
-              <span key={tag} className={`tag ${TAG_CLASS[tag] ?? "tag-light"}`}>
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="dish-body">
+    <article className={`tt-dishcard${showPairingPanel ? " has-inline-pairing" : ""}${qty > 0 ? " in-cart" : ""}`}>
+      <div className="tt-dishcard-row">
         <div
-          className="dish-text"
+          className="tt-dishcard-media"
+          style={{ background: bg, cursor: "pointer" }}
           onClick={() => onSelect(item)}
-          style={{ cursor: "pointer" }}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => e.key === "Enter" && onSelect(item)}
-        >
-          <DietMark isVeg={item.is_veg} compact />
-          <h3>{item.name}</h3>
+          aria-label={`View ${item.name} details`}
+        />
+
+        <div className="tt-dishcard-body">
+          <div
+            className="tt-dishcard-name"
+            onClick={() => onSelect(item)}
+            style={{ cursor: "pointer" }}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === "Enter" && onSelect(item)}
+          >
+            <DietMark isVeg={item.is_veg} compact />
+            <h3>{item.name}</h3>
+          </div>
+          {item.description && <p className="tt-dishcard-desc">{item.description}</p>}
+          <strong className="tt-dishcard-price">₹{item.price}</strong>
         </div>
 
-        <div className="dish-meta">
-          <strong>₹{item.price}</strong>
+        <div className="tt-dishcard-action">
           {qty > 0 ? (
-            <div className="card-stepper" aria-label={`${item.name} quantity`}>
+            <div className="tt-stepper" aria-label={`${item.name} quantity`}>
               <button
+                className={qty === 1 ? "tt-stepper-minus--floor" : undefined}
                 onClick={() => onUpdateQuantity(item.id, -1, "main_menu")}
                 aria-label={`Decrease ${item.name}`}
               >
@@ -128,73 +112,64 @@ function DishCard({
               </button>
             </div>
           ) : (
-            <button className="chip-action" onClick={() => onAddToCart(item)}>
+            <button className="tt-btn--accent" onClick={() => onAddToCart(item)}>
               Add
             </button>
           )}
         </div>
-
-        {showPairingPanel && (
-          <div className="card-pairing-panel">
-            <div>
-              <p className="eyebrow">Pairs well with</p>
-              <strong>Complete your order</strong>
-            </div>
-            <div className="card-pairing-list">
-              {pairings.slice(0, 2).map((paired) => (
-                <div
-                  key={paired.id}
-                  className="pairing-chip"
-                >
-                  <span
-                    className="pairing-thumb"
-                    style={{
-                      background: itemImageBackground(paired),
-                    }}
-                  />
-                  <span className="pairing-info">
-                    <span className="pairing-topline">
-                      <span className="pairing-name">
-                        <DietMark isVeg={paired.is_veg} compact />
-                        {paired.name}
-                      </span>
-                      <small>₹{paired.price}</small>
-                    </span>
-                    {(getQuantity?.(paired.id) ?? 0) > 0 ? (
-                      <span className="card-stepper pairing-stepper" aria-label={`${paired.name} quantity`}>
-                        <button
-                          type="button"
-                          onClick={() => onUpdateQuantity(paired.id, -1, "pairing_chip")}
-                          aria-label={`Decrease ${paired.name}`}
-                        >
-                          −
-                        </button>
-                        <span>{getQuantity?.(paired.id) ?? 0}</span>
-                        <button
-                          type="button"
-                          onClick={() => onUpdateQuantity(paired.id, 1, "pairing_chip")}
-                          aria-label={`Increase ${paired.name}`}
-                        >
-                          +
-                        </button>
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="pairing-add"
-                        onClick={() => handleAddPairing(paired)}
-                        aria-label={`Add ${paired.name} — ₹${paired.price}`}
-                      >
-                        Add
-                      </button>
-                    )}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
+
+      {showPairingPanel && (
+        <div className="tt-pairing-panel">
+          <p className="tt-badge">Goes well with</p>
+          <div className="tt-pairing-list">
+            {pairings.slice(0, 2).map((paired) => (
+              <div key={paired.id} className="tt-pairing-row">
+                <span
+                  className="tt-pairing-thumb"
+                  style={{ background: itemImageBackground(paired) }}
+                />
+                <span className="tt-pairing-info">
+                  <span className="tt-pairing-name">
+                    <DietMark isVeg={paired.is_veg} compact />
+                    {paired.name}
+                  </span>
+                  <span className="tt-pairing-price">₹{paired.price}</span>
+                </span>
+                {(getQuantity?.(paired.id) ?? 0) > 0 ? (
+                  <span className="tt-stepper" aria-label={`${paired.name} quantity`}>
+                    <button
+                      type="button"
+                      className={getQuantity?.(paired.id) === 1 ? "tt-stepper-minus--floor" : undefined}
+                      onClick={() => onUpdateQuantity(paired.id, -1, "pairing_chip")}
+                      aria-label={`Decrease ${paired.name}`}
+                    >
+                      −
+                    </button>
+                    <span>{getQuantity?.(paired.id) ?? 0}</span>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateQuantity(paired.id, 1, "pairing_chip")}
+                      aria-label={`Increase ${paired.name}`}
+                    >
+                      +
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="tt-pairing-add"
+                    onClick={() => handleAddPairing(paired)}
+                    aria-label={`Add ${paired.name} — ₹${paired.price}`}
+                  >
+                    +
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </article>
   );
 }

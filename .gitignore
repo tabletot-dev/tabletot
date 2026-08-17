@@ -77,3 +77,6 @@ graphify-out/
 
 .playwright/
 .playwright-cli/
+
+*.wav
+*.mp3

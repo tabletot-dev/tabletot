@@ -7,17 +7,20 @@ import ListeningScreen from "@/components/screens/ListeningScreen";
 import MenuView from "@/components/screens/MenuView";
 import DetailView from "@/components/screens/DetailView";
 import CartView from "@/components/screens/CartView";
+import SentView from "@/components/screens/SentView";
+import CancelConfirm from "@/components/screens/CancelConfirm";
 import ConfirmationView from "@/components/screens/ConfirmationView";
 import WaitingView from "@/components/screens/WaitingView";
-import IdentityView from "@/components/screens/IdentityView";
 const BillView = lazy(() => import("@/components/screens/BillView"));
 const GamesView = lazy(() => import("@/components/screens/GamesView"));
 const ConversationStartersView = lazy(() => import("@/components/screens/ConversationStartersView"));
 import CompletionNudge from "@/components/CompletionNudge";
 import VoiceOrderButton from "@/components/VoiceOrderButton";
-import MiniCartSidebar from "@/components/MiniCartSidebar";
 import VoiceConversationPanel from "@/components/VoiceConversationPanel";
 import AppShell from "@/components/AppShell";
+import OrderBar from "@/components/OrderBar";
+import StatusStrip from "@/components/StatusStrip";
+import { useRoundHold } from "@/hooks/useRoundHold";
 import { RestaurantProvider, useRestaurant } from "@/lib/restaurantContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -49,17 +52,18 @@ function wait(ms: number) {
 // Pre-submit browsing screens only — session-idle/games/conversation-starters
 // are static screens where no activity is expected by design (see
 // docs/plans/2026-08-03-idle-table-notification.md).
-const NUDGE_ELIGIBLE_SCREENS = new Set(["home", "menu", "item-detail", "order-summary", "identity"]);
+const NUDGE_ELIGIBLE_SCREENS = new Set(["home", "menu", "item-detail", "order-summary"]);
 const NUDGE_THRESHOLD_MS = 3.5 * 60 * 1000;
 
 const IndexInner = () => {
-  const { voiceEnabled, promptForIdentity } = useRestaurant();
+  const { voiceEnabled, promptForIdentity, venueName } = useRestaurant();
   const {
     currentScreen,
     setCurrentScreen,
     selectedItem,
     setSelectedItem,
     order,
+    setOrder,
     addToOrder,
     updateQuantity,
     removeItem,
@@ -71,6 +75,29 @@ const IndexInner = () => {
     currentRoundOrderId,
     previousOrders,
   } = useDeviceNavigation();
+
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+
+  // The hold's expiry is the ONLY path that reaches submitOrder. Pressing
+  // "Send to kitchen" starts the countdown; it does not submit. Identity is
+  // applied here too, not at the tap — a cancelled hold must leave no trace,
+  // and this is the only place that's still true (see orderName leak fix,
+  // docs/notes/2026-08-15-order-name-leak-fix.md).
+  const hold = useRoundHold(
+    useCallback(async (_items, displayName) => {
+      try {
+        if (promptForIdentity && !isIdentityResolved()) {
+          if (displayName) await setSessionDisplayName(displayName);
+          markIdentityResolved();
+        }
+        await confirmOrder();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setToast(`Order could not be sent: ${msg}`);
+        setCurrentScreen("order-summary");
+      }
+    }, [confirmOrder, setCurrentScreen, promptForIdentity]),
+  );
 
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [billRequested, setBillRequested] = useState(false);
@@ -194,7 +221,7 @@ const IndexInner = () => {
     };
   }, [tableUuid, handleEndSession]);
 
-  // Source defaults to "main_menu" so cart-side surfaces (MiniCartSidebar,
+  // Source defaults to "main_menu" so cart-side surfaces (OrderBar,
   // CartView) can call without thinking about attribution. High-stakes
   // attribution paths — pairing chip, completion nudge, detail view, voice —
   // pass their source explicitly.
@@ -320,31 +347,26 @@ const IndexInner = () => {
     }
   }, [selectedItem, handleAddToOrder]);
 
+  // Bridges the displayName captured at "Send to kitchen" across the
+  // completion-nudge interstitial to wherever the hold actually starts —
+  // it must never be written to sessionStorage/Supabase before that point.
+  const pendingDisplayNameRef = useRef<string | undefined>(undefined);
+
   const handleCompletionSkip = useCallback(async () => {
     setCompletionSuggestion(null);
     if (isSubmitting) return;
-    setIsSubmitting(true);
-    try {
-      await confirmOrder();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setToast(`Order could not be sent: ${msg}`);
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [confirmOrder, isSubmitting]);
+    hold.startHold(order, pendingDisplayNameRef.current);
+    setCurrentScreen("sent");
+  }, [hold, order, setCurrentScreen, isSubmitting]);
 
   const getOrderQuantity = useCallback(
     (itemId: string) => order.find((item) => item.id === itemId)?.quantity ?? 0,
     [order],
   );
 
-  const handleConfirmOrder = useCallback(async () => {
+  const handleConfirmOrder = useCallback(async (displayName?: string) => {
     if (isSubmitting) return;
-    if (promptForIdentity && !isIdentityResolved()) {
-      setCurrentScreen("identity");
-      return;
-    }
+    pendingDisplayNameRef.current = displayName;
     setIsSubmitting(true);
     try {
       {
@@ -356,14 +378,15 @@ const IndexInner = () => {
         }
       }
       await wait(1150);
-      await confirmOrder();
+      hold.startHold(order, displayName);
+      setCurrentScreen("sent");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setToast(`Order could not be sent: ${msg}`);
     } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, order, confirmOrder, promptForIdentity, setCurrentScreen]);
+  }, [isSubmitting, order, hold, setCurrentScreen]);
 
   const [toast, setToast] = useState<string>("");
   useEffect(() => {
@@ -375,7 +398,19 @@ const IndexInner = () => {
   const renderScreen = () => {
     switch (currentScreen) {
       case "idle":
-        return <IdleScreen onActivate={() => setCurrentScreen("home")} />;
+        return (
+          <IdleScreen
+            onActivate={async () => {
+              // Mirrors HomeView's "Start Ordering" — session_started must
+              // fire before menu so recommendation/order events get a
+              // span_id to attribute to (see AOV note in CLAUDE.md).
+              await startSession();
+              setCurrentScreen("menu");
+            }}
+            tableId={TABLE_ID}
+            onInfoToast={(msg) => setToast(msg)}
+          />
+        );
       case "home":
         return (
           <HomeView
@@ -400,19 +435,6 @@ const IndexInner = () => {
             tableId={TABLE_ID}
           />
         );
-      case "identity":
-        return (
-          <IdentityView
-            onContinue={async (displayName) => {
-              if (displayName) {
-                await setSessionDisplayName(displayName);
-              }
-              markIdentityResolved();
-              setCurrentScreen("order-summary");
-              await handleConfirmOrder();
-            }}
-          />
-        );
       case "listening":
         return voiceEnabled ? (
           <ListeningScreen
@@ -425,97 +447,56 @@ const IndexInner = () => {
         ) : null;
 
       case "menu":
-      case "item-detail":
         return (
-          <div className="browse-layout">
-            <div className="browse-main">
-              <div className="browse-content">
-                <MenuView
-                  onSelect={handleSelectItem}
-                  onAddToCart={handleAddToOrder}
-                  onUpdateQuantity={handleUpdateQuantity}
+          <MenuView
+            onSelect={handleSelectItem}
+            onAddToCart={handleAddToOrder}
+            onUpdateQuantity={handleUpdateQuantity}
+            order={order}
+            voiceDock={
+              voiceEnabled ? (
+                <VoiceOrderButton
+                  onDone={handleVoiceDone}
                   order={order}
-                  voiceDock={
-                    voiceEnabled ? (
-                      <VoiceOrderButton
-                        onDone={handleVoiceDone}
-                        order={order}
-                        restaurantId={RESTAURANT_ID}
-                        tableId={TABLE_ID}
-                        onOpenConversation={() => setVoiceConversationOpen(true)}
-                        onSessionReady={setVoiceSessionId}
-                        onTtsReady={(h) => { voiceTtsHandleRef.current = h; }}
-                      />
-                    ) : null
-                  }
-                  voicePanel={
-                    voiceEnabled && voiceConversationOpen ? (
-                      <VoiceConversationPanel
-                        sessionId={voiceSessionId}
-                        turns={voiceTurns}
-                        order={order}
-                        getQuantity={getOrderQuantity}
-                        onClose={() => setVoiceConversationOpen(false)}
-                        onDone={handleVoiceDone}
-                        onAddItem={handleAddToOrder}
-                        onUpdateQuantity={handleUpdateQuantity}
-                        onSelectItem={handleSelectItem}
-                        ttsHandle={voiceTtsHandleRef}
-                      />
-                    ) : null
-                  }
+                  restaurantId={RESTAURANT_ID}
+                  tableId={TABLE_ID}
+                  onOpenConversation={() => setVoiceConversationOpen(true)}
+                  onSessionReady={setVoiceSessionId}
+                  onTtsReady={(h) => { voiceTtsHandleRef.current = h; }}
                 />
-                <AnimatePresence>
-                  {currentScreen === "item-detail" && selectedItem && (
-                    <motion.div
-                      className="item-modal-backdrop"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      onClick={() => setCurrentScreen("menu")}
-                    >
-                      <motion.div
-                        className="item-modal-panel"
-                        initial={{ y: 28, opacity: 0, scale: 0.98 }}
-                        animate={{ y: 0, opacity: 1, scale: 1 }}
-                        exit={{ y: 28, opacity: 0, scale: 0.98 }}
-                        transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <DetailView
-                          item={selectedItem}
-                          pairings={getDetailPairings(selectedItem)}
-                          onAdd={handleAddFromDetail}
-                          onAddItem={(i) => handleAddToOrder(i, "pairing_chip")}
-                          onUpdateQuantity={handleUpdateQuantity}
-                          getQuantity={getOrderQuantity}
-                          onBack={() => setCurrentScreen("menu")}
-                          onSelectPairing={handleSelectItem}
-                          onOpenVoice={() => {
-                            setCurrentScreen("menu");
-                            setVoiceConversationOpen(true);
-                          }}
-                        />
-                      </motion.div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-
-              </div>
-
-              <MiniCartSidebar
-                order={order}
-                previousOrders={previousOrders}
-                onAddToCart={handleAddToOrder}
-                onUpdateQuantity={handleUpdateQuantity}
-                onSelect={handleSelectItem}
-                onGoToCart={() => setCurrentScreen("order-summary")}
-              />
-            </div>
-          </div>
+              ) : null
+            }
+            voicePanel={
+              voiceEnabled && voiceConversationOpen ? (
+                <VoiceConversationPanel
+                  sessionId={voiceSessionId}
+                  turns={voiceTurns}
+                  order={order}
+                  getQuantity={getOrderQuantity}
+                  onClose={() => setVoiceConversationOpen(false)}
+                  onDone={handleVoiceDone}
+                  onAddItem={handleAddToOrder}
+                  onUpdateQuantity={handleUpdateQuantity}
+                  onSelectItem={handleSelectItem}
+                  ttsHandle={voiceTtsHandleRef}
+                />
+              ) : null
+            }
+          />
         );
+      case "item-detail":
+        return selectedItem ? (
+          <DetailView
+            item={selectedItem}
+            pairings={getDetailPairings(selectedItem)}
+            onAdd={handleAddFromDetail}
+            onAddItem={(i) => handleAddToOrder(i, "pairing_chip")}
+            onUpdateQuantity={handleUpdateQuantity}
+            getQuantity={getOrderQuantity}
+            onBack={() => setCurrentScreen("menu")}
+            onSelectPairing={handleSelectItem}
+          />
+        ) : null;
 
       case "order-summary":
         return (
@@ -524,9 +505,22 @@ const IndexInner = () => {
             totalBill={totalBill}
             previousOrders={previousOrders}
             isSubmitting={isSubmitting}
+            showNameField={promptForIdentity && !isIdentityResolved()}
             onContinue={() => setCurrentScreen("menu")}
             onConfirm={handleConfirmOrder}
             onUpdateQuantity={handleUpdateQuantity}
+          />
+        );
+      case "sent":
+        return (
+          <SentView
+            items={hold.heldItems ?? order}
+            roundNumber={previousOrders.length + 1}
+            secondsLeft={hold.secondsLeft}
+            onEdit={() => { hold.cancelHold(); setCurrentScreen("order-summary"); }}
+            onCancel={() => setCancelConfirmOpen(true)}
+            onSendNow={hold.sendNow}
+            onOrderMore={() => setCurrentScreen("menu")}
           />
         );
       case "order-confirmation":
@@ -559,6 +553,20 @@ const IndexInner = () => {
                 // Previously showed "Water requested" even when the insert
                 // failed (audit M2) — staff never got the request either way.
                 setToast("Couldn't request water — please ask a server");
+              }
+            }}
+            onCallStaff={async () => {
+              try {
+                const tableUuid = await resolveTableId();
+                const { error } = await supabase.from("table_requests").insert({
+                  table_id: tableUuid,
+                  request_type: "assistance",
+                  status: "pending",
+                });
+                if (error) throw error;
+                setToast("Staff on the way");
+              } catch {
+                setToast("Couldn't reach staff — please wave someone down");
               }
             }}
           />
@@ -600,9 +608,28 @@ const IndexInner = () => {
   return (
     <AppShell
       currentScreen={currentScreen}
-      onNavigate={setCurrentScreen}
       tableId={TABLE_ID}
-      showStatusReturn={previousOrders.length > 0 && currentScreen !== "session-idle"}
+      venueName={venueName || "Tabletot"}
+      orderBar={
+        currentScreen === "menu" ? (
+          <OrderBar
+            itemCount={order.reduce((s, o) => s + o.quantity, 0)}
+            total={totalBill}
+            roundNumber={previousOrders.length + 1}
+            disabled={isSubmitting}
+            onReview={() => setCurrentScreen("order-summary")}
+          />
+        ) : null
+      }
+      statusStrip={
+        hold.isHolding && currentScreen !== "sent" ? (
+          <StatusStrip
+            label={`Round ${previousOrders.length + 1} → kitchen`}
+            detail={`${hold.secondsLeft}s · tap to change`}
+            onTap={() => setCurrentScreen("sent")}
+          />
+        ) : null
+      }
     >
       <div style={{ position: "relative", height: "100%" }}>
         {renderScreen()}
@@ -650,12 +677,27 @@ const IndexInner = () => {
             suggestionText={completionSuggestion.text}
             suggestedItemId={completionSuggestion.itemId}
             cartValueAtShow={totalBill}
+            menuItems={menuItems}
             onAdd={(item) => {
               handleAddToOrder(item, "completion_nudge");
               setCompletionSuggestion(null);
               setCurrentScreen("order-summary");
             }}
             onSkip={handleCompletionSkip}
+          />
+        )}
+
+        {cancelConfirmOpen && (
+          <CancelConfirm
+            itemCount={order.reduce((s, o) => s + o.quantity, 0)}
+            hasCookingRounds={previousOrders.length > 0}
+            onKeep={() => setCancelConfirmOpen(false)}
+            onCancel={() => {
+              hold.cancelHold();
+              setOrder([]);
+              setCancelConfirmOpen(false);
+              setCurrentScreen(previousOrders.length > 0 ? "session-idle" : "menu");
+            }}
           />
         )}
 

@@ -1,41 +1,39 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* Tabletot Brand Colors - HSL */
-    --background: 180 27% 2%;         /* #040707 */
-    --foreground: 240 3% 91%;         /* #e9e9ea */
+    /* Tabletot v1.0 brand colors - HSL, mirrors src/styles/tokens.css */
+    --background: 60 9% 92%;          /* #EDECE6 --tt-field  */
+    --foreground: 90 6% 7%;           /* #111310 --tt-ink    */
 
-    --card: 180 10% 5%;
-    --card-foreground: 240 3% 91%;
+    --card: 0 0% 100%;                /* #FFFFFF --tt-paper  */
+    --card-foreground: 90 6% 7%;
 
-    --popover: 180 10% 5%;
-    --popover-foreground: 240 3% 91%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 90 6% 7%;
 
-    --primary: 359 84% 57%;           /* #ee3739 */
-    --primary-foreground: 240 3% 91%;
+    --primary: 20 89% 57%;            /* #F36C31 --tt-action */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 18 89% 57%;          /* #f36c31 */
-    --secondary-foreground: 240 3% 91%;
+    --secondary: 60 9% 92%;
+    --secondary-foreground: 90 6% 7%;
 
-    --muted: 180 10% 12%;
-    --muted-foreground: 240 3% 60%;
+    --muted: 60 9% 92%;
+    --muted-foreground: 90 6% 27%;    /* #43483F --tt-ink-60 */
 
-    --accent: 18 89% 57%;
-    --accent-foreground: 240 3% 91%;
+    --accent: 20 89% 57%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 57%;
-    --destructive-foreground: 240 3% 91%;
+    --destructive: 0 69% 36%;         /* #9B1C1C --tt-nonveg */
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 180 10% 15%;
-    --input: 180 10% 15%;
-    --ring: 359 84% 57%;
+    --border: 47 10% 77%;             /* #C9C7BF --tt-line */
+    --input: 47 10% 77%;
+    --ring: 20 89% 57%;
 
-    --radius: 0px;
+    --radius: 18px;
 
     /* Custom Tabletot tokens */
     --tt-red: 359 84% 57%;

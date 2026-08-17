@@ -21,6 +21,8 @@ from src.llm import create_provider
 from src.loader import MenuIndex, load_menu
 from src.menu_graph import MenuGraph
 from src.orchestrator import Orchestrator
+from voice_agent.elevenlabs_tts_handler import ElevenLabsTTSHandler
+from voice_agent.factory import create_tts_handler
 from voice_agent.restaurant_config import RestaurantConfig
 from voice_agent.tts_handler import SarvamTTSHandler
 
@@ -40,7 +42,7 @@ class VoiceSession:
     table_id: str
     restaurant_id: str
     restaurant_slug: str  # internal slug for config/menu lookups
-    tts_handler: SarvamTTSHandler
+    tts_handler: SarvamTTSHandler | ElevenLabsTTSHandler
     orchestrator: Orchestrator
     client_session_id: str | None = None
     tts_queue: asyncio.Queue = field(default_factory=lambda: asyncio.Queue(maxsize=20))
@@ -67,6 +69,9 @@ class SessionManager:
         provider_model: str | None = None,
         menu_graphs: dict[str, MenuGraph] | None = None,
         db_pool: "psycopg2.pool.ThreadedConnectionPool | None" = None,
+        elevenlabs_api_key: str = "",
+        stt_provider: str = "elevenlabs",
+        tts_provider: str = "elevenlabs",
     ) -> None:
         self._sessions: dict[str, VoiceSession] = {}
         self._configs = restaurant_configs
@@ -79,6 +84,11 @@ class SessionManager:
         self._provider_api_key = provider_api_key or anthropic_api_key
         self._provider_model = provider_model or None
         self._db_pool = db_pool
+        self._elevenlabs_api_key = elevenlabs_api_key
+        # stt_provider isn't used internally — STT handlers are created fresh
+        # per PTT press by routers/voice.py, not held on the session.
+        self._stt_provider = stt_provider
+        self._tts_provider = tts_provider
 
     # ------------------------------------------------------------------
     # DB persistence helpers — all fire-and-forget, never block callers.
@@ -206,7 +216,9 @@ class SessionManager:
         )
 
         # TTS handler created but NOT yet configured — lazy init on first TTS WS connect
-        tts_handler = SarvamTTSHandler(self._sarvam_api_key)
+        tts_handler = create_tts_handler(
+            self._tts_provider, self._sarvam_api_key, self._elevenlabs_api_key
+        )
 
         session = VoiceSession(
             session_id=session_id,

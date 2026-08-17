@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
+import { formatRupees } from '@/lib/formatCurrency';
 
 interface HistoryOrder {
   id: string;
@@ -222,7 +223,7 @@ export default function Reports() {
                   <CardContent className="p-6 flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Revenue</p>
-                      <p className="text-3xl font-bold mt-1">₹{totalRevenue.toFixed(0)}</p>
+                      <p className="text-3xl font-bold mt-1">{formatRupees(totalRevenue)}</p>
                     </div>
                     <div className="h-12 w-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
                       <IndianRupee className="h-6 w-6 text-emerald-600" />
@@ -244,7 +245,7 @@ export default function Reports() {
                   <CardContent className="p-6 flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Avg Order Value</p>
-                      <p className="text-3xl font-bold mt-1">₹{avgOrderValue.toFixed(0)}</p>
+                      <p className="text-3xl font-bold mt-1">{formatRupees(avgOrderValue)}</p>
                     </div>
                     <div className="h-12 w-12 rounded-full bg-purple-500/20 flex items-center justify-center">
                       <TrendingUp className="h-6 w-6 text-purple-600" />
@@ -267,7 +268,7 @@ export default function Reports() {
                               <p className="font-medium">{d.date}</p>
                               <p className="text-sm text-muted-foreground">{d.orders} orders</p>
                             </div>
-                            <p className="font-bold text-lg">₹{d.revenue.toFixed(0)}</p>
+                            <p className="font-bold text-lg">{formatRupees(d.revenue)}</p>
                           </div>
                         ))}
                       </div>
@@ -293,7 +294,7 @@ export default function Reports() {
                                 <p className="text-sm text-muted-foreground">{item.quantity} sold</p>
                               </div>
                             </div>
-                            <p className="font-bold">₹{item.revenue.toFixed(0)}</p>
+                            <p className="font-bold">{formatRupees(item.revenue)}</p>
                           </div>
                         ))}
                       </div>
@@ -328,7 +329,7 @@ export default function Reports() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold">₹{(o.total ?? 0).toFixed(0)}</p>
+                        <p className="font-bold">{formatRupees(o.total ?? 0)}</p>
                         <p className="text-xs text-muted-foreground capitalize">{o.payment_method ?? '—'}</p>
                       </div>
                     </div>
@@ -381,13 +382,13 @@ export default function Reports() {
                             <p className="font-medium capitalize">{method}</p>
                             <p className="text-sm text-muted-foreground">{d.count} order{d.count !== 1 ? 's' : ''}</p>
                           </div>
-                          <p className="text-lg font-bold">₹{d.total.toFixed(0)}</p>
+                          <p className="text-lg font-bold">{formatRupees(d.total)}</p>
                         </div>
                       ))}
                       <Separator />
                       <div className="flex justify-between items-center px-3 font-bold text-lg">
                         <span>Total</span>
-                        <span>₹{todayOrders.reduce((s, o) => s + (o.total ?? 0), 0).toFixed(0)}</span>
+                        <span>{formatRupees(todayOrders.reduce((s, o) => s + (o.total ?? 0), 0))}</span>
                       </div>
                     </div>
                   )}

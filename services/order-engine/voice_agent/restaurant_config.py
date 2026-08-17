@@ -23,6 +23,8 @@ class RestaurantConfig:
     fallback_speaker: str | None = None
     db_restaurant_id: str | None = None
     voice_persona: str | None = None
+    elevenlabs_voice_id: str | None = None
+    elevenlabs_fallback_voice_id: str | None = None
 
 
 def load_restaurant_config(db_url: str) -> dict[str, RestaurantConfig]:
@@ -40,7 +42,8 @@ def load_restaurant_config(db_url: str) -> dict[str, RestaurantConfig]:
         cur.execute(
             """
             SELECT id, slug, name, language_code, speaker,
-                   fallback_language_code, fallback_speaker, voice_persona
+                   fallback_language_code, fallback_speaker, voice_persona,
+                   elevenlabs_voice_id, elevenlabs_fallback_voice_id
             FROM   restaurants
             WHERE  slug IS NOT NULL
               AND  language_code IS NOT NULL
@@ -60,7 +63,11 @@ def load_restaurant_config(db_url: str) -> dict[str, RestaurantConfig]:
         )
 
     result: dict[str, RestaurantConfig] = {}
-    for (rid, slug, name, language_code, speaker, fallback_language_code, fallback_speaker, voice_persona) in rows:
+    for (
+        rid, slug, name, language_code, speaker,
+        fallback_language_code, fallback_speaker, voice_persona,
+        elevenlabs_voice_id, elevenlabs_fallback_voice_id,
+    ) in rows:
         result[slug] = RestaurantConfig(
             name=name,
             language_code=language_code,
@@ -70,6 +77,8 @@ def load_restaurant_config(db_url: str) -> dict[str, RestaurantConfig]:
             fallback_speaker=fallback_speaker,
             db_restaurant_id=str(rid),
             voice_persona=voice_persona,
+            elevenlabs_voice_id=elevenlabs_voice_id,
+            elevenlabs_fallback_voice_id=elevenlabs_fallback_voice_id,
         )
 
     logger.info("Restaurant configs loaded from DB: %d restaurant(s)", len(result))

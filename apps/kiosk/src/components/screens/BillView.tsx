@@ -4,8 +4,8 @@ import TabletotLogo from "@/components/TabletotLogo";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveTableId } from "@/lib/orderSubmission";
 import { appendEvent } from "@/lib/ledger";
-
-const TAX_RATE = 0.05;
+import { computeTotals } from "@/lib/pricing";
+import { formatRupees } from "@/lib/formatCurrency";
 
 interface BillViewProps {
   previousOrders: OrderRound[];
@@ -31,21 +31,28 @@ export default function BillView({
   );
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const subtotal = sessionTotal;
-  const tax = subtotal * TAX_RATE;
-  const total = subtotal + tax;
-  const sanitizedPhone = phone.replace(/[^\d+]/g, "");
+  const { subtotal, tax, total } = computeTotals(sessionTotal);
   // Indian mobile convention: 10 digits, starting 6-9 (project-wide rule, see
   // CLAUDE.md). Previously accepted any 10+ digit string. Strips an optional
   // country code (+91/91) before checking the local number.
-  const digitsOnly = sanitizedPhone.replace(/\D/g, "");
-  const localDigits = digitsOnly.length > 10 && digitsOnly.startsWith("91")
-    ? digitsOnly.slice(2)
-    : digitsOnly;
-  const canSubmitPhone = /^[6-9]\d{9}$/.test(localDigits);
+  const localDigitsOf = (raw: string) => {
+    const digitsOnly = raw.replace(/[^\d+]/g, "").replace(/\D/g, "");
+    return digitsOnly.length > 10 && digitsOnly.startsWith("91") ? digitsOnly.slice(2) : digitsOnly;
+  };
+  const isValidLocalPhone = (digits: string) => /^[6-9]\d{9}$/.test(digits);
+  const localDigits = localDigitsOf(phone);
+  const isValidPhone = isValidLocalPhone(localDigits);
+  // Phone is optional — a blank field is fine, but a partially-typed number
+  // shouldn't silently submit as garbage. Only a non-empty, invalid number blocks.
+  const canSubmitPhone = localDigits.length === 0 || isValidPhone;
 
-  const submitBillRequest = async () => {
-    if (!canSubmitPhone) return;
+  // phoneOverride lets "Skip" submit without a number regardless of whatever
+  // partial text is still sitting in the input, without racing setState.
+  const submitBillRequest = async (phoneOverride?: string) => {
+    const effectivePhone = phoneOverride ?? phone;
+    const effectiveLocalDigits = localDigitsOf(effectivePhone);
+    const effectiveIsValid = isValidLocalPhone(effectiveLocalDigits);
+    if (effectiveLocalDigits.length > 0 && !effectiveIsValid) return;
     setError(null);
     setStage("loading");
 
@@ -62,19 +69,21 @@ export default function BillView({
     }
 
     // Phone capture is best-effort — the bill request already succeeded above.
-    try {
-      const tableUuid = await resolveTableId();
-      const latestOrderId = previousOrders.length > 0
-        ? previousOrders[previousOrders.length - 1].orderId
-        : null;
-      await supabase.from("bill_requests").insert({
-        table_id: tableUuid,
-        order_id: latestOrderId ?? null,
-        phone: sanitizedPhone,
-        status: "pending",
-      });
-    } catch {
-      // non-blocking — staff already have the ledger signal
+    if (effectiveIsValid) {
+      try {
+        const tableUuid = await resolveTableId();
+        const latestOrderId = previousOrders.length > 0
+          ? previousOrders[previousOrders.length - 1].orderId
+          : null;
+        await supabase.from("bill_requests").insert({
+          table_id: tableUuid,
+          order_id: latestOrderId ?? null,
+          phone: effectivePhone.replace(/[^\d+]/g, ""),
+          status: "pending",
+        });
+      } catch {
+        // non-blocking — staff already have the ledger signal
+      }
     }
 
     setStage("sent");
@@ -83,25 +92,23 @@ export default function BillView({
 
   if (stage === "loading") {
     return (
-      <section className="view bill-view bill-flow-state" role="status" aria-live="polite">
-        <TabletotLogo className="bill-flow-boot" />
+      <section className="tt-bill-flow" role="status" aria-live="polite">
+        <TabletotLogo className="tt-bill-flow-logo" />
       </section>
     );
   }
 
   if (stage === "sent") {
     return (
-      <section className="view bill-view bill-flow-state" role="status" aria-live="polite">
-        <div className="bill-success-mark">
-          <TabletotLogo className="bill-flow-boot compact" />
-        </div>
-        <p className="eyebrow">Bill Requested</p>
+      <section className="tt-bill-flow" role="status" aria-live="polite">
+        <TabletotLogo className="tt-bill-flow-logo" />
+        <p className="tt-badge">Bill Requested</p>
         <h1>Bill coming your way.</h1>
-        <p className="bill-flow-copy">
+        <p className="tt-bill-flow-copy">
           A server will bring the bill to your table.
         </p>
         {onBackToStatus && (
-          <button className="secondary-btn" onClick={onBackToStatus}>
+          <button className="tt-btn--secondary" onClick={onBackToStatus}>
             Back to my order
           </button>
         )}
@@ -110,87 +117,79 @@ export default function BillView({
   }
 
   return (
-    <section className="view bill-view">
-      <div className="split-layout">
-        <div className="panel scroll-panel">
-          <div className="section-title">
-            <div>
-              <p className="eyebrow">Itemized bill</p>
-              <h2>Review before asking to settle</h2>
+    <section className="tt-bill">
+      <p className="tt-badge">Itemized bill</p>
+      <h1>Review before asking to settle</h1>
+
+      {previousOrders.length === 0 ? (
+        <div className="tt-empty">No orders yet this session.</div>
+      ) : (
+        <div className="tt-bill-rounds">
+          {previousOrders.map((round, roundIdx) => (
+            <div key={roundIdx} className="tt-bill-round">
+              <p className="tt-bill-round-label">Round {roundIdx + 1} · Sent</p>
+              {round.items.map((item) => (
+                <div key={item.id} className="bill-row">
+                  <span>
+                    {item.quantity} × {item.name}
+                  </span>
+                  <strong>{formatRupees(item.price * item.quantity)}</strong>
+                </div>
+              ))}
+            </div>
+          ))}
+
+          <div className="tt-cart-totals">
+            <div className="summary-line">
+              <span>Subtotal</span>
+              <strong>{formatRupees(subtotal)}</strong>
+            </div>
+            <div className="summary-line">
+              <span>GST (5%)</span>
+              <strong>{formatRupees(tax)}</strong>
+            </div>
+            <div className="summary-line total-line">
+              <span>Total</span>
+              <strong>{formatRupees(total)}</strong>
             </div>
           </div>
-
-          <div className="bill-list">
-            {previousOrders.length === 0 ? (
-              <div className="empty-state" style={{ textAlign: "center" }}>
-                No orders yet this session.
-              </div>
-            ) : (
-              previousOrders.flatMap((round, roundIdx) =>
-                round.items.map((item) => (
-                  <div key={`${roundIdx}-${item.id}`} className="bill-row">
-                    <span>
-                      {item.quantity} × {item.name}
-                    </span>
-                    <strong>₹{item.price * item.quantity}</strong>
-                  </div>
-                )),
-              )
-            )}
-
-            {previousOrders.length > 0 && (
-              <>
-                <div className="summary-line">
-                  <span>Subtotal</span>
-                  <strong>₹{subtotal.toFixed(0)}</strong>
-                </div>
-                <div className="summary-line">
-                  <span>GST (5%)</span>
-                  <strong>₹{tax.toFixed(0)}</strong>
-                </div>
-                <div className="summary-line total-line">
-                  <span>Total</span>
-                  <strong>₹{total.toFixed(0)}</strong>
-                </div>
-              </>
-            )}
-          </div>
         </div>
+      )}
 
-        <aside className="panel summary-panel">
-          <p className="eyebrow">Settle up</p>
-          <h2>Choose the next step</h2>
-          <button className="primary-btn wide" onClick={() => setStage("phone")}>
-            Request Bill at Table
+      <div className="tt-bill-settle">
+        <p className="tt-badge">Settle up</p>
+        <h2>Choose the next step</h2>
+        <button className="tt-btn--primary" onClick={() => setStage("phone")}>
+          Request Bill at Table
+        </button>
+        {onContinueOrdering && (
+          <button className="tt-btn--secondary" onClick={onContinueOrdering}>
+            Continue Ordering
           </button>
-          {onContinueOrdering && (
-            <button className="secondary-btn wide" onClick={onContinueOrdering}>
-              Continue Ordering
-            </button>
-          )}
-          <p className="summary-note">
-            Once requested, a server brings the card reader directly to your table.
-          </p>
-        </aside>
+        )}
+        <p className="tt-bill-note">
+          Once requested, a server brings the card reader directly to your table.
+        </p>
       </div>
 
       {stage === "phone" && (
-        <div className="bill-phone-backdrop" role="dialog" aria-modal="true" aria-labelledby="bill-phone-title">
+        <div className="tt-modal-scrim" role="dialog" aria-modal="true" aria-labelledby="bill-phone-title">
           <form
-            className="bill-phone-panel"
+            className="tt-modal"
             onSubmit={(event) => {
               event.preventDefault();
               submitBillRequest();
             }}
           >
-            <p className="eyebrow">Guest record</p>
-            <h2 id="bill-phone-title">Where should we attach this bill request?</h2>
+            <p className="tt-badge">Guest record</p>
+            <h2 id="bill-phone-title">A server is bringing the card reader over</h2>
             <p>
-              Enter a phone number so the table request can be linked to this visit.
+              Optional — a phone number lets us link this request to your visit if there's a mix-up.
             </p>
-            <label className="bill-phone-field">
-              <span>Phone number</span>
+            <label>
+              <span className="tt-badge">Phone number (optional)</span>
               <input
+                className="tt-field"
                 value={phone}
                 onChange={(event) => setPhone(event.target.value)}
                 inputMode="tel"
@@ -200,16 +199,19 @@ export default function BillView({
               />
             </label>
             {error && (
-              <p role="alert" style={{ color: "var(--color-danger, #c0392b)", fontWeight: 600 }}>
+              <p role="alert" className="tt-field-error">
                 {error}
               </p>
             )}
-            <div className="bill-phone-actions">
-              <button type="button" className="secondary-btn" onClick={() => setStage("summary")}>
-                Back
-              </button>
-              <button type="submit" className="primary-btn" disabled={!canSubmitPhone}>
+            <div className="tt-modal-actions">
+              <button type="submit" className="tt-btn--primary" disabled={!canSubmitPhone}>
                 Submit
+              </button>
+              <button type="button" className="tt-btn--secondary" onClick={() => submitBillRequest("")}>
+                Skip — request without a number
+              </button>
+              <button type="button" className="tt-btn--secondary" onClick={() => setStage("summary")}>
+                Back
               </button>
             </div>
           </form>

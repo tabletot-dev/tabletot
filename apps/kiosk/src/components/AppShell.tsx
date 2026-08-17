@@ -1,45 +1,42 @@
 import type { ScreenType } from "@/hooks/useDeviceNavigation";
-import AppHeader from "./AppHeader";
+import AppBar from "./AppBar";
 
 interface AppShellProps {
   children: React.ReactNode;
   currentScreen: ScreenType;
-  onNavigate: (screen: ScreenType) => void;
-  restaurantName?: string;
+  venueName?: string;
   tableId: string;
-  showStatusReturn?: boolean;
+  onAbout?: () => void;
+  orderBar?: React.ReactNode;
+  statusStrip?: React.ReactNode;
+  voiceDock?: React.ReactNode;
 }
 
-const HEADERLESS_SCREENS: ScreenType[] = ["idle", "session-idle", "bill-summary"];
+// Screens that own their full canvas and draw no chrome.
+const BARE_SCREENS: ScreenType[] = ["idle", "order-confirmation"];
 
+// The invariant for every screen in the product: AppBar (optional) → exactly
+// one scroll region → docked bars, bars always flex: none. If a new screen
+// needs chrome that is not in this file, it is the wrong shape.
 export default function AppShell({
   children,
   currentScreen,
-  onNavigate,
-  restaurantName = "Tabletot",
+  venueName = "Tabletot",
   tableId,
-  showStatusReturn = false,
+  onAbout,
+  orderBar,
+  statusStrip,
+  voiceDock,
 }: AppShellProps) {
-  const isChromeless = HEADERLESS_SCREENS.includes(currentScreen);
-  const isIdleFrame = currentScreen === "session-idle";
-  const isAttractFrame = currentScreen === "idle";
+  const bare = BARE_SCREENS.includes(currentScreen);
 
   return (
-    <div className="app-shell">
-      <div className={`tablet-frame${isIdleFrame ? " idle-frame" : ""}${isAttractFrame ? " attract-frame" : ""}`}>
-        {!isChromeless && (
-          <AppHeader
-            currentScreen={currentScreen}
-            onNavigate={onNavigate}
-            restaurantName={restaurantName}
-            tableId={tableId}
-            showStatusReturn={showStatusReturn}
-          />
-        )}
-        <main className={`app-content${isIdleFrame ? " idle-content" : ""}${isAttractFrame ? " attract-content" : ""}`}>
-          {children}
-        </main>
-      </div>
+    <div className="tt-shell">
+      {!bare && <AppBar venueName={venueName} tableId={tableId} onAbout={onAbout} />}
+      <main className="tt-scroll" style={bare ? { padding: 0 } : undefined}>{children}</main>
+      {statusStrip}
+      {orderBar}
+      {voiceDock}
     </div>
   );
 }

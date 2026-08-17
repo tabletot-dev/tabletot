@@ -1,0 +1,78 @@
+/* src/styles/tokens.css
+ *
+ * The single token set for the kiosk. Nothing in this file selects an element
+ * other than :root. If you are adding a rule with a class selector, it belongs
+ * in tabletot.css.
+ *
+ * Contrast ratios are stated against the surface the token sits on and were
+ * taken from the v1.0 handoff. Every new colour must arrive with one.
+ */
+:root {
+  /* ── Colour ─────────────────────────────────────────────────── */
+  --tt-ink:           #111310; /* 18.4:1 on paper */
+  --tt-ink-60:        #43483F; /*  9.1:1 on paper */
+  --tt-action:        #F36C31; /* fill only, white label */
+  --tt-action-press:  #D95A22;
+  --tt-paper:         #FFFFFF;
+  --tt-field:         #EDECE6;
+  --tt-line:          #C9C7BF;
+  --tt-disabled:      #8A8E87;
+  --tt-veg:           #0E7A3C; /*  5.5:1 on paper — always with a circle   */
+  --tt-nonveg:        #9B1C1C; /*  8.6:1 on paper — always with a triangle */
+  --tt-info:          #12457E; /* 10.3:1 on paper — never an action        */
+  --tt-on-dark:       #E7E5DE; /* 15.4:1 on ink */
+  --tt-on-dark-70:    #CFCCC4; /* 10.2:1 on ink, 17px floor */
+  --tt-line-dark:     #6A6E67;
+  --tt-skeleton-2:    #E9E7E0;
+
+  /* ── Scale ──────────────────────────────────────────────────────
+   * Set once at boot by setScaleFromViewport() in main.tsx. 1 = the
+   * 800 x 1280 reference canvas, where every value below is literal px.
+   */
+  --tt-scale: 1;
+
+  /* ── Spacing · 8-point ──────────────────────────────────────── */
+  --tt-space-1: calc( 8px * var(--tt-scale));
+  --tt-space-2: calc(12px * var(--tt-scale));
+  --tt-space-3: calc(16px * var(--tt-scale));
+  --tt-space-4: calc(24px * var(--tt-scale));
+  --tt-space-5: calc(32px * var(--tt-scale));
+  --tt-space-6: calc(48px * var(--tt-scale));
+  --tt-space-7: calc(64px * var(--tt-scale));
+
+  --tt-gutter:  var(--tt-space-4); /* 24 — screen gutter, the minimum */
+  --tt-pad-card: var(--tt-space-3); /* 16 */
+
+  /* ── Radii ──────────────────────────────────────────────────── */
+  --tt-radius-badge:  8px;
+  --tt-radius-chip:  12px;
+  --tt-radius-card:  18px;
+  --tt-radius-pill: 999px;
+
+  /* ── Type ───────────────────────────────────────────────────────
+   * Sora for display and titles, Manrope for everything read as prose
+   * or pressed as a control. 24px is the CTA floor and is not negotiable.
+   */
+  --tt-font-display: "Sora", sans-serif;
+  --tt-font-text:    "Manrope", sans-serif;
+
+  --tt-size-display:  calc(56px * var(--tt-scale));
+  --tt-size-heading:  calc(40px * var(--tt-scale));
+  --tt-size-dish:     calc(26px * var(--tt-scale));
+  --tt-size-cta:      calc(24px * var(--tt-scale));
+  --tt-size-body:     calc(20px * var(--tt-scale));
+  --tt-size-meta:     calc(18px * var(--tt-scale));
+
+  /* ── Tap targets ────────────────────────────────────────────── */
+  --tt-tap:         calc(64px * var(--tt-scale));
+  --tt-tap-primary: calc(88px * var(--tt-scale));
+
+  /* ── Motion ─────────────────────────────────────────────────── */
+  --tt-dur-state: 120ms;
+  --tt-dur-nav:   240ms;
+  --tt-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* One elevation model: a 2px solid border. There is deliberately no
+ * --tt-shadow-* token. If you find yourself wanting one, the answer is a
+ * border. Shadows vanish under restaurant glare on a real tablet. */

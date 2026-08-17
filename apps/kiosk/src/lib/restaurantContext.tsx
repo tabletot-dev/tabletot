@@ -1,11 +1,15 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase, hasSupabaseConfig } from "@/integrations/supabase/client";
 
+export type Promo = { id: string; title: string; copy: string };
+
 interface RestaurantCtx {
   restaurantId: string;
   tableId: string;
   voiceEnabled: boolean;
   promptForIdentity: boolean;
+  venueName: string;
+  promos: Promo[];
 }
 
 const RestaurantContext = createContext<RestaurantCtx>({
@@ -13,6 +17,8 @@ const RestaurantContext = createContext<RestaurantCtx>({
   tableId: "",
   voiceEnabled: true,
   promptForIdentity: false,
+  venueName: "",
+  promos: [],
 });
 
 export function RestaurantProvider({ children }: { children: React.ReactNode }) {
@@ -24,19 +30,24 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
   // should go straight to menu, same as before this feature existed.
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [promptForIdentity, setPromptForIdentity] = useState(false);
+  const [venueName, setVenueName] = useState("");
+  const [promos, setPromos] = useState<Promo[]>([]);
 
   useEffect(() => {
     if (!restaurantId || !hasSupabaseConfig) return;
 
     supabase
       .from("restaurants")
-      .select("config")
+      .select("name, config")
       .eq("id", restaurantId)
       .single()
       .then(({ data, error }) => {
         if (error) {
           console.error("[RestaurantProvider] Failed to load restaurant config:", error.message);
           return;
+        }
+        if (data?.name) {
+          setVenueName(data.name);
         }
         if (data?.config && typeof data.config === "object") {
           const cfg = data.config as Record<string, unknown>;
@@ -46,12 +57,15 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
           if ("prompt_for_identity" in cfg) {
             setPromptForIdentity(Boolean(cfg.prompt_for_identity));
           }
+          if (Array.isArray(cfg.promos)) {
+            setPromos(cfg.promos as Promo[]);
+          }
         }
       });
   }, [restaurantId]);
 
   return (
-    <RestaurantContext.Provider value={{ restaurantId, tableId, voiceEnabled, promptForIdentity }}>
+    <RestaurantContext.Provider value={{ restaurantId, tableId, voiceEnabled, promptForIdentity, venueName, promos }}>
       {children}
     </RestaurantContext.Provider>
   );

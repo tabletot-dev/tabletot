@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, Loader2, Users } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { confirm } from '@/hooks/use-confirm';
 import { cn } from '@/lib/utils';
 import { RESTAURANT_ID } from '@/lib/restaurant';
 
@@ -19,6 +20,10 @@ interface RestaurantTable {
   capacity: number;
   status: string;
   area_id: string | null;
+  // From table_state, the ledger append_event alone maintains — 'idle' means
+  // no real session/order is open on this table right now. status can lag
+  // or be manually overridden and drift from this (audit finding #5).
+  order_state: string;
 }
 
 interface Area {
@@ -46,6 +51,7 @@ export default function TableManagement() {
     const channel = supabase
       .channel('tables-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurant_tables' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'table_state' }, fetchData)
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -53,15 +59,20 @@ export default function TableManagement() {
 
   const fetchData = async () => {
     setLoading(true);
-    const [tablesRes, areasRes] = await Promise.all([
+    const [tablesRes, areasRes, stateRes] = await Promise.all([
       supabase.from('restaurant_tables').select('*').order('table_number'),
       supabase.from('areas').select('id, name').eq('is_active', true),
+      supabase.from('table_state').select('table_id, state'),
     ]);
 
     if (tablesRes.error) {
       toast({ title: 'Error', description: tablesRes.error.message, variant: 'destructive' });
     } else {
-      setTables(tablesRes.data || []);
+      const stateByTable = new Map((stateRes.data || []).map(s => [s.table_id, s.state]));
+      setTables((tablesRes.data || []).map(t => ({
+        ...t,
+        order_state: stateByTable.get(t.id) || 'idle',
+      })));
     }
 
     if (!areasRes.error) {
@@ -90,6 +101,14 @@ export default function TableManagement() {
     e.preventDefault();
     if (!formData.table_number.trim()) {
       toast({ title: 'Error', description: 'Table number is required', variant: 'destructive' });
+      return;
+    }
+    if (editingTable && editingTable.order_state !== 'idle' && formData.status !== editingTable.status) {
+      toast({
+        title: 'Table has an active order',
+        description: 'Settle the bill in Billing before changing this table\'s status.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -135,7 +154,7 @@ export default function TableManagement() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this table?')) return;
+    if (!(await confirm({ description: 'Are you sure you want to delete this table?' }))) return;
 
     const { error } = await supabase.from('restaurant_tables').delete().eq('id', id);
 
@@ -148,6 +167,16 @@ export default function TableManagement() {
   };
 
   const updateStatus = async (id: string, status: string) => {
+    const table = tables.find(t => t.id === id);
+    if (table && table.order_state !== 'idle') {
+      toast({
+        title: 'Table has an active order',
+        description: 'Settle the bill in Billing before changing this table\'s status.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const { error } = await supabase
       .from('restaurant_tables')
       .update({ status })

@@ -8,6 +8,7 @@ export interface MenuItem {
   category: string;
   tags: string[];
   is_veg: boolean;
+  description?: string;
   image?: string;
 }
 

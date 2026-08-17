@@ -1,5 +1,6 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import { ConfirmDialogHost } from "@/hooks/use-confirm";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -11,7 +12,6 @@ import Billing from "./pages/Billing";
 import Menu from "./pages/Menu";
 import Orders from "./pages/Orders";
 import Kitchen from "./pages/Kitchen";
-import StaffManagement from "./pages/StaffManagement";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import TableManagement from "./pages/TableManagement";
@@ -24,6 +24,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <ConfirmDialogHost />
       <BrowserRouter>
         <AuthProvider>
           <Routes>
@@ -59,11 +60,6 @@ const App = () => (
             <Route path="/menu" element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <Layout><Menu /></Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="/staff" element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <Layout><StaffManagement /></Layout>
               </ProtectedRoute>
             } />
             <Route path="/settings" element={

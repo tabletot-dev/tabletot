@@ -822,15 +822,7 @@ export type Database = {
           status?: string
           tips?: number
         }
-        Relationships: [
-          {
-            foreignKeyName: "payments_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -953,6 +945,8 @@ export type Database = {
         Row: {
           config: Json
           created_at: string | null
+          elevenlabs_fallback_voice_id: string | null
+          elevenlabs_voice_id: string | null
           fallback_language_code: string | null
           fallback_speaker: string | null
           id: string
@@ -966,6 +960,8 @@ export type Database = {
         Insert: {
           config?: Json
           created_at?: string | null
+          elevenlabs_fallback_voice_id?: string | null
+          elevenlabs_voice_id?: string | null
           fallback_language_code?: string | null
           fallback_speaker?: string | null
           id?: string
@@ -979,6 +975,8 @@ export type Database = {
         Update: {
           config?: Json
           created_at?: string | null
+          elevenlabs_fallback_voice_id?: string | null
+          elevenlabs_voice_id?: string | null
           fallback_language_code?: string | null
           fallback_speaker?: string | null
           id?: string

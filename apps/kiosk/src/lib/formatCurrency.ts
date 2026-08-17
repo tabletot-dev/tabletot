@@ -1,3 +1,3 @@
 export function formatRupees(amount: number): string {
-  return `₹${amount.toFixed(0)}`;
+  return `₹${amount.toFixed(2)}`;
 }

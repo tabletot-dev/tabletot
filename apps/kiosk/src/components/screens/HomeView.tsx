@@ -1,18 +1,12 @@
 import { useEffect, useState } from "react";
 import { useMenu } from "@/lib/menuStore";
 import type { AnchorItem } from "@/lib/menuStore";
+import { useRestaurant } from "@/lib/restaurantContext";
 import { itemImageBackground } from "@/lib/menuImages";
 
 function heroGradient(item: AnchorItem) {
   return itemImageBackground(item);
 }
-
-const TAG_CLASS: Record<string, string> = {
-  "Chef's Pick": "tag-dark",
-  "Best Seller": "tag-accent",
-  "Signature": "tag-light",
-  "New": "tag-green",
-};
 
 interface HomeViewProps {
   onStartOrdering: () => void;
@@ -28,6 +22,7 @@ export default function HomeView({
   tableId,
 }: HomeViewProps) {
   const { anchors, loading } = useMenu();
+  const { venueName } = useRestaurant();
   const [heroIndex, setHeroIndex] = useState(0);
 
   const chefPicks = anchors.filter((a) => a.anchorType === "chef_pick");
@@ -42,134 +37,93 @@ export default function HomeView({
   }, [chefPicks.length]);
 
   return (
-    <section className="view home-view home-sun-view">
-      <div className="home-command-grid">
-        <div className="home-launch-panel">
-          <div className="home-hero-block">
-            <p className="eyebrow">Good evening{tableId ? `, Table ${tableId}` : ""}</p>
-            <div className="home-hero-row">
-              <h1 className="home-brand-headline" aria-label="Speak. Order. Served.">
-                <span className="headline-speak">Speak.</span>
-                <span className="headline-order">Order.</span>
-                <span className="headline-served">Served.</span>
-              </h1>
-              <p className="hero-sub hero-system-copy">
-                Discover dishes, place orders instantly, and experience a new way to dine.
-                <span>Ordering, reimagined for the modern table.</span>
-              </p>
-            </div>
-          </div>
+    <section className="tt-home">
+      <p className="tt-badge">Good evening{tableId ? `, Table ${tableId}` : ""}</p>
+      <h1>Speak. Order. Served.</h1>
+      <p className="tt-home-sub">
+        Discover dishes, place orders instantly, and experience a new way to dine.
+      </p>
 
-          <button className="primary-btn home-start-cta" onClick={onStartOrdering}>
-            <span>Start Ordering</span>
-            <small>Tap to begin</small>
-          </button>
+      <button className="tt-btn--primary tt-home-cta" onClick={onStartOrdering}>
+        Start Ordering
+      </button>
 
-          <div className="hero-machine-strip" aria-label="Kiosk status">
-            <span>Table OS</span>
-            <span>Kitchen Sync</span>
-            <span>Voice Ready</span>
-          </div>
-        </div>
-
-        <div className="home-spotlight-stack">
-          {loading || !heroItem ? (
-            <div
-              className="hero-feature home-spotlight"
-              style={{ background: "linear-gradient(135deg, #f5e6d8, #e8c9a8)" }}
-            />
-          ) : (
-            <button
-              className="hero-feature home-spotlight"
-              style={{ background: heroGradient(heroItem) }}
-              onClick={() => onSelectItem?.(heroItem)}
-              aria-label={`View ${heroItem.name}`}
-            >
-              <div className="feature-overlay">
-                {heroItem.tags.length > 0 && (
-                  <div className="hero-tags">
-                    {heroItem.tags.slice(0, 2).map((tag) => (
-                      <span key={tag} className={`tag ${TAG_CLASS[tag] ?? "tag-light"}`}>
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <p className="feature-kicker" style={{ marginTop: "auto" }}>
-                  Chef sequence
-                </p>
-                <h2>{heroItem.name}</h2>
-                <div className="feature-footer">
-                  <strong>₹{heroItem.price}</strong>
-                  <span className="ghost-pill">View Dish</span>
-                </div>
-                {chefPicks.length > 1 && (
-                  <div className="hero-dots">
-                    {chefPicks.map((_, i) => (
-                      <span
-                        key={i}
-                        className={`hero-dot${i === heroIndex % chefPicks.length ? " active" : ""}`}
-                      />
-                    ))}
-                  </div>
-                )}
+      {loading || !heroItem ? (
+        <div className="tt-home-spotlight" style={{ background: "var(--tt-skeleton-2)" }} />
+      ) : (
+        <button
+          className="tt-home-spotlight"
+          style={{ background: heroGradient(heroItem) }}
+          onClick={() => onSelectItem?.(heroItem)}
+          aria-label={`View ${heroItem.name}`}
+        >
+          <div className="tt-home-spotlight-overlay">
+            {heroItem.tags.length > 0 && (
+              <span className="tt-badge tt-home-spotlight-badge">{heroItem.tags[0]}</span>
+            )}
+            <div className="tt-home-spotlight-footer">
+              <div>
+                <p className="tt-home-spotlight-kicker">Chef sequence</p>
+                <strong>{heroItem.name}</strong>
               </div>
-            </button>
-          )}
-
-          <div className="home-quick-actions">
-            <button
-              className="utility-card"
-              onClick={() =>
-                onInfoToast?.(
-                  "Please ask the team for allergen guidance, vegetarian recommendations, and ingredient details before confirming your order.",
-                )
-              }
-            >
-              <p className="eyebrow">Dietary Information</p>
-              <strong>Prepared for every preference</strong>
-              <span>
-                Vegetarian options and allergen guidance are available on request.
-              </span>
-            </button>
-            <button
-              className="utility-card"
-              onClick={() => onInfoToast?.("Please ask the team for the current Wi-Fi network name and password.")}
-            >
-              <p className="eyebrow">Wi-Fi</p>
-              <strong>Stay connected at the table</strong>
-              <span>
-                Ask the team for today's network and password.
-              </span>
-            </button>
+              <span className="tt-home-spotlight-price">₹{heroItem.price}</span>
+            </div>
+            {chefPicks.length > 1 && (
+              <div className="tt-home-dots">
+                {chefPicks.map((_, i) => (
+                  <span
+                    key={i}
+                    className={`tt-home-dot${i === heroIndex % chefPicks.length ? " active" : ""}`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        </div>
+        </button>
+      )}
+
+      <div className="tt-home-info-grid">
+        <button
+          type="button"
+          className="tt-home-info-card"
+          onClick={() =>
+            onInfoToast?.(
+              "Please ask the team for allergen guidance, vegetarian recommendations, and ingredient details before confirming your order.",
+            )
+          }
+        >
+          <p className="tt-badge">Dietary Information</p>
+          <strong>Prepared for every preference</strong>
+          <span>Vegetarian options and allergen guidance are available on request.</span>
+        </button>
+        <button
+          type="button"
+          className="tt-home-info-card"
+          onClick={() => onInfoToast?.("Please ask the team for the current Wi-Fi network name and password.")}
+        >
+          <p className="tt-badge">Wi-Fi</p>
+          <strong>Stay connected at the table</strong>
+          <span>Ask the team for today's network and password.</span>
+        </button>
       </div>
 
-      <div className="utility-layout home-info-layout">
-        <div className="panel utility-about-panel">
-          <p className="eyebrow">About Us</p>
-          <h2>Silver Specialty Coffee</h2>
-          <p className="hero-sub">
-            Carefully brewed coffee, generous breakfast plates, and a relaxed table-side
-            experience.
-          </p>
-        </div>
+      <div className="tt-home-about">
+        <p className="tt-badge">About Us</p>
+        <h2>{venueName || "Our restaurant"}</h2>
+        <p>Carefully brewed coffee, generous breakfast plates, and a relaxed table-side experience.</p>
+      </div>
 
-        <div className="utility-row utility-row-two">
-          <div className="utility-card utility-card-static">
-            <p className="eyebrow">Chef's Note</p>
-            <strong>Fresh, simple, and made to linger over</strong>
-            <span>
-              Breakfast and brunch plates designed to pair naturally with specialty coffee.
-            </span>
-          </div>
-          <div className="utility-card utility-card-static">
-            <p className="eyebrow">Hours</p>
-            <strong>Open daily</strong>
-            <span>Monday to Thursday: 8:00 AM – 10:00 PM</span>
-            <span>Friday to Sunday: 8:00 AM – 11:00 PM</span>
-          </div>
+      <div className="tt-home-info-grid">
+        <div className="tt-home-info-card tt-home-info-card--static">
+          <p className="tt-badge">Chef's Note</p>
+          <strong>Fresh, simple, and made to linger over</strong>
+          <span>Breakfast and brunch plates designed to pair naturally with specialty coffee.</span>
+        </div>
+        <div className="tt-home-info-card tt-home-info-card--static">
+          <p className="tt-badge">Hours</p>
+          <strong>Open daily</strong>
+          <span>Monday to Thursday: 8:00 AM – 10:00 PM</span>
+          <span>Friday to Sunday: 8:00 AM – 11:00 PM</span>
         </div>
       </div>
     </section>

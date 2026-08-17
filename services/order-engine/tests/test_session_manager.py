@@ -58,7 +58,7 @@ def make_mock_tts_handler():
 
 @pytest.mark.asyncio
 async def test_create_session_returns_voicesession():
-    with patch("voice_agent.session_manager.SarvamTTSHandler", return_value=make_mock_tts_handler()):
+    with patch("voice_agent.session_manager.create_tts_handler", return_value=make_mock_tts_handler()):
         mgr = SessionManager(
             restaurant_configs=_CONFIGS,
             sarvam_api_key="sarvam-key",
@@ -89,7 +89,7 @@ async def test_get_session_returns_none_for_unknown():
 
 @pytest.mark.asyncio
 async def test_get_session_returns_session_after_create():
-    with patch("voice_agent.session_manager.SarvamTTSHandler", return_value=make_mock_tts_handler()):
+    with patch("voice_agent.session_manager.create_tts_handler", return_value=make_mock_tts_handler()):
         mgr = SessionManager(
             restaurant_configs=_CONFIGS,
             sarvam_api_key="key",
@@ -108,7 +108,7 @@ async def test_get_session_returns_session_after_create():
 async def test_end_session_removes_from_dict():
     mock_tts = make_mock_tts_handler()
 
-    with patch("voice_agent.session_manager.SarvamTTSHandler", return_value=mock_tts):
+    with patch("voice_agent.session_manager.create_tts_handler", return_value=mock_tts):
         mgr = SessionManager(
             restaurant_configs=_CONFIGS,
             sarvam_api_key="key",
@@ -128,7 +128,7 @@ async def test_end_session_removes_from_dict():
 async def test_end_session_calls_tts_close():
     mock_tts = make_mock_tts_handler()
 
-    with patch("voice_agent.session_manager.SarvamTTSHandler", return_value=mock_tts):
+    with patch("voice_agent.session_manager.create_tts_handler", return_value=mock_tts):
         mgr = SessionManager(
             restaurant_configs=_CONFIGS,
             sarvam_api_key="key",
@@ -149,7 +149,7 @@ async def test_two_concurrent_sessions_have_independent_ids():
     def fresh_mock():
         return make_mock_tts_handler()
 
-    with patch("voice_agent.session_manager.SarvamTTSHandler", side_effect=[fresh_mock(), fresh_mock()]):
+    with patch("voice_agent.session_manager.create_tts_handler", side_effect=[fresh_mock(), fresh_mock()]):
         mgr = SessionManager(
             restaurant_configs=_CONFIGS,
             sarvam_api_key="key",
@@ -229,7 +229,7 @@ def _delete_session_row(pool, session_id: str) -> None:
 async def test_db_create_session_inserts_active_row():
     pool = _make_db_pool()
     try:
-        with patch("voice_agent.session_manager.SarvamTTSHandler", return_value=make_mock_tts_handler()):
+        with patch("voice_agent.session_manager.create_tts_handler", return_value=make_mock_tts_handler()):
             mgr = SessionManager(
                 restaurant_configs=_CONFIGS,
                 sarvam_api_key="key",
@@ -257,7 +257,7 @@ async def test_db_end_session_updates_to_closed():
     pool = _make_db_pool()
     mock_tts = make_mock_tts_handler()
     try:
-        with patch("voice_agent.session_manager.SarvamTTSHandler", return_value=mock_tts):
+        with patch("voice_agent.session_manager.create_tts_handler", return_value=mock_tts):
             mgr = SessionManager(
                 restaurant_configs=_CONFIGS,
                 sarvam_api_key="key",
@@ -286,7 +286,7 @@ async def test_db_reap_idle_session_updates_to_reaped():
     pool = _make_db_pool()
     mock_tts = make_mock_tts_handler()
     try:
-        with patch("voice_agent.session_manager.SarvamTTSHandler", return_value=mock_tts):
+        with patch("voice_agent.session_manager.create_tts_handler", return_value=mock_tts):
             mgr = SessionManager(
                 restaurant_configs=_CONFIGS,
                 sarvam_api_key="key",

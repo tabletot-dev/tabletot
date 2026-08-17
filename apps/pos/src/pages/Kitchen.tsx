@@ -34,7 +34,7 @@ export default function Kitchen() {
       .from('kot_tickets')
       .select('*')
       .eq('restaurant_id', RESTAURANT_ID)
-      .in('status', ['accepted', 'preparing', 'ready'])
+      .in('status', ['accepted', 'preparing', 'ready', 'cancelled'])
       .order('printed_at', { ascending: true });
 
     if (error) {
@@ -133,6 +133,7 @@ export default function Kitchen() {
       case 'accepted': return 'bg-amber-500/20 text-amber-600 border-amber-500';
       case 'preparing': return 'bg-blue-500/20 text-blue-600 border-blue-500';
       case 'ready': return 'bg-emerald-500/20 text-emerald-600 border-emerald-500';
+      case 'cancelled': return 'bg-rose-500/20 text-rose-600 border-rose-500';
       default: return 'bg-muted text-muted-foreground';
     }
   };

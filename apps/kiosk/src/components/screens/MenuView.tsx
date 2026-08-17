@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, type ReactNode } from "react";
 import { useMenu } from "@/lib/menuStore";
 import DishCard from "@/components/DishCard";
-import CategoryIcon from "@/components/CategoryIcon";
+import DietMark from "@/components/DietMark";
 import type { MenuItem, OrderItem } from "@/data/menu";
 import type { Source } from "@/lib/eventBus";
 
@@ -45,103 +45,99 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, orde
 
   if (loading) {
     return (
-      <div className="view menu-view" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ textAlign: "center", color: "var(--muted)" }}>
-          <div style={{ width: 32, height: 32, border: "3px solid var(--brand)", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite", margin: "0 auto 12px" }} />
-          <p>Loading menu…</p>
+      <section className="tt-menu">
+        <p className="tt-badge">Loading today's menu…</p>
+        <div className="tt-skeleton-list" aria-hidden="true">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="tt-skeleton tt-skeleton--card" />
+          ))}
         </div>
-      </div>
+      </section>
     );
   }
 
   if (error) {
     return (
-      <div className="view menu-view" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ padding: 32, textAlign: "center", color: "var(--muted)" }}>
-          <p style={{ color: "var(--text)", fontWeight: 700, marginBottom: 8 }}>Menu unavailable</p>
-          <p style={{ marginBottom: 20 }}>Please ask staff for assistance</p>
-          <button className="secondary-btn" onClick={retry}>Retry</button>
-        </div>
-      </div>
+      <section className="tt-menu tt-menu--centred">
+        <h1>We've lost the kitchen for a moment</h1>
+        <p>
+          Your table's order is safe and the counter can see it. Live status will
+          come back on its own — or ask a member of staff.
+        </p>
+        <button type="button" className="tt-btn--primary" onClick={retry}>
+          Try again
+        </button>
+      </section>
     );
   }
 
   return (
-    <section className="view menu-view">
+    <section className="tt-menu">
       {/* Horizontal category bar */}
-      <div className="menu-cat-bar">
-        <div className="menu-cat-scroll">
-          {categories.map((cat) => (
+      <div className="tt-navbar">
+        {categories.map((cat) => (
+          <button
+            key={cat}
+            className={`tt-chip${resolvedCategory === cat ? " active" : ""}`}
+            onClick={() => setActiveCategory(cat)}
+            aria-pressed={resolvedCategory === cat}
+          >
+            <span>{cat}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="tt-menu-header">
+        <h1>{filteredItems.length} {filteredItems.length === 1 ? "dish" : "dishes"}</h1>
+        <div className="tt-segmented">
+          {(["all", "veg", "nonveg"] as DietFilter[]).map((d) => (
             <button
-              key={cat}
-              className={`menu-cat-pill${resolvedCategory === cat ? " active" : ""}`}
-              onClick={() => setActiveCategory(cat)}
-              aria-pressed={resolvedCategory === cat}
+              key={d}
+              className={`tt-segmented-option${diet === d ? " active" : ""}`}
+              onClick={() => setDiet(d)}
+              aria-pressed={diet === d}
             >
-              <span className="menu-cat-pill-icon">
-                <CategoryIcon category={cat} />
-              </span>
-              <span>{cat}</span>
+              {d === "veg" && <DietMark isVeg compact />}
+              {d === "nonveg" && <DietMark isVeg={false} compact />}
+              {d === "all" ? "All" : d === "veg" ? "Veg" : "Non-Veg"}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Scrollable canvas */}
-      <div className={`menu-canvas${voiceDock ? " has-voice-dock" : ""}`}>
-        <div className="menu-canvas-header">
-          <div>
-            <p className="eyebrow">Now browsing</p>
-            <h1>{resolvedCategory}</h1>
-          </div>
-          <div className="menu-toolbar-inline">
-            <div className="diet-row">
-              {(["all", "veg", "nonveg"] as DietFilter[]).map((d) => (
-                <button
-                  key={d}
-                  className={`diet-pill${diet === d ? " active" : ""}`}
-                  onClick={() => setDiet(d)}
-                  aria-pressed={diet === d}
-                >
-                  {d === "all" ? "All" : d === "veg" ? "Veg" : "Non-Veg"}
-                </button>
-              ))}
-            </div>
-            <span className="menu-item-count">{filteredItems.length} items</span>
-          </div>
+      {filteredItems.length === 0 ? (
+        <div className="tt-empty">
+          <h2>Nothing matches that filter</h2>
+          <p>Turn the filter off to see everything in {resolvedCategory}.</p>
+          <button
+            type="button"
+            className="tt-btn--secondary"
+            onClick={() => setDiet("all")}
+          >
+            Show all {resolvedCategory}
+          </button>
         </div>
+      ) : (
+        <div className="tt-dish-list">
+          {filteredItems.map((item) => (
+            <DishCard
+              key={item.id}
+              item={item}
+              qty={getQty(item.id)}
+              pairings={pairingsByItemId[item.id] ?? []}
+              cartTotal={cartTotal}
+              onAddToCart={handleAddToCart}
+              onUpdateQuantity={onUpdateQuantity}
+              onSelect={onSelect}
+              onAddPairing={handleAddPairing}
+              getQuantity={getQty}
+            />
+          ))}
+        </div>
+      )}
 
-        <div className="menu-product-scaffold">
-          <div className="menu-product-grid">
-            {filteredItems.length === 0 ? (
-              <div className="empty-state" style={{ gridColumn: "1 / -1", padding: "32px", color: "var(--muted)", textAlign: "center" }}>
-                No dishes match that filter.
-              </div>
-            ) : (
-              filteredItems.map((item) => (
-                <DishCard
-                  key={item.id}
-                  item={item}
-                  qty={getQty(item.id)}
-                  pairings={pairingsByItemId[item.id] ?? []}
-                  cartTotal={cartTotal}
-                  onAddToCart={handleAddToCart}
-                  onUpdateQuantity={onUpdateQuantity}
-                  onSelect={onSelect}
-                  onAddPairing={handleAddPairing}
-                  getQuantity={getQty}
-                />
-              ))
-            )}
-          </div>
-        </div>
-        {voiceDock && (
-          <div className="menu-voice-section">
-            {voiceDock}
-          </div>
-        )}
-        {voicePanel}
-      </div>
+      {voiceDock && <div className="tt-voicedock">{voiceDock}</div>}
+      {voicePanel}
     </section>
   );
 }

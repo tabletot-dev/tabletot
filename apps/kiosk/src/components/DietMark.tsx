@@ -9,14 +9,14 @@ export default function DietMark({ isVeg, label = false, compact = false }: Diet
 
   return (
     <span
-      className={`diet-mark${isVeg ? " veg" : " non-veg"}${label ? " with-label" : ""}${compact ? " compact" : ""}`}
+      className={`tt-dietmark${isVeg ? " tt-dietmark--veg" : " tt-dietmark--nonveg"}${compact ? " tt-dietmark--compact" : ""}`}
       aria-label={text}
       title={text}
     >
-      <span className="diet-mark-box" aria-hidden="true">
-        <span />
+      <span className="tt-dietmark-icon" aria-hidden="true">
+        <span className="tt-dietmark-dot" />
       </span>
-      {label && <span className="diet-mark-text">{text}</span>}
+      {label && <span className="tt-dietmark-label">{text}</span>}
     </span>
   );
 }

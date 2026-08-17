@@ -3,6 +3,7 @@ import { supabase, hasSupabaseConfig } from "@/integrations/supabase/client";
 import type { OrderRound } from "@/hooks/useDeviceNavigation";
 import { getDisplayName } from "@/lib/orderSubmission";
 import { categoryGradient } from "@/lib/categoryGradients";
+import { useRestaurant } from "@/lib/restaurantContext";
 
 interface WaitingViewProps {
   previousOrders: OrderRound[];
@@ -13,45 +14,28 @@ interface WaitingViewProps {
   onGames: () => void;
   onConversationStarters: () => void;
   onRequestWater?: () => void;
+  onCallStaff?: () => void;
 }
 
 type KitchenStatus = "new" | "preparing" | "ready" | "served" | "unknown";
 
-const STATUS_STAGE: Record<KitchenStatus, { label: string; pct: number }> = {
-  new:       { label: "Queued",    pct: 28 },
-  preparing: { label: "Cooking",   pct: 60 },
-  ready:     { label: "Plating",   pct: 85 },
-  served:    { label: "Done",      pct: 100 },
-  unknown:   { label: "Queued",    pct: 28 },
+// Index into the four-stage strip (Queued · Cooking · Plating · Served).
+const STATUS_STAGE: Record<KitchenStatus, { label: string; index: number }> = {
+  new:       { label: "Queued",  index: 0 },
+  preparing: { label: "Cooking", index: 1 },
+  ready:     { label: "Plating", index: 2 },
+  served:    { label: "Served",  index: 3 },
+  unknown:   { label: "Queued",  index: 0 },
 };
 
-// Previously hotlinked four Unsplash images with fashion/travel/audio copy —
-// unrelated to the restaurant and broken on Wi-Fi without internet (flagged
-// highest-severity in the UX audit: "reads as broken or unfinished"). No real
-// restaurant marketing assets exist to swap in, so this uses the same
-// category-gradient palette already established for dish-image fallbacks
-// (`categoryGradients.ts`) instead of fabricating more off-brand content —
-// zero network dependency, and generic enough to fit any restaurant on
-// Tabletot rather than hardcoding one pilot's branding into shared kiosk code.
-const PROMOS = [
-  {
-    id: "promo-fresh",
-    title: "Freshly made, just for you",
-    copy: "Every order is prepared after you send it — good things are worth the short wait.",
-    gradient: categoryGradient("Hot Coffee"),
-  },
-  {
-    id: "promo-ask",
-    title: "Got a craving?",
-    copy: "Tap Order More any time — round two is just as easy as round one.",
-    gradient: categoryGradient("Desserts"),
-  },
-  {
-    id: "promo-allergy",
-    title: "Allergies or preferences?",
-    copy: "Flag anything you need when you request the bill, and a server will take care of it.",
-    gradient: categoryGradient("Signature Coffee"),
-  },
+const STAGES = ["Queued", "Cooking", "Plating", "Served"];
+
+// Zero-network-dependency gradients to sit behind whatever promo copy the
+// restaurant configures — no real creative assets exist per-restaurant yet.
+const PROMO_GRADIENTS = [
+  categoryGradient("Hot Coffee"),
+  categoryGradient("Desserts"),
+  categoryGradient("Signature Coffee"),
 ];
 
 function WaterIcon() {
@@ -71,14 +55,17 @@ export default function WaitingView({
   onGames,
   onConversationStarters,
   onRequestWater,
+  onCallStaff,
 }: WaitingViewProps) {
+  const { promos } = useRestaurant();
   const [promoIndex, setPromoIndex] = useState(0);
   const [kitchenStatus, setKitchenStatus] = useState<KitchenStatus>("unknown");
 
   useEffect(() => {
-    const id = setInterval(() => setPromoIndex((i) => (i + 1) % PROMOS.length), 4500);
+    if (promos.length === 0) return;
+    const id = setInterval(() => setPromoIndex((i) => (i + 1) % promos.length), 4500);
     return () => clearInterval(id);
-  }, []);
+  }, [promos.length]);
 
   useEffect(() => {
     if (!currentRoundOrderId || !hasSupabaseConfig) return;
@@ -118,7 +105,7 @@ export default function WaitingView({
     };
   }, [currentRoundOrderId]);
 
-  const { label: stage, pct: progress } = STATUS_STAGE[kitchenStatus];
+  const { label: stage, index: stageIndex } = STATUS_STAGE[kitchenStatus];
 
   const itemCount = useMemo(() => {
     const last = previousOrders[previousOrders.length - 1];
@@ -135,106 +122,118 @@ export default function WaitingView({
     [previousOrders],
   );
 
-  const promo = PROMOS[promoIndex];
+  const promo = promos[promoIndex];
 
   return (
-    <section className="view idle-view">
-      <div className="idle-slideshow panel">
-        <div className="idle-slideshow-media" style={{ background: promo.gradient }} />
-        <div className="idle-slideshow-copy">
-          <p className="eyebrow">While you wait</p>
-          <strong>{promo.title}</strong>
-          <span>{promo.copy}</span>
-          <div className="idle-dots">
-            {PROMOS.map((p, i) => (
-              <span key={p.id} className={`idle-dot${i === promoIndex ? " active" : ""}`} />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="idle-status panel">
-        <div className="idle-status-copy">
-          <p className="eyebrow">Order Status</p>
-          <h2>
-            {(() => {
-              const name = getDisplayName();
-              if (kitchenStatus === "served") {
-                return name ? `Your order has arrived, ${name}!` : "Your order has arrived!";
-              }
-              return name
-                ? `Your order is being prepared, ${name}`
-                : "Your order is being prepared";
-            })()}
-          </h2>
-          <p className="hero-sub">
-            {itemCount > 0 ? `${itemCount} item${itemCount === 1 ? "" : "s"} in progress. ` : ""}
-            {kitchenStatus === "served"
-              ? "Enjoy your meal!"
-              : `The kitchen is currently at the `}
-            {kitchenStatus !== "served" && <strong>{stage.toLowerCase()}</strong>}
-            {kitchenStatus !== "served" && " stage."}
-          </p>
-          {sentItems.length > 0 && (
-            <div className="status-order-summary" aria-label="Already ordered items">
-              <div>
-                <span>Already ordered</span>
-                <strong>{sentItems.length} item{sentItems.length === 1 ? "" : "s"}</strong>
-              </div>
-              <div className="status-order-list">
-                {sentItems.slice(0, 4).map((item) => (
-                  <span key={`${item.roundNumber}-${item.id}`}>
-                    {item.quantity}x {item.name}
-                  </span>
-                ))}
-                {sentItems.length > 4 && <span>+{sentItems.length - 4} more</span>}
-              </div>
+    <section className="tt-status">
+      {promo && (
+        <div className="tt-status-promo">
+          <div
+            className="tt-status-promo-media"
+            style={{ background: PROMO_GRADIENTS[promoIndex % PROMO_GRADIENTS.length] }}
+          />
+          <div className="tt-status-promo-copy">
+            <p className="tt-badge">While you wait</p>
+            <strong>{promo.title}</strong>
+            <span>{promo.copy}</span>
+            <div className="tt-status-promo-dots">
+              {promos.map((p, i) => (
+                <span key={p.id} className={`tt-status-promo-dot${i === promoIndex ? " active" : ""}`} />
+              ))}
             </div>
-          )}
+          </div>
         </div>
-        <div className="idle-progress-box">
-          <div className="progress-meta">
-            <span>{stage}</span>
-            <strong>{progress}%</strong>
+      )}
+
+      <div className="tt-status-card">
+        <p className="tt-badge">Order Status</p>
+        <h2>
+          {(() => {
+            const name = getDisplayName();
+            if (kitchenStatus === "served") {
+              return name ? `Your order has arrived, ${name}!` : "Your order has arrived!";
+            }
+            return name
+              ? `Your order is being prepared, ${name}`
+              : "Your order is being prepared";
+          })()}
+        </h2>
+        <p className="tt-status-sub">
+          {itemCount > 0 ? `${itemCount} item${itemCount === 1 ? "" : "s"} in progress. ` : ""}
+          {kitchenStatus === "served"
+            ? "Enjoy your meal!"
+            : `The kitchen is currently at the `}
+          {kitchenStatus !== "served" && <strong>{stage.toLowerCase()}</strong>}
+          {kitchenStatus !== "served" && " stage."}
+        </p>
+        {sentItems.length > 0 && (
+          <div className="tt-status-summary" aria-label="Already ordered items">
+            <div className="tt-status-summary-head">
+              <span>Already ordered</span>
+              <strong>{sentItems.length} item{sentItems.length === 1 ? "" : "s"}</strong>
+            </div>
+            <div className="tt-status-summary-list">
+              {sentItems.slice(0, 4).map((item) => (
+                <span key={`${item.roundNumber}-${item.id}`}>
+                  {item.quantity}x {item.name}
+                </span>
+              ))}
+              {sentItems.length > 4 && <span>+{sentItems.length - 4} more</span>}
+            </div>
           </div>
-          <div className="progress-track">
-            <div className="progress-fill" style={{ width: `${progress}%` }} />
-          </div>
+        )}
+        <div className="tt-stages" aria-label={`Kitchen stage: ${stage}`}>
+          {STAGES.map((label, i) => (
+            <div
+              key={label}
+              className={`tt-stages-step${
+                i === stageIndex ? " active" : i < stageIndex ? " done" : ""
+              }`}
+            >
+              {label}
+            </div>
+          ))}
         </div>
       </div>
 
-      <div className="idle-cta-row">
+      <div className="tt-status-actions">
         <button
-          className="primary-btn"
+          className="tt-btn--primary"
           onClick={onOrderMore}
           disabled={billRequested}
           title={billRequested ? "Bill requested — ask staff to reopen ordering" : undefined}
         >
           Order More
         </button>
-        <button
-          className="secondary-btn"
-          onClick={onRequestBill}
-        >
-          {billRequested ? "Bill Requested" : "Request Bill"}
-        </button>
-        {onRequestWater && (
+        <div className="tt-status-actions-row">
+          <button className="tt-btn--secondary" onClick={onGames}>
+            Games
+          </button>
+          <button className="tt-btn--secondary" onClick={onConversationStarters}>
+            Conversation Starters
+          </button>
+        </div>
+        <div className="tt-status-actions-row">
+          {onRequestWater && (
+            <button
+              className="tt-btn--secondary"
+              onClick={onRequestWater}
+              aria-label="Request for water"
+            >
+              <span>Water</span>
+              <WaterIcon />
+            </button>
+          )}
+          {onCallStaff && (
+            <button className="tt-btn--secondary" onClick={onCallStaff}>
+              Call Staff
+            </button>
+          )}
           <button
-            className="water-cta"
-            onClick={onRequestWater}
-            aria-label="Request for water"
+            className="tt-btn--secondary"
+            onClick={onRequestBill}
           >
-            <span className="water-cta-label">Request for water</span>
-            <WaterIcon />
-          </button>
-        )}
-
-        <div className="idle-feature-actions" aria-label="Table entertainment">
-          <button className="idle-feature-btn" onClick={onGames}>
-            <span>Games</span>
-          </button>
-          <button className="idle-feature-btn" onClick={onConversationStarters}>
-            <span>Conversation Starters</span>
+            {billRequested ? "Bill Requested" : "Bill"}
           </button>
         </div>
       </div>

@@ -101,6 +101,9 @@ async def lifespan(app: FastAPI):
 
     anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     sarvam_api_key = os.environ.get("SARVAM_API_KEY", "")
+    elevenlabs_api_key = os.environ.get("ELEVENLABS_API_KEY", "")
+    stt_provider = os.environ.get("STT_PROVIDER", "elevenlabs").strip().lower()
+    tts_provider = os.environ.get("TTS_PROVIDER", "elevenlabs").strip().lower()
     db_url = os.environ.get("DATABASE_URL")
 
     provider_name = os.environ.get("LLM_PROVIDER", "claude").strip().lower()
@@ -116,7 +119,13 @@ async def lifespan(app: FastAPI):
         logger.warning("%s not set — LLM calls will fail", _provider_key_env.get(provider_name))
     if not sarvam_api_key:
         logger.warning("SARVAM_API_KEY not set — voice calls will fail")
+    if not elevenlabs_api_key:
+        logger.warning(
+            "ELEVENLABS_API_KEY not set — voice calls will fail if "
+            "STT_PROVIDER or TTS_PROVIDER is elevenlabs"
+        )
     logger.info("LLM provider: %s  model: %s", provider_name, provider_model or "(default)")
+    logger.info("STT provider: %s  TTS provider: %s", stt_provider, tts_provider)
 
     if not db_url:
         raise RuntimeError(
@@ -139,6 +148,9 @@ async def lifespan(app: FastAPI):
         provider_model=provider_model,
         menu_graphs=menu_graphs,
         db_pool=db_pool,
+        elevenlabs_api_key=elevenlabs_api_key,
+        stt_provider=stt_provider,
+        tts_provider=tts_provider,
     )
 
     app.state.session_manager = session_manager

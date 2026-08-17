@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
+import { confirm } from '@/hooks/use-confirm';
 import { Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
 import {
   Dialog,
@@ -56,6 +57,7 @@ interface MenuItem {
   description: string | null;
   image_url: string | null;
   active: boolean;
+  is_veg: boolean;
 }
 
 export default function Menu() {
@@ -70,6 +72,7 @@ export default function Menu() {
     description: '',
     image_url: '',
     active: true,
+    is_veg: true,
   });
 
   useEffect(() => {
@@ -80,7 +83,7 @@ export default function Menu() {
     try {
       const { data, error } = await supabase
         .from('menu_items')
-        .select('id, name, price, category, description, image_url, active')
+        .select('id, name, price, category, description, image_url, active, is_veg')
         .eq('restaurant_id', RESTAURANT_ID)
         .order('category', { ascending: true });
 
@@ -93,16 +96,28 @@ export default function Menu() {
     }
   };
 
+  // A typo'd/differently-cased category (e.g. "pastas " vs "Pastas") used to
+  // create a second, visually separate category on the kiosk with no merge
+  // path (QA finding #7) — collapse whitespace and match case-insensitively
+  // against existing categories so it joins the existing one instead.
+  const normalizeCategory = (raw: string) => {
+    const trimmed = raw.trim().replace(/\s+/g, ' ');
+    if (!trimmed) return null;
+    const existing = categories.find(c => c.toLowerCase() === trimmed.toLowerCase());
+    return existing || trimmed;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const itemData = {
         name: formData.name,
         price: parseFloat(formData.price),
-        category: formData.category || null,
+        category: normalizeCategory(formData.category),
         description: formData.description || null,
         image_url: formData.image_url || null,
         active: formData.active,
+        is_veg: formData.is_veg,
       };
 
       if (editingItem) {
@@ -136,12 +151,13 @@ export default function Menu() {
       description: item.description || '',
       image_url: item.image_url || '',
       active: item.active,
+      is_veg: item.is_veg,
     });
     setDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this item?')) return;
+    if (!(await confirm({ description: 'Are you sure you want to delete this item?' }))) return;
     try {
       const { error } = await supabase.from('menu_items').delete().eq('id', id);
       if (error) throw error;
@@ -154,7 +170,7 @@ export default function Menu() {
 
   const resetForm = () => {
     setEditingItem(null);
-    setFormData({ name: '', price: '', category: '', description: '', image_url: '', active: true });
+    setFormData({ name: '', price: '', category: '', description: '', image_url: '', active: true, is_veg: true });
   };
 
   const categories = [...new Set(menuItems.map(item => item.category).filter(Boolean))];
@@ -211,10 +227,14 @@ export default function Menu() {
                   <Label htmlFor="category">Category</Label>
                   <Input
                     id="category"
+                    list="category-suggestions"
                     value={formData.category}
                     onChange={e => setFormData({ ...formData, category: e.target.value })}
                     required
                   />
+                  <datalist id="category-suggestions">
+                    {categories.map(c => <option key={c} value={c} />)}
+                  </datalist>
                 </div>
               </div>
               <div className="space-y-2">
@@ -233,6 +253,14 @@ export default function Menu() {
                   value={formData.image_url}
                   onChange={e => setFormData({ ...formData, image_url: e.target.value })}
                   placeholder="https://..."
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="is_veg">Vegetarian</Label>
+                <Switch
+                  id="is_veg"
+                  checked={formData.is_veg}
+                  onCheckedChange={checked => setFormData({ ...formData, is_veg: checked })}
                 />
               </div>
               <div className="flex items-center justify-between">
@@ -264,6 +292,10 @@ export default function Menu() {
                   <div key={item.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-block h-3 w-3 border ${item.is_veg ? 'border-emerald-600 bg-emerald-100' : 'border-rose-600 bg-rose-100'}`}
+                          title={item.is_veg ? 'Vegetarian' : 'Non-vegetarian'}
+                        />
                         <h3 className="font-semibold">{item.name}</h3>
                         {!item.active && <Badge variant="secondary">Unavailable</Badge>}
                       </div>

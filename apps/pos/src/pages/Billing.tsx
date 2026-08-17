@@ -7,6 +7,7 @@ import { KOTView } from '@/components/billing/KOTView';
 import { CaptainAssignModal } from '@/components/billing/CaptainAssignModal';
 import { MenuGrid } from '@/components/billing/MenuGrid';
 import { toast } from '@/hooks/use-toast';
+import { confirm } from '@/hooks/use-confirm';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -22,6 +23,7 @@ import {
   Receipt, CreditCard, UserCheck, Minus, Wifi, WifiOff, Trash2, Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatRupees } from '@/lib/formatCurrency';
 import { getTimeSince } from '@/lib/timeSince';
 
 // A table is "idle-abandoned" once a session opened (state = 'ordering' via
@@ -247,19 +249,28 @@ export default function Billing() {
 
   // table_id -> last table_events activity, for tables with no order yet.
   const [lastActivityByTable, setLastActivityByTable] = useState<Map<string, string>>(new Map());
+  // table_id -> table_state.state ('idle' unless a real ledger session is open).
+  // The ledger, not the raw restaurant_tables.status column, is source of
+  // truth for "is anything actually happening at this table" — status can lag
+  // or drift right after load (kiosk-pos-live-qa-findings.md #3 / pos-only #6),
+  // same pattern TableManagement.tsx already uses via its order_state field.
+  const [liveStateByTable, setLiveStateByTable] = useState<Map<string, string>>(new Map());
 
-  // Two batched queries (not per-table): table_state for occupied tables, then
-  // table_events last-activity only for the spans that still have no order —
-  // a table that's already ordered can't be idle-abandoned regardless of
-  // elapsed time, so there's nothing to look up for it.
+  // Two batched queries (not per-table): table_state for ALL tables (not just
+  // ones already marked occupied — that would exclude exactly the tables this
+  // is meant to catch drift on), then table_events last-activity only for the
+  // spans that still have no order — a table that's already ordered can't be
+  // idle-abandoned regardless of elapsed time, so there's nothing to look up
+  // for it.
   const fetchIdleSignals = useCallback(async () => {
-    const occupiedIds = tables.filter((t) => t.status === 'occupied').map((t) => t.id);
-    if (occupiedIds.length === 0) { setLastActivityByTable(new Map()); return; }
+    if (tables.length === 0) { setLastActivityByTable(new Map()); setLiveStateByTable(new Map()); return; }
 
     const { data: states } = await supabase
       .from('table_state')
-      .select('table_id, span_id, order_id')
-      .in('table_id', occupiedIds);
+      .select('table_id, span_id, order_id, state')
+      .in('table_id', tables.map((t) => t.id));
+
+    setLiveStateByTable(new Map((states || []).map((s) => [s.table_id, s.state])));
 
     const spanIds = (states || [])
       .filter((s) => s.order_id === null && s.span_id)
@@ -324,38 +335,55 @@ export default function Billing() {
   const loadActiveOrder = useCallback(async (table: Table) => {
     setLoadingOrder(true);
 
-    if (table.current_order_id) {
-      // Normal path: table already has a linked order (set by trigger on orders INSERT)
+    // Resolve via the table's most recent LIVE session first, not the raw
+    // current_order_id pointer. That pointer is write-once (0019's "first
+    // order wins" trigger guard: it only sets current_order_id when it was
+    // NULL) and is only ever cleared by payment_settled/service_ended — a
+    // session that never reaches either (abandoned test debris, a forgotten
+    // table) leaves it stuck pointing at that order forever, and no later
+    // order for the table can ever displace it. Billing.tsx trusting that
+    // pointer blindly is what let a days-old stuck `ready` order resurface
+    // as "the current bill" right after a fresh order was placed and settled
+    // (kiosk-pos-live-qa-findings.md #2). A live session is the source of
+    // truth for "what's actually happening at this table right now."
+    const { data: session } = await supabase
+      .from('sessions')
+      .select('session_key')
+      .eq('table_id', table.id)
+      .in('status', ['active', 'bill_requested'])
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (session?.session_key) {
+      // A cancelled order is never billable — treat it as no active order
+      // rather than showing it as the table's bill (pos-only-live-qa-findings.md #1).
+      // One order per session (later rounds merge KOTs into it), so the
+      // oldest row for this session is the canonical one.
+      const { data: order, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('session_id', session.session_key)
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      setActiveOrder(order ?? null);
+    } else if (table.current_order_id) {
+      // No live session found for this table (e.g. the sessions row itself
+      // is stale/missing) — fall back to the pointer rather than blanking
+      // the table out unnecessarily.
       const { data, error } = await supabase
         .from('orders')
         .select('*')
         .eq('id', table.current_order_id)
+        .neq('status', 'cancelled')
         .maybeSingle();
       if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
       else setActiveOrder(data);
     } else {
-      // Fallback: kiosk session exists but no order yet (between session start and first KOT)
-      const { data: session } = await supabase
-        .from('sessions')
-        .select('session_key')
-        .eq('table_id', table.id)
-        .in('status', ['active', 'bill_requested'])
-        .order('started_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (session?.session_key) {
-        const { data: order } = await supabase
-          .from('orders')
-          .select('*')
-          .eq('session_id', session.session_key)
-          .order('created_at', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        setActiveOrder(order ?? null);
-      } else {
-        setActiveOrder(null);
-      }
+      setActiveOrder(null);
     }
 
     setLoadingOrder(false);
@@ -381,7 +409,7 @@ export default function Billing() {
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${activeOrder.id}` },
-        ({ new: updated }) => setActiveOrder(updated as Order),
+        ({ new: updated }) => setActiveOrder((updated as Order).status === 'cancelled' ? null : (updated as Order)),
       )
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -496,7 +524,11 @@ export default function Billing() {
 
   const handleEndService = async () => {
     if (!selectedTable) return;
-    if (!window.confirm(`End service for Table ${selectedTable.table_number}? This resets the kiosk.`)) return;
+    if (!(await confirm({
+      title: 'End service?',
+      description: `End service for Table ${selectedTable.table_number}? This resets the kiosk.`,
+      confirmLabel: 'End Service',
+    }))) return;
     try {
       // service_ended (migration 0052): same table-freeing cleanup as
       // payment_settled, without a payments row — this is a walkout/staff
@@ -631,9 +663,15 @@ export default function Billing() {
 
   // ─── Render helpers ────────────────────────────────────────────────────────
 
-  const tableHasBillReq = (tableId: string) => billRequests.some((r) => r.table_id === tableId);
+  const isTableLive = (tableId: string) => (liveStateByTable.get(tableId) ?? 'idle') !== 'idle';
+
+  // Gated on a live ledger session so a pending row left behind by a session
+  // that already ended (stuck test debris, an abandoned table) can't keep
+  // flashing a bell/water badge on a table that's actually free again.
+  const tableHasBillReq = (tableId: string) =>
+    isTableLive(tableId) && billRequests.some((r) => r.table_id === tableId);
   const tableHasWaterReq = (tableId: string) =>
-    tableRequests.some((r) => r.table_id === tableId && r.request_type === 'water');
+    isTableLive(tableId) && tableRequests.some((r) => r.table_id === tableId && r.request_type === 'water');
   const tableIsIdleAbandoned = (tableId: string) => {
     const lastActivity = lastActivityByTable.get(tableId);
     if (!lastActivity) return false;
@@ -688,7 +726,13 @@ export default function Billing() {
                 const hasWater = tableHasWaterReq(table.id);
                 const isIdle = !hasBill && !hasWater && tableIsIdleAbandoned(table.id);
                 const isSelected = table.id === selectedTableId;
-                const colorClass = STATUS_COLORS[table.status] ?? 'bg-muted border-border';
+                // status can transiently read 'available'/'free' while the ledger
+                // already has a live session open on this table (drift right after
+                // load — kiosk-pos-live-qa-findings.md #3). Never show "Free" for
+                // a table the ledger says is occupied; leave every other status as-is.
+                const isFreeLabel = table.status === 'available' || table.status === 'free';
+                const displayStatus = isFreeLabel && isTableLive(table.id) ? 'occupied' : table.status;
+                const colorClass = STATUS_COLORS[displayStatus] ?? 'bg-muted border-border';
 
                 return (
                   <button
@@ -727,7 +771,7 @@ export default function Billing() {
                       </p>
                     )}
                     <p className="text-xs mt-1 font-medium">
-                      {STATUS_LABEL[table.status] ?? table.status}
+                      {STATUS_LABEL[displayStatus] ?? displayStatus}
                     </p>
                     {table.assigned_captain && staffNameMap.get(table.assigned_captain) && (
                       <p className="text-xs mt-0.5 opacity-60 truncate">
@@ -777,7 +821,10 @@ export default function Billing() {
                     ? staffNameMap.get(selectedTable.assigned_captain)
                     : 'Assign Captain'}
                 </Button>
-                {activeOrder && (
+                {/* activeOrder excludes cancelled orders (they're not billable), but a
+                    cancelled order still leaves table_state non-idle — walkout-after-cancel
+                    needs End Service to free the table even with no billable order left. */}
+                {(activeOrder || isTableLive(selectedTable.id)) && (
                   <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive" onClick={handleEndService}>
                     End Service
                   </Button>
@@ -839,7 +886,7 @@ export default function Billing() {
                             <p className="font-medium">{item.quantity}× {item.name}</p>
                             {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
                           </div>
-                          <p className="font-medium shrink-0 ml-4">₹{item.total.toFixed(0)}</p>
+                          <p className="font-medium shrink-0 ml-4">{formatRupees(item.total)}</p>
                         </div>
                       ))
                     )}
@@ -849,19 +896,19 @@ export default function Billing() {
                 {/* Totals */}
                 <div className="border-t bg-card p-4 space-y-1 text-sm">
                   <div className="flex justify-between text-muted-foreground">
-                    <span>Subtotal</span><span>₹{itemsSubtotal.toFixed(0)}</span>
+                    <span>Subtotal</span><span>{formatRupees(itemsSubtotal)}</span>
                   </div>
                   {discountAmount > 0 && (
                     <div className="flex justify-between text-emerald-600">
-                      <span>Discount</span><span>−₹{discountAmount.toFixed(0)}</span>
+                      <span>Discount</span><span>−{formatRupees(discountAmount)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-muted-foreground">
-                    <span>GST {gstRate}%</span><span>₹{taxAmount.toFixed(0)}</span>
+                    <span>GST {gstRate}%</span><span>{formatRupees(taxAmount)}</span>
                   </div>
                   <Separator className="my-2" />
                   <div className="flex justify-between text-lg font-bold">
-                    <span>Total</span><span>₹{billTotal.toFixed(0)}</span>
+                    <span>Total</span><span>{formatRupees(billTotal)}</span>
                   </div>
                 </div>
 
@@ -877,7 +924,7 @@ export default function Billing() {
                     className="col-span-2 bg-emerald-600 hover:bg-emerald-700"
                     onClick={() => setShowPayment(true)}
                   >
-                    <CreditCard className="h-4 w-4 mr-2" />Settle — ₹{billTotal.toFixed(0)}
+                    <CreditCard className="h-4 w-4 mr-2" />Settle — {formatRupees(billTotal)}
                   </Button>
                 </div>
               </>
@@ -944,7 +991,7 @@ export default function Billing() {
               <div className="p-4 border-t space-y-2">
                 <div className="flex justify-between text-sm font-medium">
                   <span>Subtotal</span>
-                  <span>₹{pendingItems.reduce((s, i) => s + i.total, 0).toFixed(0)}</span>
+                  <span>{formatRupees(pendingItems.reduce((s, i) => s + i.total, 0))}</span>
                 </div>
                 <Button
                   className="w-full"
@@ -972,7 +1019,7 @@ export default function Billing() {
             {allOrderItems.map((item, idx) => (
               <div key={idx} className="flex justify-between">
                 <span>{item.quantity}× {item.name}</span>
-                <span>₹{item.total.toFixed(0)}</span>
+                <span>{formatRupees(item.total)}</span>
               </div>
             ))}
           </div>
@@ -992,18 +1039,18 @@ export default function Billing() {
           </div>
           <div className="space-y-1 text-sm">
             <div className="flex justify-between text-muted-foreground">
-              <span>Subtotal</span><span>₹{itemsSubtotal.toFixed(0)}</span>
+              <span>Subtotal</span><span>{formatRupees(itemsSubtotal)}</span>
             </div>
             {discountAmount > 0 && (
               <div className="flex justify-between text-emerald-600">
-                <span>Discount</span><span>−₹{discountAmount.toFixed(0)}</span>
+                <span>Discount</span><span>−{formatRupees(discountAmount)}</span>
               </div>
             )}
             <div className="flex justify-between text-muted-foreground">
-              <span>GST {gstRate}%</span><span>₹{taxAmount.toFixed(0)}</span>
+              <span>GST {gstRate}%</span><span>{formatRupees(taxAmount)}</span>
             </div>
             <div className="flex justify-between text-lg font-bold">
-              <span>Total</span><span>₹{billTotal.toFixed(0)}</span>
+              <span>Total</span><span>{formatRupees(billTotal)}</span>
             </div>
           </div>
           <Button
