@@ -730,12 +730,41 @@ const IndexInner = () => {
   );
 };
 
-const Index = () => (
-  <RestaurantProvider>
-    <MenuProvider>
-      <IndexInner />
-    </MenuProvider>
-  </RestaurantProvider>
+// Blocks the whole app from mounting when the table isn't resolvable
+// (config.ts no longer falls back to a placeholder table number) — a
+// misconfigured tablet must show a clear setup error, not silently become
+// table T1 and start writing into T1's live session (2026-08-28 audit,
+// finding 6).
+const UnconfiguredScreen = () => (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "var(--color-bg, #fff)",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: "1rem",
+      padding: "2rem",
+      textAlign: "center",
+    }}
+  >
+    <p className="eyebrow">Setup needed</p>
+    <h1>This tablet isn't linked to a table.</h1>
+    <p>Please ask a staff member to open this device using its assigned table link.</p>
+  </div>
 );
+
+const Index = () => {
+  if (!TABLE_ID) return <UnconfiguredScreen />;
+  return (
+    <RestaurantProvider>
+      <MenuProvider>
+        <IndexInner />
+      </MenuProvider>
+    </RestaurantProvider>
+  );
+};
 
 export default Index;
