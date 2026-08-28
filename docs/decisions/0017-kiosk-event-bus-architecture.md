@@ -1,5 +1,6 @@
 ---
-status: accepted
+status: superseded
+superseded_by: 0019
 date: 2026-06-06
 tags: [telemetry, kiosk, architecture]
 ---
