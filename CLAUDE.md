@@ -76,10 +76,12 @@ seed/           reference data only
 - **Tabletot-canonical** — `restaurants`, `menu_items`, `external_id_mapping`
   (clean relational; `external_id_mapping` is empty until Petpooja adapter)
 - **Recommendation + analytics** — `item_pairings`, `anchor_items`,
-  `meal_completion_rules`, `kiosk_events` (FK to canonical layer only).
-  `recommendation_events` was dropped in migration 0051 — the kiosk writes
-  `kiosk_events`, and AOV is computed from the `table_events` ledger +
-  `payments` (`get_aov_summary` v6, ADR 0023)
+  `meal_completion_rules` (FK to canonical layer only).
+  `recommendation_events` was dropped in migration 0051. Nudge attribution
+  rides the `table_events` ledger via `append_event` (`item_added` with a
+  `source`), and AOV is computed from that ledger + `payments`
+  (`get_aov_summary` v6, ADR 0023). `kiosk_events` (migration 0041) exists
+  but has **no writer or reader** — dead, see the 2026-08-28 audit
 
 ## Menu data
 
@@ -166,11 +168,23 @@ feasible but deferred (ADR 0024) — PTT ships to the pilot first.
 
 Still on a Lenovo Tab K9 for hardware testing, not yet in the restaurant.
 
+**Pre-deployment code audit (2026-08-28)** —
+`docs/notes/2026-08-28-pre-deployment-code-audit.md`. Static audit of all
+three apps + the shared DB layer. Verdict: **not ready for the floor.**
+Three P0 defects (kiosk reload during the 2-minute hold silently destroys
+the round while showing "confirmed"; public POS signup grants full write on
+orders/payments/menu; cancel-then-reorder resurrects cancelled items onto
+the bill) plus a High that inflates AOV revenue on every cash payment with
+change. Fix these before any on-floor test. Findings 1, 3 and 5 are
+behavioral and **not covered by the existing test suite** — regression
+tests land with the fixes.
+
 **Next major milestone:** AOV data accuracy for the pilot restaurant.
 The system must produce trustworthy AOV numbers before Silver Specialty Coffee
 can use them to measure lift. This means:
-- nudge attribution (`kiosk_events`) firing correctly on every pattern
-  (post-add pairing, anchor-on-empty, pre-submit nudge)
+- nudge attribution (`table_events`, `item_added` + `source`) firing
+  correctly on every pattern (post-add pairing, anchor-on-empty,
+  pre-submit nudge)
 - orders and order_items recorded with accurate amounts and item counts
 - AOV baseline vs. nudged sessions distinguishable in the data
 

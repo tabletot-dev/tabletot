@@ -91,11 +91,22 @@ rationale; it supersedes 0010, 0014, and 0017.
 trustworthy baseline-vs-nudged numbers before Silver Specialty Coffee can
 measure lift (see `CLAUDE.md`, "Current status").
 
+A pre-deployment code audit (2026-08-28,
+`docs/notes/2026-08-28-pre-deployment-code-audit.md`) found **three P0
+defects that block the floor**: a kiosk reload during the 2-minute hold
+silently destroys the round while telling the guest it was confirmed;
+public POS signup grants full write access to orders, payments, and menu
+prices; and cancel-then-reorder resurrects cancelled items onto the bill.
+A fourth (cash overpayment inflating AOV revenue) corrupts the pilot's
+headline metric. Fixing those comes before anything else below.
+
 Open items, in rough order:
 
-1. Re-verify the readiness assessment's under-tested category —
-   admin/POS-driven state changes hitting the event ledger
-   (`docs/notes/pre-launch-readiness-assessment.md`).
+1. Fix the audit's P0 findings (1–3), then finding 4 before any AOV number
+   is shown to the restaurant. This also closes the readiness assessment's
+   under-tested category — admin/POS-driven state changes hitting the event
+   ledger (`docs/notes/pre-launch-readiness-assessment.md`), where findings
+   1, 3 and 5 all landed.
 2. Show the client the redesigned kiosk (Sprints 0–5); decide on
    Sprints 6–7 (Games, Table Talk, voice UI).
 3. Voice: manual on-device pass on the Tab K9 (both provider defaults and
