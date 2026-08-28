@@ -16,14 +16,13 @@ Its core warning — *"admin/POS-driven state changes hitting the event ledger
 were never exercised"* — turned out to be right. Findings 1, 3, and 5 all live
 in exactly that gap.
 
-> **Update (2026-08-28, same day):** findings 1–8 are fixed, verified against
-> a real Postgres 16 instance and/or the kiosk's test suite (no live Supabase
-> project was available in this session either — see each commit for exactly
-> how it was validated instead), and pushed to
-> `claude/project-status-review-7w70cm`. Findings 9 and 10 are still open —
-> see their sections below for current status. Re-read the "Bottom line"
-> below as historical: it described the branch's state at audit time, not
-> after these fixes.
+> **Update (2026-08-28, same day):** all 10 findings are fixed, verified
+> against a real Postgres 16 instance and/or the kiosk's test suite (no live
+> Supabase project was available in this session — see each commit for
+> exactly how it was validated instead), and pushed to
+> `claude/project-status-review-7w70cm`. Re-read the "Bottom line" below as
+> historical: it described the branch's state at audit time, not after these
+> fixes. Nothing has been merged to `main`.
 
 ## Bottom line (at audit time — see the update above)
 
@@ -42,8 +41,8 @@ are well built — and every defect below is a small local fix, not a redesign.
 | 6 | Medium | Table identity silently defaults to `T1` | kiosk | **Fixed** — 5878683 |
 | 7 | Medium | GST rate defined in three places, one configurable | all | **Fixed** — d68bd9c |
 | 8 | Medium | Failed table lookup makes the kiosk silently inert | kiosk | **Fixed** — b64c4c7 |
-| 9 | Medium | `kiosk_events` is dead; CLAUDE.md documents it as live | DB / docs | **Partially fixed** — doc corrected same day (3424891); table itself still exists, undropped |
-| 10 | Low | Mid-browse reload drops the guest to the idle screen | kiosk | Open |
+| 9 | Medium | `kiosk_events` is dead; CLAUDE.md documents it as live | DB / docs | **Fixed** — 5f15bc8 |
+| 10 | Low | Mid-browse reload drops the guest to the idle screen | kiosk | **Fixed** — 328c6b8 |
 
 ---
 

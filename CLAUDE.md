@@ -66,7 +66,7 @@ menus/        MENU-CREATION-GUIDE.md + seed validation SQL only — menu data
 packages/         shared types and utilities — currently empty
 supabase/
 migrations/     applied in order; never edit an existing migration
-                currently at 0065
+                currently at 0070
 seed/           reference data only
 ```
 ## Supabase table groups (one project, three logical layers)
@@ -122,7 +122,7 @@ responds in native script only — no romanised transliteration. See
 (always-on voice: feasible, deferred).
 
 **Migrations:** Never edit an existing migration file. Always append a new one.
-Repo is at 0065; 0064+ were applied to local Supabase — Rohan pushes remote
+Repo is at 0070; 0064+ were applied to local Supabase — Rohan pushes remote
 himself per convention. Current Silver UUID is
 `b22b5d53-6dd8-4f5b-8276-2e828cd1ab91` (pinned in migration 0014).
 
@@ -170,12 +170,11 @@ Still on a Lenovo Tab K9 for hardware testing, not yet in the restaurant.
 
 **Pre-deployment code audit (2026-08-28)** —
 `docs/notes/2026-08-28-pre-deployment-code-audit.md`. Static audit of all
-three apps + the shared DB layer found 8 fixable defects (3 P0, 2 High,
-3 Medium); all 8 are now fixed, verified, and pushed on
-`claude/project-status-review-7w70cm` (migrations 0066–0069, plus kiosk and
+three apps + the shared DB layer found 10 fixable defects (3 P0, 2 High,
+3 Medium, 2 Low); all 10 are now fixed, verified, and pushed on
+`claude/project-status-review-7w70cm` (migrations 0066–0070, plus kiosk and
 POS commits — see the audit note's summary table for exact commit hashes
-per finding). Not yet merged to `main`. Two low-priority findings (#9 a
-dead `kiosk_events` table, #10 a mid-browse reload UX gap) remain open.
+per finding). Not yet merged to `main`.
 
 **Next major milestone:** AOV data accuracy for the pilot restaurant.
 The system must produce trustworthy AOV numbers before Silver Specialty Coffee
