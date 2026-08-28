@@ -113,12 +113,20 @@ const IndexInner = () => {
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [billRequested, setBillRequested] = useState(false);
   const [tableUuid, setTableUuid] = useState<string | null>(null);
+  // TABLE_NUMBER is set (Index's outer guard already ruled out the empty
+  // case) but doesn't match any row in restaurant_tables — a typo, or a
+  // table deleted from the DB while a device still points at it. Before
+  // this, that failure was swallowed (.catch(() => {})) and the kiosk kept
+  // browsing normally, recording nothing, only surfacing an error at
+  // "Send to kitchen" — too late for a customer who'd been ordering for
+  // ten minutes (2026-08-28 audit, finding 8).
+  const [tableResolutionFailed, setTableResolutionFailed] = useState(false);
 
   // Resolve the physical table UUID once on mount — stable for the device's lifetime.
   // Then hydrate from the ledger: a reloaded/woken kiosk mid-session rebuilds its
   // order history from server truth and lands back on WaitingView (audit M5).
   useEffect(() => {
-    resolveTableId().then(setTableUuid).catch(() => {});
+    resolveTableId().then(setTableUuid).catch(() => setTableResolutionFailed(true));
     getTableState()
       .then((state) => {
         if (state.state !== "idle" && state.rounds.length > 0) {
@@ -405,6 +413,12 @@ const IndexInner = () => {
     const id = setTimeout(() => setToast(""), 2200);
     return () => clearTimeout(id);
   }, [toast]);
+
+  if (tableResolutionFailed) {
+    return (
+      <UnconfiguredScreen message="This table isn't set up correctly. Please ask a staff member for help." />
+    );
+  }
 
   const renderScreen = () => {
     switch (currentScreen) {
@@ -735,7 +749,7 @@ const IndexInner = () => {
 // misconfigured tablet must show a clear setup error, not silently become
 // table T1 and start writing into T1's live session (2026-08-28 audit,
 // finding 6).
-const UnconfiguredScreen = () => (
+const UnconfiguredScreen = ({ message }: { message: string }) => (
   <div
     style={{
       position: "fixed",
@@ -752,12 +766,16 @@ const UnconfiguredScreen = () => (
   >
     <p className="eyebrow">Setup needed</p>
     <h1>This tablet isn't linked to a table.</h1>
-    <p>Please ask a staff member to open this device using its assigned table link.</p>
+    <p>{message}</p>
   </div>
 );
 
 const Index = () => {
-  if (!TABLE_ID) return <UnconfiguredScreen />;
+  if (!TABLE_ID) {
+    return (
+      <UnconfiguredScreen message="Please ask a staff member to open this device using its assigned table link." />
+    );
+  }
   return (
     <RestaurantProvider>
       <MenuProvider>
