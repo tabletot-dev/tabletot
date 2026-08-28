@@ -22,6 +22,7 @@ const heldItems: OrderItem[] = [
 describe("confirmOrder submits the items it is given, not the live cart", () => {
   beforeEach(() => {
     vi.mocked(submitOrder).mockReset();
+    sessionStorage.clear();
   });
 
   // Reproduces the 2026-08-28 audit's finding 1: the round-hold's expiry
@@ -54,5 +55,61 @@ describe("confirmOrder submits the items it is given, not the live cart", () => 
 
     expect(submitOrder).not.toHaveBeenCalled();
     expect(result.current.currentScreen).toBe("order-confirmation");
+  });
+});
+
+
+describe("live cart persistence across reload (audit finding 10)", () => {
+  const cartItem: OrderItem = {
+    id: "item-2", name: "Croissant", price: 120, quantity: 1, category: "Bakery", tags: [], is_veg: true,
+  };
+
+  beforeEach(() => {
+    vi.mocked(submitOrder).mockReset();
+    sessionStorage.clear();
+  });
+
+  it("restores a cart left in sessionStorage and navigates to menu", () => {
+    sessionStorage.setItem("tt_current_cart", JSON.stringify([cartItem]));
+
+    const { result } = renderHook(() => useDeviceNavigation());
+
+    expect(result.current.order).toEqual([cartItem]);
+    expect(result.current.currentScreen).toBe("menu");
+  });
+
+  it("stays on idle when there is nothing to restore", () => {
+    const { result } = renderHook(() => useDeviceNavigation());
+
+    expect(result.current.order).toEqual([]);
+    expect(result.current.currentScreen).toBe("idle");
+  });
+
+  it("persists cart changes as they happen", () => {
+    const { result } = renderHook(() => useDeviceNavigation());
+
+    act(() => {
+      result.current.addToOrder(
+        { id: "item-3", name: "Latte", price: 220, category: "Coffee", tags: [], is_veg: true },
+        "main_menu",
+      );
+    });
+
+    expect(JSON.parse(sessionStorage.getItem("tt_current_cart") ?? "[]")).toEqual([
+      { id: "item-3", name: "Latte", price: 220, category: "Coffee", tags: [], is_veg: true, quantity: 1 },
+    ]);
+  });
+
+  it("clears the persisted cart once a round is confirmed", async () => {
+    vi.mocked(submitOrder).mockResolvedValue({ orderId: "order-1", kotId: "kot-1" });
+    sessionStorage.setItem("tt_current_cart", JSON.stringify([cartItem]));
+    const { result } = renderHook(() => useDeviceNavigation());
+    expect(result.current.order).toEqual([cartItem]);
+
+    await act(async () => {
+      await result.current.confirmOrder([cartItem]);
+    });
+
+    expect(JSON.parse(sessionStorage.getItem("tt_current_cart") ?? "null")).toEqual([]);
   });
 });

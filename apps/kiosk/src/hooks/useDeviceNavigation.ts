@@ -1,8 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { MenuItem, OrderItem } from "@/data/menu";
 import { submitOrder, clearSession } from "@/lib/orderSubmission";
 import { track, type Source } from "@/lib/eventBus";
 import type { TableState } from "@/lib/ledger";
+import { loadCart, saveCart } from "@/lib/cartStorage";
 
 export type ScreenType =
   | "idle"
@@ -28,9 +29,30 @@ export interface OrderRound {
 export function useDeviceNavigation() {
   const [currentScreen, setCurrentScreen] = useState<ScreenType>("idle");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
-  const [order, setOrder] = useState<OrderItem[]>([]);
+  const [order, setOrder] = useState<OrderItem[]>(loadCart);
   const [previousOrders, setPreviousOrders] = useState<OrderRound[]>([]);
   const [voiceOverlayOpen, setVoiceOverlayOpen] = useState(false);
+
+  // Persist on every change, including the clear to [] on submit/cancel/end
+  // — writing '[]' is exactly the "nothing to restore" state loadCart already
+  // treats as empty, so no separate clear path is needed.
+  useEffect(() => {
+    saveCart(order);
+  }, [order]);
+
+  // Runs once, at mount, before useRoundHold's own restore effect and
+  // Index.tsx's server-state hydration effect (both declared later in
+  // IndexInner, so their effects run after this one and can override it).
+  // A restored non-empty cart with nothing more authoritative to show
+  // (no held round, no active server-side order) takes the guest to "menu"
+  // instead of leaving them on the idle/attract screen with a full cart
+  // sitting invisibly behind it.
+  useEffect(() => {
+    if (order.length > 0) {
+      setCurrentScreen("menu");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const addToOrder = useCallback((item: MenuItem, source: Source, qty = 1) => {
     setOrder((prev) => {
