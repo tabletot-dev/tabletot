@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase, hasSupabaseConfig } from "@/integrations/supabase/client";
+import { DEFAULT_GST_RATE_PERCENT } from "@/lib/pricing";
 
 export type Promo = { id: string; title: string; copy: string };
 
@@ -10,6 +11,7 @@ interface RestaurantCtx {
   promptForIdentity: boolean;
   venueName: string;
   promos: Promo[];
+  gstRatePercent: number;
 }
 
 const RestaurantContext = createContext<RestaurantCtx>({
@@ -19,6 +21,7 @@ const RestaurantContext = createContext<RestaurantCtx>({
   promptForIdentity: false,
   venueName: "",
   promos: [],
+  gstRatePercent: DEFAULT_GST_RATE_PERCENT,
 });
 
 export function RestaurantProvider({ children }: { children: React.ReactNode }) {
@@ -32,6 +35,10 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
   const [promptForIdentity, setPromptForIdentity] = useState(false);
   const [venueName, setVenueName] = useState("");
   const [promos, setPromos] = useState<Promo[]>([]);
+  // Defaults to DEFAULT_GST_RATE_PERCENT (5) to avoid a flash of 0% tax
+  // before the fetch resolves, same reasoning as voiceEnabled above — not
+  // a fallback path, just the pre-load display value.
+  const [gstRatePercent, setGstRatePercent] = useState(DEFAULT_GST_RATE_PERCENT);
 
   useEffect(() => {
     if (!restaurantId || !hasSupabaseConfig) return;
@@ -62,10 +69,37 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
           }
         }
       });
+
+    // restaurant_settings supports a per-restaurant override alongside a
+    // global default (restaurant_id IS NULL) — see migration 0017's own
+    // comment. Ordering by restaurant_id with nulls last picks the
+    // override when one exists, the global default otherwise; matches
+    // append_event's read of the same table (migration 0069) and
+    // apps/pos's Billing.tsx display.
+    supabase
+      .from("restaurant_settings")
+      .select("value")
+      .eq("key", "gst_rate")
+      .or(`restaurant_id.eq.${restaurantId},restaurant_id.is.null`)
+      .order("restaurant_id", { ascending: true, nullsFirst: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("[RestaurantProvider] Failed to load gst_rate:", error.message);
+          return;
+        }
+        const parsed = data?.value ? Number(data.value) : NaN;
+        if (Number.isFinite(parsed)) {
+          setGstRatePercent(parsed);
+        }
+      });
   }, [restaurantId]);
 
   return (
-    <RestaurantContext.Provider value={{ restaurantId, tableId, voiceEnabled, promptForIdentity, venueName, promos }}>
+    <RestaurantContext.Provider
+      value={{ restaurantId, tableId, voiceEnabled, promptForIdentity, venueName, promos, gstRatePercent }}
+    >
       {children}
     </RestaurantContext.Provider>
   );

@@ -4,6 +4,7 @@ import type { OrderRound } from "@/hooks/useDeviceNavigation";
 import TabletotLogo from "@/components/TabletotLogo";
 import { itemImageBackground } from "@/lib/menuImages";
 import { computeTotals } from "@/lib/pricing";
+import { useRestaurant } from "@/lib/restaurantContext";
 import { formatRupees } from "@/lib/formatCurrency";
 
 const MAX_NAME_LENGTH = 24;
@@ -29,7 +30,8 @@ export default function CartView({
   onConfirm,
   onUpdateQuantity,
 }: CartViewProps) {
-  const { subtotal, tax, total } = computeTotals(totalBill);
+  const { gstRatePercent } = useRestaurant();
+  const { subtotal, tax, total } = computeTotals(totalBill, gstRatePercent);
   const [displayName, setDisplayName] = useState("");
 
   return (

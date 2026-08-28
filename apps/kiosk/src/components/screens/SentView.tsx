@@ -1,5 +1,6 @@
 import type { OrderItem } from "@/data/menu";
 import { computeTotals } from "@/lib/pricing";
+import { useRestaurant } from "@/lib/restaurantContext";
 import { formatRupees } from "@/lib/formatCurrency";
 
 interface SentViewProps {
@@ -22,7 +23,8 @@ export default function SentView({
   items, roundNumber, secondsLeft, onEdit, onCancel, onSendNow, onOrderMore,
 }: SentViewProps) {
   const subtotalRaw = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const { total } = computeTotals(subtotalRaw);
+  const { gstRatePercent } = useRestaurant();
+  const { total } = computeTotals(subtotalRaw, gstRatePercent);
   const count = items.reduce((sum, i) => sum + i.quantity, 0);
 
   return (
