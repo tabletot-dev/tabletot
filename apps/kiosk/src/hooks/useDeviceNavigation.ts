@@ -69,14 +69,21 @@ export function useDeviceNavigation() {
   }, []);
 
   // Throws on failure instead of alert()ing — a blocking native dialog has no
-  // "try again" path and stalls the whole kiosk. The cart is left untouched
-  // on failure either way; callers surface the error (toast) and let the
-  // customer retry Confirm.
-  const confirmOrder = useCallback(async () => {
-    if (order.length > 0) {
+  // "try again" path and stalls the whole kiosk.
+  //
+  // Takes `items` explicitly rather than reading the live `order` state.
+  // The only caller is the round-hold's expiry callback, which passes the
+  // items captured at "Send to kitchen" time (persisted in sessionStorage
+  // via useRoundHold/pendingRound). Reading closured `order` here instead
+  // used to submit whatever the live cart happened to contain at expiry —
+  // empty after a reload (the cart itself is not persisted), so a guest who
+  // reloaded mid-hold saw "Order Confirmed" while nothing reached the
+  // kitchen and no revenue was recorded (2026-08-28 audit, finding 1).
+  const confirmOrder = useCallback(async (items: OrderItem[]) => {
+    if (items.length > 0) {
       let orderId: string;
       try {
-        const result = await submitOrder(order);
+        const result = await submitOrder(items);
         orderId = result.orderId;
       } catch (err) {
         console.error("Order submission failed:", err);
@@ -86,15 +93,15 @@ export function useDeviceNavigation() {
         ...prev,
         {
           orderId,
-          items: [...order],
-          total: order.reduce((sum, o) => sum + o.price * o.quantity, 0),
+          items: [...items],
+          total: items.reduce((sum, o) => sum + o.price * o.quantity, 0),
           timestamp: new Date(),
         },
       ]);
       setOrder([]);
     }
     setCurrentScreen("order-confirmation");
-  }, [order]);
+  }, []);
 
   const endSession = useCallback(() => {
     setOrder([]);

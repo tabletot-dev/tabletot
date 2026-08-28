@@ -84,13 +84,17 @@ const IndexInner = () => {
   // and this is the only place that's still true (see orderName leak fix,
   // docs/notes/2026-08-15-order-name-leak-fix.md).
   const hold = useRoundHold(
-    useCallback(async (_items, displayName) => {
+    useCallback(async (items, displayName) => {
       try {
         if (promptForIdentity && !isIdentityResolved()) {
           if (displayName) await setSessionDisplayName(displayName);
           markIdentityResolved();
         }
-        await confirmOrder();
+        // Submit exactly what was held, not the live cart — a reload wipes
+        // the in-memory `order` state but not the persisted hold, and the
+        // guest's confirmed round must survive that (2026-08-28 audit,
+        // finding 1).
+        await confirmOrder(items);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setToast(`Order could not be sent: ${msg}`);
