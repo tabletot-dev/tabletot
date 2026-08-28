@@ -21,6 +21,7 @@ import AppShell from "@/components/AppShell";
 import OrderBar from "@/components/OrderBar";
 import StatusStrip from "@/components/StatusStrip";
 import { useRoundHold } from "@/hooks/useRoundHold";
+import { useSyncHeldRound } from "@/hooks/useSyncHeldRound";
 import { RestaurantProvider, useRestaurant } from "@/lib/restaurantContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -102,6 +103,12 @@ const IndexInner = () => {
       }
     }, [confirmOrder, setCurrentScreen, promptForIdentity]),
   );
+
+  // An item added via "Order more" while the countdown is still running
+  // must join the round already being held, not vanish when it submits
+  // (2026-08-28 audit, finding 5 — useRoundHold.extendHold existed but was
+  // never wired to anything).
+  useSyncHeldRound(order, hold);
 
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [billRequested, setBillRequested] = useState(false);
