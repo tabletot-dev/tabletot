@@ -16,25 +16,34 @@ Its core warning — *"admin/POS-driven state changes hitting the event ledger
 were never exercised"* — turned out to be right. Findings 1, 3, and 5 all live
 in exactly that gap.
 
-## Bottom line
+> **Update (2026-08-28, same day):** findings 1–8 are fixed, verified against
+> a real Postgres 16 instance and/or the kiosk's test suite (no live Supabase
+> project was available in this session either — see each commit for exactly
+> how it was validated instead), and pushed to
+> `claude/project-status-review-7w70cm`. Findings 9 and 10 are still open —
+> see their sections below for current status. Re-read the "Bottom line"
+> below as historical: it described the branch's state at audit time, not
+> after these fixes.
+
+## Bottom line (at audit time — see the update above)
 
 **Not ready for the floor.** Three findings cause visible customer-facing
 failure or real financial exposure. The architecture itself is sound — the
 single-writer ledger, client-generated idempotency keys, and span discipline
 are well built — and every defect below is a small local fix, not a redesign.
 
-| # | Severity | Finding | Where |
-|---|---|---|---|
-| 1 | P0 | Reload during the 2-min hold destroys the round, guest told "confirmed" | kiosk |
-| 2 | P0 | Public POS signup grants full write on orders, payments, menu | POS / DB |
-| 3 | P0 | Cancel-then-reorder resurrects cancelled items onto the bill | DB / POS |
-| 4 | High | Cash overpayment inflates AOV revenue | POS / DB |
-| 5 | High | Items added during the hold are swept into the guest's already-shown round | kiosk |
-| 6 | Medium | Table identity silently defaults to `T1` | kiosk |
-| 7 | Medium | GST rate defined in three places, one configurable | all |
-| 8 | Medium | Failed table lookup makes the kiosk silently inert | kiosk |
-| 9 | Medium | `kiosk_events` is dead; CLAUDE.md documents it as live | DB / docs |
-| 10 | Low | Mid-browse reload drops the guest to the idle screen | kiosk |
+| # | Severity | Finding | Where | Status |
+|---|---|---|---|---|
+| 1 | P0 | Reload during the 2-min hold destroys the round, guest told "confirmed" | kiosk | **Fixed** — f3f4f7e |
+| 2 | P0 | Public POS signup grants full write on orders, payments, menu | POS / DB | **Fixed** — 5070346, cd04489, 06b3af5 |
+| 3 | P0 | Cancel-then-reorder resurrects cancelled items onto the bill | DB / POS | **Fixed** — a89957a |
+| 4 | High | Cash overpayment inflates AOV revenue | POS / DB | **Fixed** — 48a6dbd |
+| 5 | High | Items added during the hold are swept into the guest's already-shown round | kiosk | **Fixed** — e43fc44 |
+| 6 | Medium | Table identity silently defaults to `T1` | kiosk | **Fixed** — 5878683 |
+| 7 | Medium | GST rate defined in three places, one configurable | all | **Fixed** — d68bd9c |
+| 8 | Medium | Failed table lookup makes the kiosk silently inert | kiosk | **Fixed** — b64c4c7 |
+| 9 | Medium | `kiosk_events` is dead; CLAUDE.md documents it as live | DB / docs | **Partially fixed** — doc corrected same day (3424891); table itself still exists, undropped |
+| 10 | Low | Mid-browse reload drops the guest to the idle screen | kiosk | Open |
 
 ---
 

@@ -170,14 +170,12 @@ Still on a Lenovo Tab K9 for hardware testing, not yet in the restaurant.
 
 **Pre-deployment code audit (2026-08-28)** —
 `docs/notes/2026-08-28-pre-deployment-code-audit.md`. Static audit of all
-three apps + the shared DB layer. Verdict: **not ready for the floor.**
-Three P0 defects (kiosk reload during the 2-minute hold silently destroys
-the round while showing "confirmed"; public POS signup grants full write on
-orders/payments/menu; cancel-then-reorder resurrects cancelled items onto
-the bill) plus a High that inflates AOV revenue on every cash payment with
-change. Fix these before any on-floor test. Findings 1, 3 and 5 are
-behavioral and **not covered by the existing test suite** — regression
-tests land with the fixes.
+three apps + the shared DB layer found 8 fixable defects (3 P0, 2 High,
+3 Medium); all 8 are now fixed, verified, and pushed on
+`claude/project-status-review-7w70cm` (migrations 0066–0069, plus kiosk and
+POS commits — see the audit note's summary table for exact commit hashes
+per finding). Not yet merged to `main`. Two low-priority findings (#9 a
+dead `kiosk_events` table, #10 a mid-browse reload UX gap) remain open.
 
 **Next major milestone:** AOV data accuracy for the pilot restaurant.
 The system must produce trustworthy AOV numbers before Silver Specialty Coffee
