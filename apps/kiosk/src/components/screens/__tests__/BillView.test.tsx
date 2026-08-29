@@ -12,8 +12,14 @@ vi.mock("@/integrations/supabase/client", () => ({
   supabase: { from: () => ({ insert: insertMock }) },
 }));
 
+// GST label must reflect the live restaurant rate, not a hardcoded "5%".
+vi.mock("@/lib/restaurantContext", () => ({
+  useRestaurant: () => ({ gstRatePercent: 18 }),
+}));
+
 import BillView from "@/components/screens/BillView";
 import { appendEvent } from "@/lib/ledger";
+import { formatRupees } from "@/lib/formatCurrency";
 
 const previousOrders = [
   { orderId: "o1", items: [], total: 410, timestamp: new Date() },
@@ -43,5 +49,13 @@ describe("BillView — phone-optional bill request", () => {
     fireEvent.change(screen.getByPlaceholderText("+91 98765 43210"), { target: { value: "123" } });
 
     expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
+  });
+
+  it("labels the GST line with the live rate (A1), and the amount matches it", () => {
+    render(<BillView previousOrders={previousOrders} sessionTotal={1000} onClose={() => {}} />);
+
+    expect(screen.getByText("GST (18%)")).toBeInTheDocument();
+    expect(screen.queryByText("GST (5%)")).not.toBeInTheDocument();
+    expect(screen.getByText(formatRupees(180))).toBeInTheDocument();
   });
 });

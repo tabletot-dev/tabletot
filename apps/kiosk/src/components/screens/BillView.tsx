@@ -147,7 +147,7 @@ export default function BillView({
               <strong>{formatRupees(subtotal)}</strong>
             </div>
             <div className="summary-line">
-              <span>GST (5%)</span>
+              <span>GST ({gstRatePercent}%)</span>
               <strong>{formatRupees(tax)}</strong>
             </div>
             <div className="summary-line total-line">
