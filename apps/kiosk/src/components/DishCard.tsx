@@ -90,7 +90,7 @@ function DishCard({
             tabIndex={0}
             onKeyDown={(e) => e.key === "Enter" && onSelect(item)}
           >
-            <DietMark isVeg={item.is_veg} compact />
+            <DietMark isVeg={item.is_veg} compact label />
             <h3>{item.name}</h3>
           </div>
           {item.description && <p className="tt-dishcard-desc">{item.description}</p>}
