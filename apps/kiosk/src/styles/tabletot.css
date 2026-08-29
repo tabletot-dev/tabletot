@@ -5231,161 +5231,6 @@ body {
   border-top: 2px solid var(--tt-line);
 }
 
-/* ── Home ───────────────────────────────────────────────────── */
-
-.tt-home {
-  display: flex;
-  flex-direction: column;
-  gap: var(--tt-space-3);
-}
-
-.tt-home h1 {
-  font-family: var(--tt-font-display);
-  font-weight: 800;
-  font-size: var(--tt-size-heading);
-  margin: 0;
-}
-
-.tt-home-sub {
-  color: var(--tt-ink-60);
-  font-size: var(--tt-size-body);
-  max-width: 60ch;
-}
-
-.tt-home-cta {
-  width: 100%;
-}
-
-.tt-home-spotlight {
-  display: block;
-  width: 100%;
-  min-height: calc(220px * var(--tt-scale));
-  border-radius: var(--tt-radius-card);
-  border: 2px solid var(--tt-line);
-  background-size: cover;
-  background-position: center;
-  position: relative;
-  overflow: hidden;
-  text-align: left;
-  cursor: pointer;
-}
-
-.tt-home-spotlight-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: var(--tt-space-2);
-  padding: var(--tt-space-3);
-  background: linear-gradient(to top, rgba(17, 19, 16, 0.82), rgba(17, 19, 16, 0));
-}
-
-.tt-home-spotlight-badge {
-  align-self: flex-start;
-  background: var(--tt-paper);
-  color: var(--tt-ink);
-}
-
-.tt-home-spotlight-kicker {
-  margin: 0;
-  color: var(--tt-on-dark-70);
-  font-size: var(--tt-size-meta);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.tt-home-spotlight-footer {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--tt-space-2);
-  color: var(--tt-on-dark);
-}
-
-.tt-home-spotlight-footer strong {
-  font-family: var(--tt-font-display);
-  font-size: var(--tt-size-dish);
-}
-
-.tt-home-spotlight-price {
-  font-family: var(--tt-font-display);
-  font-weight: 700;
-  font-size: var(--tt-size-cta);
-}
-
-.tt-home-dots {
-  display: flex;
-  gap: var(--tt-space-1);
-}
-
-.tt-home-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--tt-on-dark-70);
-  opacity: 0.5;
-}
-
-.tt-home-dot.active {
-  opacity: 1;
-}
-
-.tt-home-info-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--tt-space-2);
-}
-
-.tt-home-info-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--tt-space-1);
-  padding: var(--tt-pad-card);
-  border-radius: var(--tt-radius-card);
-  background: var(--tt-paper);
-  border: 2px solid var(--tt-line);
-  text-align: left;
-  cursor: pointer;
-}
-
-.tt-home-info-card--static {
-  cursor: default;
-}
-
-.tt-home-info-card strong {
-  font-size: var(--tt-size-meta);
-}
-
-.tt-home-info-card span {
-  color: var(--tt-ink-60);
-  font-size: var(--tt-size-meta);
-}
-
-.tt-home-about {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--tt-space-1);
-  padding: var(--tt-pad-card);
-  border-radius: var(--tt-radius-card);
-  background: var(--tt-paper);
-  border: 2px solid var(--tt-line);
-}
-
-.tt-home-about h2 {
-  font-family: var(--tt-font-display);
-  font-weight: 700;
-  margin: 0;
-}
-
-.tt-home-about p {
-  color: var(--tt-ink-60);
-  font-size: var(--tt-size-meta);
-}
-
 /* ── Cart ───────────────────────────────────────────────────── */
 
 .tt-cart {
@@ -5822,14 +5667,35 @@ body {
 /* ── Attract ────────────────────────────────────────────────── */
 
 .tt-attract {
+  position: relative;
   width: 100%;
   height: 100dvh;
+  background: var(--tt-paper);
+  color: var(--tt-ink);
+  overflow: hidden;
+}
+
+/* Full-bleed "touch anywhere" target. Transparent, z-index 0; the content
+   layer (and its CTA / slide buttons) sits above it as flat siblings so no
+   interactive element is nested inside another. */
+.tt-attract-touch {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.tt-attract-content {
+  position: relative;
+  z-index: 1;
+  height: 100%;
   display: flex;
   flex-direction: column;
   padding: var(--tt-space-4) var(--tt-space-5);
-  background: var(--tt-paper);
-  color: var(--tt-ink);
-  cursor: pointer;
 }
 
 .tt-attract-header {
@@ -5912,11 +5778,15 @@ body {
   display: flex;
   align-items: center;
   gap: var(--tt-space-3);
+  width: 100%;
   min-height: var(--tt-tap-primary);
   padding: var(--tt-space-3) var(--tt-space-4);
+  border: 0;
   border-radius: var(--tt-radius-card);
   background: var(--tt-action);
   color: #fff;
+  cursor: pointer;
+  text-align: left;
 }
 
 .tt-attract-cta-icon {
@@ -5975,6 +5845,103 @@ body {
   color: var(--tt-ink-60);
   font-weight: 700;
   font-size: var(--tt-size-meta);
+}
+
+/* ── Attract: Chef's picks carousel (variant B) ─────────────── */
+
+.tt-chefpicks {
+  margin-top: var(--tt-space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--tt-space-2);
+}
+
+.tt-chefpicks-skeleton {
+  margin-top: var(--tt-space-3);
+  height: calc(180px * var(--tt-scale));
+  border-radius: var(--tt-radius-card);
+  background: var(--tt-skeleton-2);
+}
+
+.tt-chefpicks-viewport {
+  overflow: hidden;
+}
+
+.tt-chefpicks-track {
+  display: flex;
+  gap: var(--tt-space-3);
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tt-chefpicks-track {
+    transition: none;
+  }
+}
+
+.tt-chefpick {
+  flex: 0 0 72vw;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border: 2px solid var(--tt-line);
+  border-radius: var(--tt-radius-card);
+  background: var(--tt-paper);
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+}
+
+.tt-chefpick-thumb {
+  display: block;
+  width: 100%;
+  min-height: calc(120px * var(--tt-scale));
+  aspect-ratio: 3 / 2;
+  background-size: cover !important;
+  background-position: center !important;
+}
+
+.tt-chefpick-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--tt-space-2);
+  padding: var(--tt-space-2) var(--tt-space-3);
+}
+
+.tt-chefpick-name {
+  min-width: 0;
+  font-family: var(--tt-font-display);
+  font-weight: 700;
+  font-size: var(--tt-size-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tt-chefpick-price {
+  flex: none;
+  font-family: var(--tt-font-display);
+  font-weight: 700;
+  color: var(--tt-action);
+}
+
+.tt-chefpick-dots {
+  display: flex;
+  gap: var(--tt-space-1);
+}
+
+.tt-chefpick-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--tt-ink-60);
+  opacity: 0.35;
+}
+
+.tt-chefpick-dot.active {
+  opacity: 1;
 }
 
 /* ── Confirmation ───────────────────────────────────────────── */

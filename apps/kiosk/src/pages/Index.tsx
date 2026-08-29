@@ -2,11 +2,12 @@ import { useCallback, useEffect, useRef, useState, lazy, Suspense } from "react"
 import { motion, AnimatePresence } from "framer-motion";
 import { useDeviceNavigation } from "@/hooks/useDeviceNavigation";
 import IdleScreen from "@/components/screens/IdleScreen";
-import HomeView from "@/components/screens/HomeView";
 import ListeningScreen from "@/components/screens/ListeningScreen";
 import MenuView from "@/components/screens/MenuView";
 import FrequentlyOrderedView from "@/components/screens/FrequentlyOrderedView";
 import DetailView from "@/components/screens/DetailView";
+// HomeView was merged into IdleScreen (T11, 2026-08-29) — the carousel +
+// slide-tap session-start now live there; the "home" screen is gone.
 import CartView from "@/components/screens/CartView";
 import SentView from "@/components/screens/SentView";
 import CancelConfirm from "@/components/screens/CancelConfirm";
@@ -54,7 +55,7 @@ function wait(ms: number) {
 // Pre-submit browsing screens only — session-idle/games/conversation-starters
 // are static screens where no activity is expected by design (see
 // docs/plans/2026-08-03-idle-table-notification.md).
-const NUDGE_ELIGIBLE_SCREENS = new Set(["home", "menu", "item-detail", "order-summary"]);
+const NUDGE_ELIGIBLE_SCREENS = new Set(["menu", "item-detail", "order-summary"]);
 const NUDGE_THRESHOLD_MS = 3.5 * 60 * 1000;
 
 const IndexInner = () => {
@@ -427,38 +428,26 @@ const IndexInner = () => {
         return (
           <IdleScreen
             onActivate={async () => {
-              // Mirrors HomeView's "Start Ordering" — session_started must
-              // fire before menu so recommendation/order events get a
-              // span_id to attribute to (see AOV note in CLAUDE.md).
+              // session_started must fire before menu so recommendation/order
+              // events get a span_id to attribute to (see AOV note in
+              // CLAUDE.md).
               await startSession();
               setCurrentScreen("menu");
             }}
-            tableId={TABLE_ID}
-            onInfoToast={(msg) => setToast(msg)}
-          />
-        );
-      case "home":
-        return (
-          <HomeView
-            onStartOrdering={async () => {
-              await startSession();
-              setCurrentScreen("menu");
-            }}
-            onSelectItem={async (item) => {
-              // Mirrors "Start Ordering": append_event writes span_id = NULL
-              // for analytics fired while idle, so a hero-dish tap that skips
-              // straight to item-detail had every item_added/recommendation
-              // event on that path (including pairing_chip adds) landing
-              // unattributed — get_aov_summary joins on span_id, which NULL
-              // never matches. session_started is idempotent for an
-              // already-open span, so this is a no-op if the customer later
-              // also taps "Start Ordering".
+            onSelectHeroItem={async (item) => {
+              // A chef's-pick slide tap skips straight to item-detail.
+              // append_event writes span_id = NULL for analytics fired while
+              // idle, so without this every item_added/recommendation event
+              // on that path lands unattributed — get_aov_summary joins on
+              // span_id, which NULL never matches. session_started is
+              // idempotent for an already-open span, so a later "touch
+              // anywhere" is a no-op.
               await startSession();
               setSelectedItem(item);
               setCurrentScreen("item-detail");
             }}
-            onInfoToast={(msg) => setToast(msg)}
             tableId={TABLE_ID}
+            onInfoToast={(msg) => setToast(msg)}
           />
         );
       case "listening":

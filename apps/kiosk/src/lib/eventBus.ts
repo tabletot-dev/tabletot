@@ -5,7 +5,11 @@ import { hasSupabaseConfig } from '@/integrations/supabase/client';
 // Event vocabulary is mirrored in the DB CHECK constraint on table_events
 // (see migration 0047). Adding a new event type requires both ends to change.
 
-export type Surface = 'inline_pairing' | 'completion_nudge' | 'popular';
+export type Surface =
+  | 'inline_pairing'
+  | 'completion_nudge'
+  | 'popular'
+  | 'attract_carousel';
 
 export type Source =
   | 'main_menu'
