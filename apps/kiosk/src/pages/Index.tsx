@@ -5,6 +5,7 @@ import IdleScreen from "@/components/screens/IdleScreen";
 import HomeView from "@/components/screens/HomeView";
 import ListeningScreen from "@/components/screens/ListeningScreen";
 import MenuView from "@/components/screens/MenuView";
+import FrequentlyOrderedView from "@/components/screens/FrequentlyOrderedView";
 import DetailView from "@/components/screens/DetailView";
 import CartView from "@/components/screens/CartView";
 import SentView from "@/components/screens/SentView";
@@ -508,6 +509,17 @@ const IndexInner = () => {
                 />
               ) : null
             }
+          />
+        );
+      case "popular":
+        return (
+          <FrequentlyOrderedView
+            order={order}
+            onSelect={handleSelectItem}
+            onAddToCart={handleAddToOrder}
+            onUpdateQuantity={handleUpdateQuantity}
+            onClearItem={removeItem}
+            onBack={() => setCurrentScreen("menu")}
           />
         );
       case "item-detail":

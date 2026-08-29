@@ -10,6 +10,7 @@ export type ScreenType =
   | "home"
   | "listening"
   | "menu"
+  | "popular"
   | "item-detail"
   | "order-summary"
   | "sent"
