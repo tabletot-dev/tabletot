@@ -23,6 +23,84 @@ order-engine on :8000 + kiosk vite on :8080.
 
 ---
 
+## BUILD PROGRESS — 2026-08-29 (session 1 of ≥2)
+
+**11 of 14 tasks shipped**, one atomic commit each, on branch
+`claude/project-status-review-7w70cm` (not merged, not pushed).
+
+| Commit | Task |
+|--------|------|
+| `4e34533` | T1 — image_url floor |
+| `4f671ee` | T2 — extract `<Stepper>` |
+| `6b96c8d` | T3 — two-tap `×` clear |
+| `0dd7d67` | T4 — dynamic GST label |
+| `fef26bf` | T5 — cart-row name/price stack |
+| `5c952d9` | T6 — Veg/Non-Veg word on cards |
+| `fc3da33` | T7 — pairing-chip fly-in |
+| `872946e` | T8 — voice-dock mic breathing room (var cut, done-by-architecture) |
+| `b9bb605` | T9 — voice panel → Radix Dialog |
+| `315a48f` | T10 — "Popular" screen |
+| `bfa1376` | T11 — HomeView merged into IdleScreen, HomeView deleted |
+
+(`388f0a2` is the plan doc + design-review pass.)
+
+**Test suite:** 75 passing (was 42 at session start). `tsc` clean, `eslint`
+0 errors (one pre-existing `completionRules` dep warning in `Index.tsx`).
+
+**Deviations from the plan, all noted in the task entries below:**
+- **T1** — resolution order was already `image_url → dict → fallback`; only the
+  broken-URL floor needed fixing. Smaller than written.
+- **T7** — DetailView keeps its 4-chip cap (plan said "cap at 2"); reducing what
+  it recommends is an AOV call, flagged not changed.
+- **T8** — the `--tt-bottom-chrome` var was **cut**. The AppShell flex-sibling
+  layout already prevents the overlap. Shipped a 12px mic margin instead.
+- **T11** — carousel auto-advance uses one `setInterval` (drives index + dots),
+  not pure CSS keyframes. User approved. `prefers-reduced-motion` disables it.
+
+**Known environment issue:** local `menu_items.image_url` values are absolute
+URLs to the **remote** Supabase project's storage — they 400 from local dev, so
+menu/cart/carousel thumbs render the T1 gradient floor locally (correct
+behaviour, not a bug). Real photos serve in prod. Also: local table **T1** has
+an open test session from this session's task testing — the kiosk on T1 lands
+on WaitingView, not attract. Use table **T2** (edit `apps/kiosk/.env.local`,
+`VITE_TABLE_ID=T2`, restart vite, revert after) to see the attract screen, or
+clear the T1 session.
+
+### REMAINING — T12, T13, T14 (all Lane 3, all touch `IdleScreen.tsx`)
+
+Do them in order (they share `IdleScreen.tsx` + `tabletot.css`):
+
+1. **T12 (D2)** — breathing pulse on the primary CTA. Pseudo-element ring,
+   `transform: scale` + `opacity`, ~2s `ease-in-out infinite`. No `box-shadow`
+   animation. `prefers-reduced-motion` → no pulse. CTA is the
+   `<button className="tt-attract-cta">` in `IdleScreen.tsx`.
+2. **T13 (D3)** — Wi-Fi CTA → Radix Dialog with a static pre-generated SVG QR
+   checked into the repo (payload `WIFI:S:SILVER-GUEST;T:nopass;;`). Dialog copy
+   (design-review): heading "Join the café Wi-Fi", one instruction line ("Point
+   your phone camera at the code — the network is open, no password needed."),
+   visible **Close** button. SSID a hardcoded const with a
+   `// TODO: restaurant_settings key` comment. Reuse the `@radix-ui/react-dialog`
+   pattern from T9 (`VoiceConversationPanel.tsx`).
+3. **T14 (D5)** — finish the Attract layout in `IdleScreen.tsx`:
+   - Relabel the primary CTA "Touch anywhere to start" → **"See the menu"**
+     (keep the "or say…" hint line).
+   - Add two **visually subordinate** secondaries below the carousel:
+     **"Popular"** → `setCurrentScreen("popular")` (T10 screen — wire the
+     Index `case "idle"` to pass an `onOpenPopular` cb, or navigate directly),
+     and **"Wi-Fi"** → opens the T13 QR dialog.
+   - **Remove** the footer About link (`.tt-attract-about`) + the plain
+     `Wi-Fi: SILVER-GUEST` `<p>` (`.tt-attract-wifi`) — T13's dialog replaces
+     the Wi-Fi affordance. Clean up `onInfoToast` if now unused on this screen.
+   - Tighten the `.tt-attract-title` `flex: 1` so there isn't a big empty gap
+     between the tagline and the CTA (there is now).
+   - Verify 800×1280 portrait fits with no scroll; primary CTA is the only
+     filled accent element.
+
+After T14: run `/graphify` (code + docs scope only), then `/plan-design-review`
+is recommended before merge (per the GSTACK REVIEW REPORT verdict).
+
+---
+
 ## Session 0 — bringup & preconditions
 
 Do this before touching any task. No migration this sprint, so **no
@@ -471,31 +549,38 @@ overlap.
 ## Implementation Tasks
 Synthesized from this review's findings. Each derives from a specific finding.
 
-- [ ] **T1 (P1, human: ~1h / CC: ~15min)** — `lib/menuImages.ts` — prefer `image_url`, keep gradient as the floor for broken URLs
+- [x] **T1** — `lib/menuImages.ts` — prefer `image_url`, keep gradient as the floor for broken URLs
+  - Shipped `4e34533`. Resolution order was ALREADY `image_url → dict → fallback` in menuStore hydration; the only defect was a broken `image_url` rendering as a faint dark box. `itemImageBackground()` now appends `NO_PHOTO_FALLBACK` as the bottom CSS layer. 8-assertion `menuImages.test.ts`.
   - Surfaced by: Architecture finding 2 + failure-mode critical gap
   - Files: `apps/kiosk/src/lib/menuImages.ts`, `apps/kiosk/src/lib/__tests__/menuImages.test.ts`
   - Verify: `pnpm test menuImages`
-- [ ] **T2 (P1, human: ~1h / CC: ~15min)** — `components/Stepper.tsx` — extract shared stepper, swap 3 call sites, no behaviour change
+- [x] **T2** — `components/Stepper.tsx` — extract shared stepper, swap 3 call sites, no behaviour change
+  - Shipped `4f671ee`. `{ qty, label, onDec, onInc }`; swapped DishCard main + DishCard pairing + CartView row. `onClear?` deliberately NOT added here (T3 owns it). Standardised on `type="button"` + `<div>` wrapper. `Stepper.test.tsx` (4). Test lives in `components/__tests__/`, not `components/`.
   - Surfaced by: Code-quality finding 4 (DRY, triplicated markup)
   - Files: new `apps/kiosk/src/components/Stepper.tsx` + `.test.tsx`; `DishCard.tsx`, `CartView.tsx`
   - Verify: `pnpm test` — `useDeviceNavigation.test.ts` + `aov-attribution.test.tsx` green
-- [ ] **T3 (P2, human: ~45min / CC: ~15min)** — `Stepper` — `×` clear at `qty >= 2`: opposite end of row, ≥24px dead-space, two-tap "Tap again to remove" confirm (~2s window), wired to `removeItem`
+- [x] **T3** — `Stepper` — `×` clear at `qty >= 2`, two-tap confirm, wired to `removeItem`
+  - Shipped `6b96c8d`. `×` sits OUTSIDE `.tt-stepper` in a `.tt-stepper-group` wrapper, 24px (`--tt-space-4`) after `+`. "opposite end of the row" → opposite end of the *stepper control* (the cart/dishcard rows have no free end). Two-tap: first tap → "Tap again to remove" (coral) for 2s, second tap clears, timeout reverts, qty change cancels. Threaded `onClearItem`: Index→MenuView→DishCard and Index→CartView. `Stepper.test.tsx` +5. Verified in-browser.
   - Surfaced by: A3 + outside-voice destructive-tap risk + design-review toddler mis-tap guard
   - Files: `Stepper.tsx`, `DishCard.tsx`, `CartView.tsx`, `Stepper.test.tsx`
   - Verify: `pnpm test Stepper` — first tap shows confirm + does not clear; second tap within 2s clears; timeout reverts; `×` at row opposite end
-- [ ] **T4 (P2, human: ~15min / CC: ~5min)** — `CartView.tsx` + `BillView.tsx` — dynamic GST label
+- [x] **T4** — `CartView.tsx` + `BillView.tsx` — dynamic GST label
+  - Shipped `0dd7d67`. `GST (5%)` → `GST ({gstRatePercent}%)`, value already in scope. DB rate is 5 so the pilot still reads "5%", now data-driven. New `CartView.test.tsx` (2) + `BillView.test.tsx` (+1) with a non-5 mocked rate.
   - Surfaced by: A1
   - Files: both screens + their tests
   - Verify: `pnpm test CartView BillView`
-- [ ] **T5 (P2, human: ~30min / CC: ~10min)** — `CartView.tsx` — row layout: name clamps to 2 lines + ellipsis, unit price on its own line below; confirm thumb after T1
+- [x] **T5** — `CartView.tsx` — cart-row name / unit-price collision
+  - Shipped `fef26bf`. CSS-only: `.order-copy` was `flex: 1` (inert in the grid) so name+price ran inline. Now `flex-direction: column` + `min-width: 0`, name clamps to 2 lines + ellipsis. `.order-copy`/`.order-thumb` are CartView-only. No jsdom test (layout not observable there); verified DOM geometry in-browser (no overlap). NOTE: `menu_items.image_url` holds absolute URLs to the REMOTE Supabase project — 400s from local dev, so local thumbs show the T1 gradient floor (working as intended). Real photos serve in prod.
   - Surfaced by: A2 + design-review long-name gap
   - Files: `CartView.tsx`, `tabletot.css`, `CartView.test.tsx`
   - Verify: visual at 800px with a 40+ char name (no stepper shift) + `pnpm test CartView`
-- [ ] **T6 (P2, human: ~15min / CC: ~5min)** — `DishCard.tsx` — `<DietMark label>` on cards
+- [x] **T6** — `DishCard.tsx` — `<DietMark label>` on cards
+  - Shipped `5c952d9`. One prop (`label`) on the dish-card's DietMark (line ~93). Pairing-row mark stays glyph-only. No new legend row. New `DishCard.test.tsx` (2). Verified in-browser.
   - Surfaced by: A4
   - Files: `DishCard.tsx`, `DishCard.test.tsx`
   - Verify: `pnpm test DishCard`
-- [ ] **T7 (P2, human: ~45min / CC: ~15min)** — pairing chips delayed fly-in, reduced-motion safe
+- [x] **T7** — pairing chips delayed fly-in, reduced-motion safe
+  - Shipped `fc3da33`. `.tt-pairing-list` + rows → `motion.div` in DishCard AND DetailView. `delayChildren: 0.35`, `staggerChildren: 0.09`, fade + 8px rise. `useReducedMotion()` drops the `y` (no transform). `DishCard.test.tsx` +3 (render, cap 2, reduced-motion no-transform via hoisted framer-motion mock). NOTE: DetailView keeps its existing 4-chip cap (not 2) — reducing what's recommended there is an AOV call, flagged for review, not changed.
   - Surfaced by: A5
   - Files: `DishCard.tsx`, `DetailView.tsx`, `DishCard.test.tsx`
   - Verify: `pnpm test DishCard` + manual reduced-motion
@@ -508,17 +593,21 @@ Synthesized from this review's findings. Each derives from a specific finding.
   - Files: `apps/kiosk/src/styles/tabletot.css` (1 line)
   - Verify: `.tt-voicedock` computed `margin-bottom` = 12px; on-device K9
     re-check pending
-- [ ] **T9 (P1, human: ~1h / CC: ~20min)** — `VoiceConversationPanel` — wrap in Radix Dialog, keep Warm Espresso bridge tokens (not `tokens.css`)
+- [x] **T9** — `VoiceConversationPanel` — wrap in Radix Dialog, keep Warm Espresso tokens
+  - Shipped `b9bb605`. `@radix-ui/react-dialog` (already a dep): Root/Portal/Overlay/Content(asChild on motion.section)/Title/Close. New `.voice-conversation-backdrop` `rgba(23,17,15,0.82)` (WE ink, not tokens.css). `.voice-conversation-panel` `absolute`→`fixed`. Frozen-voice rule honoured — STT/PTT block byte-identical (verified). New `VoiceConversationPanel.test.tsx` (4). Verified in-browser: body scroll-lock, menu `aria-hidden`, Escape + X close.
   - Surfaced by: B1 + outside-voice "not a modal" + design-review design-system finding
   - Files: `VoiceConversationPanel.tsx` (chrome only), voice panel test
   - Verify: menu inert behind, escape closes, panel still on Warm Espresso palette, `pnpm test`
-- [ ] **T10 (P2, human: ~1.5h / CC: ~25min)** — `FrequentlyOrderedView` + `ScreenType "popular"` + `Index.tsx` case + CTA analytics; user-facing label **"Popular"** (screen title + Attract CTA); header comment on the label/name mismatch
+- [x] **T10** — `FrequentlyOrderedView` ("Popular" screen) + `ScreenType "popular"` + Index case
+  - Shipped `315a48f`. Reuses DishCard, renders `useMenu().anchors` sorted by priority desc, empty state "Ask the team for today's picks", heading "Popular". File keeps name + rename-later comment. `Surface += "popular"`; `recommendation_shown` per anchor + `recommendation_tapped` on tap (existing event types, no migration). **Nothing routes here yet — the Attract "Popular" CTA is T14.** New `FrequentlyOrderedView.test.tsx` (4). Not visually verified (no UI entry until T14).
   - Surfaced by: C1/C2 (revised — no RPC) + design-review label-collision fix
   - Files: new `FrequentlyOrderedView.tsx` + test, `useDeviceNavigation.ts`, `Index.tsx`
   - Verify: `pnpm test FrequentlyOrderedView` + E2E Attract→"Popular" CTA→list→detail; no "Recommended"/"Frequently Ordered"/"Today's picks" in user-facing strings
-- [ ] **T11 (P1, human: ~3.5h / CC: ~50min)** — merge `HomeView` carousel + deep-link/session-start into `IdleScreen`; delete `HomeView` + `case "home"`
-  - Surfaced by: Step 0 scope decision (merge) + design-review IA / a11y findings
-  - Design-review additions to scope:
+- [x] **T11** — merge `HomeView` carousel + deep-link/session-start into `IdleScreen`; delete `HomeView`
+  - **Shipped `bfa1376`.** Done: chef's-picks carousel (variant B, cap 5, loading/0/1/multi states); slide-tap → idempotent `startSession()` → item-detail (verified: one `session_started` + one `recommendation_tapped`); `role=button` nesting fixed via a transparent background `.tt-attract-touch` `<button>` + `.tt-attract-content` layer (flat siblings, verified `ctaInsideTouch: false`); `Surface += "attract_carousel"`; deleted `HomeView.tsx`, `case "home"`, import, `ScreenType "home"`, `NUDGE_ELIGIBLE_SCREENS` entry, `tt-home-*` CSS (~155 lines); refreshed 2 stale comments in `orderSubmission.ts`. New `IdleScreen.test.tsx` (8). Verified 800×1280 portrait: fits, no scroll.
+  - **Carousel-drive deviation (user-approved):** one ~3.5s `setInterval` drives index + dots (not pure CSS keyframes per the perf budget) — CSS-only can't sync dots; `prefers-reduced-motion` disables it.
+  - **Left for T14:** relabel CTA "Touch anywhere to start" → "See the menu"; add Popular + Wi-Fi subordinate secondaries; remove the About link + plain `Wi-Fi: SILVER-GUEST` text; tighten the `.tt-attract-title` `flex: 1` gap (loose vertical space between tagline and CTA right now).
+  - Original design-review additions to scope (all done):
     - **Restructure the "touch anywhere" surface** — `IdleScreen` is currently a
       `role="button"` div; it cannot stay a button once it contains tappable
       carousel slides (interactive-nested-in-interactive). Make the outer
