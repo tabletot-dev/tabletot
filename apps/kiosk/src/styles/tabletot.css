@@ -4478,6 +4478,10 @@ body {
   align-items: center;
   justify-content: center;
   padding: var(--tt-space-3) var(--tt-gutter);
+  /* Last child of .tt-scroll — margin-bottom (unlike the container's
+     padding-bottom) is honoured at scroll end, so the mic clears the
+     docked status strip / cart bar instead of butting against them. */
+  margin-bottom: var(--tt-space-2);
 }
 
 .tt-statusstrip {

@@ -168,15 +168,27 @@ Personas 01, 06.
 **Validate:** `DishCard.test.tsx` — chips present after add; reduced-motion
 path asserts no transform style.
 
-### - [ ] A6 — bottom-bar clearance via one source of truth
+### - [x] A6 — bottom-bar clearance (done-by-architecture + breathing room)
 
-Introduce a single `--tt-bottom-chrome` CSS var (or a small
-`useBottomChromeHeight` hook) that the held-round status bar, the cart bar,
-and the menu-list bottom padding all read. Fixes the "Suggest a meal?" chips
-being covered when a round is held, and stops the next bottom bar re-creating
-the overlap.
-**Validate:** hold a round, scroll to menu end — both AI chips clear the
-stacked bars at 800×1280.
+**Resolved 2026-08-29 without the `--tt-bottom-chrome` var.** The overlap the
+Aug-28 walkthrough saw no longer reproduces: `AppShell` now renders
+`.tt-scroll` (flex:1) then `statusStrip` then `orderBar` as **flex-column
+siblings**, all `flex: none`, so the docked bars stack below the scroll region
+and cannot overlap it. Measured while a round is held + scrolled to menu end:
+voicedock bottom 1094 = scroll bottom 1094, statusstrip 1094→1158, orderbar
+1158→1280 (viewport). No element uses `position: fixed`/`absolute`, so a
+`--tt-bottom-chrome` variable would have nothing to feed — cut as speculative.
+Also: `.ptt-bubbles` ("Suggest a meal?" chips) are `display: none` in the
+current CSS; only the mic button renders in `.tt-voicedock`.
+
+**What shipped:** `margin-bottom: var(--tt-space-2)` (12px) on `.tt-voicedock`
+so the mic clears the docked status strip / cart bar comfortably instead of
+butting against it (margin-bottom on the last flex child is honoured at scroll
+end; container padding-bottom is not).
+
+**Still to check on-device:** the K9's `100dvh` vs browser chrome could differ
+from headless Chromium — re-verify the mic clearance during Rohan's on-device
+pass.
 
 ---
 
@@ -487,10 +499,15 @@ Synthesized from this review's findings. Each derives from a specific finding.
   - Surfaced by: A5
   - Files: `DishCard.tsx`, `DetailView.tsx`, `DishCard.test.tsx`
   - Verify: `pnpm test DishCard` + manual reduced-motion
-- [ ] **T8 (P2, human: ~1h / CC: ~20min)** — `--tt-bottom-chrome` single source of truth for bottom bars
+- [x] **T8 (P2)** — bottom-bar clearance — DONE-BY-ARCHITECTURE + 12px mic breathing room
   - Surfaced by: A6 + outside-voice whack-a-mole warning
-  - Files: `tabletot.css`, `MenuView.tsx`, status/cart bar components
-  - Verify: hold a round, scroll to end, chips clear
+  - Outcome: the AppShell flex-sibling layout already prevents the overlap
+    (measured, no reproduction). `--tt-bottom-chrome` var cut as speculative —
+    nothing uses fixed/absolute positioning. Shipped
+    `margin-bottom: var(--tt-space-2)` on `.tt-voicedock`. See the A6 section.
+  - Files: `apps/kiosk/src/styles/tabletot.css` (1 line)
+  - Verify: `.tt-voicedock` computed `margin-bottom` = 12px; on-device K9
+    re-check pending
 - [ ] **T9 (P1, human: ~1h / CC: ~20min)** — `VoiceConversationPanel` — wrap in Radix Dialog, keep Warm Espresso bridge tokens (not `tokens.css`)
   - Surfaced by: B1 + outside-voice "not a modal" + design-review design-system finding
   - Files: `VoiceConversationPanel.tsx` (chrome only), voice panel test
