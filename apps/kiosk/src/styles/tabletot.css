@@ -3280,8 +3280,20 @@ button {
   border-color: transparent;
 }
 
+/* Radix Dialog overlay — opaque enough that the menu behind reads as
+   dismissed, not merely layered. Warm Espresso ink, not a tokens.css value. */
+.voice-conversation-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 57;
+  /* Strong enough that the menu behind reads as dismissed, not just dimmed —
+     the panel's own sheet is ~96% opaque, this kills the last of the ghost. */
+  background: rgba(23, 17, 15, 0.82);
+}
+
 .voice-conversation-panel {
-  position: absolute;
+  /* Portaled to <body> by Radix Dialog — fixed to the viewport. */
+  position: fixed;
   left: 16px;
   right: 16px;
   top: 92px;

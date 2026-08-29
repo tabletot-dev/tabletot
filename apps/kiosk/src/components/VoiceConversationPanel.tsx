@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import * as Dialog from "@radix-ui/react-dialog";
 import DietMark from "@/components/DietMark";
 import { itemImageBackground } from "@/lib/menuImages";
 import type { MenuItem } from "@/data/menu";
@@ -118,30 +119,38 @@ export default function VoiceConversationPanel({
           : "Tap to speak";
 
   return (
-    <motion.section
-      className="voice-conversation-panel"
-      initial={{ opacity: 0, y: 18, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 18, scale: 0.98 }}
-      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-      aria-label="Voice conversation"
-    >
-      <div className="voice-conversation-head">
-        <div>
-          <p className="eyebrow">Voice channel</p>
-          <h2>Ask Tabletot</h2>
-        </div>
-        <button
-          type="button"
-          className="voice-conversation-close"
-          onClick={onClose}
-          aria-label="Close voice conversation"
-        >
-          X
-        </button>
-      </div>
+    <Dialog.Root open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <Dialog.Portal>
+        {/* Opaque backdrop + Radix focus trap / scroll lock make the menu
+            behind genuinely inert — not just visually behind a z-index. */}
+        <Dialog.Overlay className="voice-conversation-backdrop" />
+        <Dialog.Content asChild aria-label="Voice conversation" aria-describedby={undefined}>
+          <motion.section
+            className="voice-conversation-panel"
+            initial={{ opacity: 0, y: 18, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 18, scale: 0.98 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className="voice-conversation-head">
+              <div>
+                <p className="eyebrow">Voice channel</p>
+                <Dialog.Title asChild>
+                  <h2>Ask Tabletot</h2>
+                </Dialog.Title>
+              </div>
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  className="voice-conversation-close"
+                  aria-label="Close voice conversation"
+                >
+                  X
+                </button>
+              </Dialog.Close>
+            </div>
 
-      <div className="voice-conversation-stream">
+            <div className="voice-conversation-stream">
         {turns.length === 0 && (
           <>
             <div className="voice-chat-row ai">
@@ -254,6 +263,9 @@ export default function VoiceConversationPanel({
           )}
         </button>
       </div>
-    </motion.section>
+          </motion.section>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
