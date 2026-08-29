@@ -1,10 +1,19 @@
 import { useEffect, useRef, memo } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import type { MenuItem } from "@/data/menu";
 import type { PairedItem } from "@/lib/menuStore";
 import { itemImageBackground } from "@/lib/menuImages";
 import { track, type Source } from "@/lib/eventBus";
 import DietMark from "@/components/DietMark";
 import Stepper from "@/components/Stepper";
+
+// Pairing chips fly in a beat after the panel opens — long enough that the
+// eye has landed on the just-added item first (personas 01, 06). transform +
+// opacity only (Lenovo K9 perf budget). prefers-reduced-motion → no transform.
+const PAIRING_LIST_VARIANTS = {
+  hidden: {},
+  visible: { transition: { delayChildren: 0.35, staggerChildren: 0.09 } },
+};
 
 interface DishCardProps {
   item: MenuItem;
@@ -33,6 +42,12 @@ function DishCard({
 }: DishCardProps) {
   const hasPairings = pairings.length > 0;
   const showPairingPanel = qty > 0 && hasPairings;
+
+  const reduceMotion = useReducedMotion();
+  const pairingRowVariants = {
+    hidden: reduceMotion ? { opacity: 1 } : { opacity: 0, y: 8 },
+    visible: reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, transition: { duration: 0.28 } },
+  };
 
   // Track which pairing items we've already logged a shown event for, scoped
   // to the current "panel open" cycle. Cleared when the panel closes (qty
@@ -117,9 +132,14 @@ function DishCard({
       {showPairingPanel && (
         <div className="tt-pairing-panel">
           <p className="tt-badge">Goes well with</p>
-          <div className="tt-pairing-list">
+          <motion.div
+            className="tt-pairing-list"
+            variants={PAIRING_LIST_VARIANTS}
+            initial="hidden"
+            animate="visible"
+          >
             {pairings.slice(0, 2).map((paired) => (
-              <div key={paired.id} className="tt-pairing-row">
+              <motion.div key={paired.id} className="tt-pairing-row" variants={pairingRowVariants}>
                 <span
                   className="tt-pairing-thumb"
                   style={{ background: itemImageBackground(paired) }}
@@ -148,9 +168,9 @@ function DishCard({
                     +
                   </button>
                 )}
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       )}
     </article>

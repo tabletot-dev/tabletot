@@ -1,10 +1,18 @@
 import { useEffect, useRef } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import type { MenuItem } from "@/data/menu";
 import type { PairedItem } from "@/lib/menuStore";
 import { itemImageBackground } from "@/lib/menuImages";
 import { track, type Source } from "@/lib/eventBus";
 import DietMark from "@/components/DietMark";
 import { Mic, X } from "lucide-react";
+
+// See DishCard: pairing chips fly in a beat after the panel appears.
+// transform + opacity only; prefers-reduced-motion → no transform.
+const PAIRING_LIST_VARIANTS = {
+  hidden: {},
+  visible: { transition: { delayChildren: 0.35, staggerChildren: 0.09 } },
+};
 
 interface DetailViewProps {
   item: MenuItem;
@@ -32,6 +40,12 @@ export default function DetailView({
   const bg = itemImageBackground(item);
   const visiblePairings = pairings.slice(0, 4);
   const itemQty = getQuantity?.(item.id) ?? 0;
+
+  const reduceMotion = useReducedMotion();
+  const pairingRowVariants = {
+    hidden: reduceMotion ? { opacity: 1 } : { opacity: 0, y: 8 },
+    visible: reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, transition: { duration: 0.28 } },
+  };
 
   // Same pattern as DishCard's inline pairing panel: log one shown event per
   // pairing per "panel visible" cycle. Previously this panel fired no
@@ -98,12 +112,17 @@ export default function DetailView({
         {visiblePairings.length > 0 && (
           <div className="tt-pairing-panel">
             <p className="tt-badge">Goes well with</p>
-            <div className="tt-pairing-list">
+            <motion.div
+              className="tt-pairing-list"
+              variants={PAIRING_LIST_VARIANTS}
+              initial="hidden"
+              animate="visible"
+            >
               {visiblePairings.map((p) => {
                 const pairingQty = getQuantity?.(p.id) ?? 0;
 
                 return (
-                  <div key={p.id} className="tt-pairing-row">
+                  <motion.div key={p.id} className="tt-pairing-row" variants={pairingRowVariants}>
                     <button
                       type="button"
                       className="tt-pairing-thumb"
@@ -143,10 +162,10 @@ export default function DetailView({
                         +
                       </button>
                     )}
-                  </div>
+                  </motion.div>
                 );
               })}
-            </div>
+            </motion.div>
           </div>
         )}
 
