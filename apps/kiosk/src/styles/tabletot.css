@@ -1194,7 +1194,18 @@ button {
 
 
 .order-copy {
-  flex: 1;
+  /* Stack name over unit price so a long dish name can't collide with
+     "₹390 each" at 800px. min-width:0 lets the grid track clamp the name. */
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.order-copy strong {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .stepper {
