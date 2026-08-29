@@ -477,6 +477,7 @@ const IndexInner = () => {
             onSelect={handleSelectItem}
             onAddToCart={handleAddToOrder}
             onUpdateQuantity={handleUpdateQuantity}
+            onClearItem={removeItem}
             order={order}
             voiceDock={
               voiceEnabled ? (
@@ -534,6 +535,7 @@ const IndexInner = () => {
             onContinue={() => setCurrentScreen("menu")}
             onConfirm={handleConfirmOrder}
             onUpdateQuantity={handleUpdateQuantity}
+            onClearItem={removeItem}
           />
         );
       case "sent":

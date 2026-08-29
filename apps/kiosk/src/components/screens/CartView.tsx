@@ -19,6 +19,8 @@ interface CartViewProps {
   onContinue: () => void;
   onConfirm: (displayName?: string) => void;
   onUpdateQuantity: (itemId: string, delta: number) => void;
+  /** Clears the line in one (confirmed) tap; shown only at qty >= 2. */
+  onClearItem?: (itemId: string) => void;
 }
 
 export default function CartView({
@@ -30,6 +32,7 @@ export default function CartView({
   onContinue,
   onConfirm,
   onUpdateQuantity,
+  onClearItem,
 }: CartViewProps) {
   const { gstRatePercent } = useRestaurant();
   const { subtotal, tax, total } = computeTotals(totalBill, gstRatePercent);
@@ -65,6 +68,7 @@ export default function CartView({
                 label={item.name}
                 onDec={() => onUpdateQuantity(item.id, -1)}
                 onInc={() => onUpdateQuantity(item.id, 1)}
+                onClear={onClearItem ? () => onClearItem(item.id) : undefined}
               />
               <strong className="row-total">{formatRupees(item.price * item.quantity)}</strong>
             </div>

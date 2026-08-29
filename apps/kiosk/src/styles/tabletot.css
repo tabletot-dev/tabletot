@@ -4808,6 +4808,36 @@ body {
   color: var(--tt-disabled);
 }
 
+/* One-tap clear (qty >= 2). The × sits at the far end of the group from the
+   − button with 24px of dead-space so a stray tap near − can't reach it;
+   it is also a two-tap "Tap again to remove" confirm (see Stepper.tsx). */
+.tt-stepper-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tt-space-4); /* 24px — the toddler dead-space */
+}
+
+.tt-stepper-clear {
+  height: var(--tt-tap);
+  min-width: var(--tt-tap);
+  padding: 0 var(--tt-space-3);
+  border: 2px solid var(--tt-line);
+  border-radius: var(--tt-radius-pill);
+  background: var(--tt-paper);
+  color: var(--tt-ink-60);
+  font-size: var(--tt-size-body);
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tt-stepper-clear.is-confirming {
+  border-color: var(--tt-action);
+  color: var(--tt-action);
+  font-weight: 700;
+  font-size: var(--tt-size-meta);
+}
+
 /* Disabled · Sent — no call site sets this yet; see docs/notes for why. */
 .tt-stepper--locked {
   border-color: var(--tt-line);

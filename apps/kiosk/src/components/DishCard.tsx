@@ -16,6 +16,8 @@ interface DishCardProps {
   onSelect: (item: MenuItem) => void;
   onAddPairing: (item: MenuItem) => void;
   getQuantity?: (itemId: string) => number;
+  /** Clears the line in one (confirmed) tap; shown only at qty >= 2. */
+  onClearItem?: (itemId: string) => void;
 }
 
 function DishCard({
@@ -27,6 +29,7 @@ function DishCard({
   onSelect,
   onAddPairing,
   getQuantity,
+  onClearItem,
 }: DishCardProps) {
   const hasPairings = pairings.length > 0;
   const showPairingPanel = qty > 0 && hasPairings;
@@ -101,6 +104,7 @@ function DishCard({
               label={item.name}
               onDec={() => onUpdateQuantity(item.id, -1, "main_menu")}
               onInc={() => onUpdateQuantity(item.id, 1, "main_menu")}
+              onClear={onClearItem ? () => onClearItem(item.id) : undefined}
             />
           ) : (
             <button className="tt-btn--accent" onClick={() => onAddToCart(item)}>
