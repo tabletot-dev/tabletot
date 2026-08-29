@@ -3,6 +3,7 @@ import type { OrderItem } from "@/data/menu";
 import type { OrderRound } from "@/hooks/useDeviceNavigation";
 import TabletotLogo from "@/components/TabletotLogo";
 import { itemImageBackground } from "@/lib/menuImages";
+import Stepper from "@/components/Stepper";
 import { computeTotals } from "@/lib/pricing";
 import { useRestaurant } from "@/lib/restaurantContext";
 import { formatRupees } from "@/lib/formatCurrency";
@@ -59,22 +60,12 @@ export default function CartView({
                 <strong>{item.name}</strong>
                 <span>₹{item.price} each</span>
               </div>
-              <div className="tt-stepper" aria-label={`${item.name} quantity`}>
-                <button
-                  className={item.quantity === 1 ? "tt-stepper-minus--floor" : undefined}
-                  onClick={() => onUpdateQuantity(item.id, -1)}
-                  aria-label={`Decrease ${item.name}`}
-                >
-                  −
-                </button>
-                <span>{item.quantity}</span>
-                <button
-                  onClick={() => onUpdateQuantity(item.id, 1)}
-                  aria-label={`Increase ${item.name}`}
-                >
-                  +
-                </button>
-              </div>
+              <Stepper
+                qty={item.quantity}
+                label={item.name}
+                onDec={() => onUpdateQuantity(item.id, -1)}
+                onInc={() => onUpdateQuantity(item.id, 1)}
+              />
               <strong className="row-total">{formatRupees(item.price * item.quantity)}</strong>
             </div>
           ))

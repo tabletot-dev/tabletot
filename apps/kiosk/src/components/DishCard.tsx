@@ -4,6 +4,7 @@ import type { PairedItem } from "@/lib/menuStore";
 import { itemImageBackground } from "@/lib/menuImages";
 import { track, type Source } from "@/lib/eventBus";
 import DietMark from "@/components/DietMark";
+import Stepper from "@/components/Stepper";
 
 interface DishCardProps {
   item: MenuItem;
@@ -95,22 +96,12 @@ function DishCard({
 
         <div className="tt-dishcard-action">
           {qty > 0 ? (
-            <div className="tt-stepper" aria-label={`${item.name} quantity`}>
-              <button
-                className={qty === 1 ? "tt-stepper-minus--floor" : undefined}
-                onClick={() => onUpdateQuantity(item.id, -1, "main_menu")}
-                aria-label={`Decrease ${item.name}`}
-              >
-                −
-              </button>
-              <span>{qty}</span>
-              <button
-                onClick={() => onUpdateQuantity(item.id, 1, "main_menu")}
-                aria-label={`Increase ${item.name}`}
-              >
-                +
-              </button>
-            </div>
+            <Stepper
+              qty={qty}
+              label={item.name}
+              onDec={() => onUpdateQuantity(item.id, -1, "main_menu")}
+              onInc={() => onUpdateQuantity(item.id, 1, "main_menu")}
+            />
           ) : (
             <button className="tt-btn--accent" onClick={() => onAddToCart(item)}>
               Add
@@ -137,24 +128,12 @@ function DishCard({
                   <span className="tt-pairing-price">₹{paired.price}</span>
                 </span>
                 {(getQuantity?.(paired.id) ?? 0) > 0 ? (
-                  <span className="tt-stepper" aria-label={`${paired.name} quantity`}>
-                    <button
-                      type="button"
-                      className={getQuantity?.(paired.id) === 1 ? "tt-stepper-minus--floor" : undefined}
-                      onClick={() => onUpdateQuantity(paired.id, -1, "pairing_chip")}
-                      aria-label={`Decrease ${paired.name}`}
-                    >
-                      −
-                    </button>
-                    <span>{getQuantity?.(paired.id) ?? 0}</span>
-                    <button
-                      type="button"
-                      onClick={() => onUpdateQuantity(paired.id, 1, "pairing_chip")}
-                      aria-label={`Increase ${paired.name}`}
-                    >
-                      +
-                    </button>
-                  </span>
+                  <Stepper
+                    qty={getQuantity?.(paired.id) ?? 0}
+                    label={paired.name}
+                    onDec={() => onUpdateQuantity(paired.id, -1, "pairing_chip")}
+                    onInc={() => onUpdateQuantity(paired.id, 1, "pairing_chip")}
+                  />
                 ) : (
                   <button
                     type="button"
