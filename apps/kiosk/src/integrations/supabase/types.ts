@@ -341,44 +341,6 @@ export type Database = {
           },
         ]
       }
-      kiosk_events: {
-        Row: {
-          client_ts: string
-          event_type: string
-          id: string
-          payload: Json
-          restaurant_id: string
-          server_ts: string
-          session_key: string
-        }
-        Insert: {
-          client_ts: string
-          event_type: string
-          id?: string
-          payload?: Json
-          restaurant_id: string
-          server_ts?: string
-          session_key: string
-        }
-        Update: {
-          client_ts?: string
-          event_type?: string
-          id?: string
-          payload?: Json
-          restaurant_id?: string
-          server_ts?: string
-          session_key?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "kiosk_events_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
-            referencedRelation: "restaurants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       kot_tickets: {
         Row: {
           created_at: string
@@ -1291,6 +1253,7 @@ export type Database = {
         }[]
       }
       get_table_state: { Args: { p_table_id: string }; Returns: Json }
+      is_authorized_staff: { Args: { p_user_id: string }; Returns: boolean }
       recommendation_aov_lift_cohort: {
         Args: { p_end_at: string; p_restaurant_id: string; p_start_at: string }
         Returns: {

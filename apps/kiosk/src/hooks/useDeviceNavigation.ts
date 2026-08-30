@@ -17,7 +17,8 @@ export type ScreenType =
   | "session-idle"
   | "games"
   | "conversation-starters"
-  | "bill-summary";
+  | "bill-summary"
+  | "about";
 
 export interface OrderRound {
   orderId: string;
