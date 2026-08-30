@@ -305,3 +305,46 @@ re-establishes a session. The review finding scoped this fix to the panel and
 marked `VoiceOrderButton` do-not-touch, so it was left as-is. Flagged for the K9
 manual QA pass; hoisting `VoiceOrderButton` the same way is the follow-up if the
 speak-dock's first tap needs to be instant.
+
+---
+
+## Fix round 2
+
+**Finding addressed:** the answer screen's speak-dock (`VoiceConversationScreen`'s
+`onRequestSpeak` handler) was driving a stale `voiceToggleRef.current` closure.
+When the speak-dock button tapped, the handler did
+`setCurrentScreen("menu"); voiceToggleRef.current?.()` synchronously, but by that
+instant the ref still held the *old* toggle from the torn-down session. The second
+line (the `voiceToggleRef.current?.()` call) was the bug.
+
+### What changed
+
+**`apps/kiosk/src/pages/Index.tsx`**
+- `case "voice-conversation":` → `onRequestSpeak` prop simplified from
+  ```tsx
+  onRequestSpeak={() => {
+    setCurrentScreen("menu");
+    voiceToggleRef.current?.();
+  }}
+  ```
+  to
+  ```tsx
+  onRequestSpeak={() => setCurrentScreen("menu")}
+  ```
+  The guest now lands on the menu where the real coral mic dock is and taps it
+  to speak once the session is ready — no attempt to auto-start a capture from
+  a stale or remounting toggle.
+
+**`voiceToggleRef` remains declared** (line 217) because it is still:
+- Read by `VoiceOrderButton`'s `onOpenConversation` callback (line 559)
+- Set by `VoiceConversationPanel`'s `onToggleReady` prop (line 760)
+
+Verified with `grep voiceToggleRef`: 5 hits (declaration, comment, old call site
+now removed, button use, setter). Only the call site in `onRequestSpeak` was
+deleted.
+
+### Verify
+
+- `pnpm --dir apps/kiosk test` → **Test Files 26 passed (26) · Tests 104 passed (104)**
+- `pnpm --dir apps/kiosk build` → `tsc --noEmit` clean + `vite build` ✓ 2495 modules,
+  built in 2.93s

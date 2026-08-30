@@ -534,10 +534,7 @@ const IndexInner = () => {
             onUpdateQuantity={(id, delta) => handleUpdateQuantity(id, delta, "voice")}
             onSelectItem={handleSelectItem}
             onClose={closeVoiceConversation}
-            onRequestSpeak={() => {
-              setCurrentScreen("menu");
-              voiceToggleRef.current?.();
-            }}
+            onRequestSpeak={() => setCurrentScreen("menu")}
           />
         );
 
