@@ -23,9 +23,9 @@ order-engine on :8000 + kiosk vite on :8080.
 
 ---
 
-## BUILD PROGRESS — 2026-08-29 (session 1 of ≥2)
+## BUILD PROGRESS — 2026-08-29 (session 1) + 2026-08-30 (session 2)
 
-**11 of 14 tasks shipped**, one atomic commit each, on branch
+**14 of 14 tasks shipped**, one atomic commit each, on branch
 `claude/project-status-review-7w70cm` (not merged, not pushed).
 
 | Commit | Task |
@@ -41,11 +41,16 @@ order-engine on :8000 + kiosk vite on :8080.
 | `b9bb605` | T9 — voice panel → Radix Dialog |
 | `315a48f` | T10 — "Popular" screen |
 | `bfa1376` | T11 — HomeView merged into IdleScreen, HomeView deleted |
+| `d3aa061` | T12 — breathing pulse on the Attract primary CTA |
+| `4b8a2f1` | T13 — Wi-Fi QR dialog on Attract |
+| `576b7c8` | T14 — Attract layout: "See the menu" + subordinate secondaries |
 
-(`388f0a2` is the plan doc + design-review pass.)
+(`388f0a2` is the plan doc + design-review pass; `8073978` / `7aacf74` mark
+T12 / T13 shipped in this file.)
 
-**Test suite:** 75 passing (was 42 at session start). `tsc` clean, `eslint`
-0 errors (one pre-existing `completionRules` dep warning in `Index.tsx`).
+**Test suite:** 78 passing (was 42 at session start; 75 after session 1).
+`tsc` clean, `eslint` 0 errors (one pre-existing `completionRules` dep warning
+in `Index.tsx`), `pnpm build` clean.
 
 **Deviations from the plan, all noted in the task entries below:**
 - **T1** — resolution order was already `image_url → dict → fallback`; only the
@@ -56,6 +61,17 @@ order-engine on :8000 + kiosk vite on :8080.
   layout already prevents the overlap. Shipped a 12px mic margin instead.
 - **T11** — carousel auto-advance uses one `setInterval` (drives index + dots),
   not pure CSS keyframes. User approved. `prefers-reduced-motion` disables it.
+- **T12** — CSS-only; `IdleScreen.tsx` was untouched (plan listed it as a maybe).
+- **T13** — QR generated once with the `qrcode` npm CLI via `npx --yes` (not
+  added as a dep); imported as a URL (no svgr in the project). Reuses the
+  existing `.tt-modal` design-system classes rather than new dialog CSS.
+- **T14** — "Popular" secondary calls `startSession()` before navigating (not
+  just `setCurrentScreen`), matching the slide-tap path so cart adds on the
+  Popular screen stay attributed.
+
+**Still not verified (device / browser steps, not runnable here):** T12 K9
+visual, T13 phone-scan, T14 800×1280 portrait no-scroll fit. Also T5/T8's
+on-device K9 re-checks from session 1.
 
 **Known environment issue:** local `menu_items.image_url` values are absolute
 URLs to the **remote** Supabase project's storage — they 400 from local dev, so
@@ -66,38 +82,16 @@ on WaitingView, not attract. Use table **T2** (edit `apps/kiosk/.env.local`,
 `VITE_TABLE_ID=T2`, restart vite, revert after) to see the attract screen, or
 clear the T1 session.
 
-### REMAINING — T12, T13, T14 (all Lane 3, all touch `IdleScreen.tsx`)
+### REMAINING — none (all 14 tasks shipped)
 
-Do them in order (they share `IdleScreen.tsx` + `tabletot.css`):
-
-1. **T12 (D2)** — breathing pulse on the primary CTA. Pseudo-element ring,
-   `transform: scale` + `opacity`, ~2s `ease-in-out infinite`. No `box-shadow`
-   animation. `prefers-reduced-motion` → no pulse. CTA is the
-   `<button className="tt-attract-cta">` in `IdleScreen.tsx`.
-2. **T13 (D3)** — Wi-Fi CTA → Radix Dialog with a static pre-generated SVG QR
-   checked into the repo (payload `WIFI:S:SILVER-GUEST;T:nopass;;`). Dialog copy
-   (design-review): heading "Join the café Wi-Fi", one instruction line ("Point
-   your phone camera at the code — the network is open, no password needed."),
-   visible **Close** button. SSID a hardcoded const with a
-   `// TODO: restaurant_settings key` comment. Reuse the `@radix-ui/react-dialog`
-   pattern from T9 (`VoiceConversationPanel.tsx`).
-3. **T14 (D5)** — finish the Attract layout in `IdleScreen.tsx`:
-   - Relabel the primary CTA "Touch anywhere to start" → **"See the menu"**
-     (keep the "or say…" hint line).
-   - Add two **visually subordinate** secondaries below the carousel:
-     **"Popular"** → `setCurrentScreen("popular")` (T10 screen — wire the
-     Index `case "idle"` to pass an `onOpenPopular` cb, or navigate directly),
-     and **"Wi-Fi"** → opens the T13 QR dialog.
-   - **Remove** the footer About link (`.tt-attract-about`) + the plain
-     `Wi-Fi: SILVER-GUEST` `<p>` (`.tt-attract-wifi`) — T13's dialog replaces
-     the Wi-Fi affordance. Clean up `onInfoToast` if now unused on this screen.
-   - Tighten the `.tt-attract-title` `flex: 1` so there isn't a big empty gap
-     between the tagline and the CTA (there is now).
-   - Verify 800×1280 portrait fits with no scroll; primary CTA is the only
-     filled accent element.
-
-After T14: run `/graphify` (code + docs scope only), then `/plan-design-review`
-is recommended before merge (per the GSTACK REVIEW REPORT verdict).
+Before merge:
+1. On-device / browser pass for the unverified visual steps listed above
+   (T12 pulse, T13 phone-scan, T14 portrait fit; T5/T8 K9 re-checks).
+2. `/graphify` (code + docs scope only) to refresh the graph.
+3. `/plan-design-review` — recommended before merge (per the GSTACK REVIEW
+   REPORT verdict).
+4. Merge `claude/project-status-review-7w70cm` → `main` and push (manual,
+   per repo convention).
 
 ---
 
@@ -635,7 +629,9 @@ Synthesized from this review's findings. Each derives from a specific finding.
   - Surfaced by: D3 + design-review persona-03 copy gap
   - Files: `IdleScreen.tsx`, new `public/` or inline SVG, SSID constant
   - Verify: heading + instruction + visible Close present; scan on a phone, joins SILVER-GUEST
-- [ ] **T14 (P3, human: ~20min / CC: ~5min)** — Attract layout: reading order per D1, primary "See the menu" + carousel band + two subordinate secondaries ("Popular", "Wi-Fi")
+- [x] **T14 (P3, human: ~20min / CC: ~5min)** — Attract layout: reading order per D1, primary "See the menu" + carousel band + two subordinate secondaries ("Popular", "Wi-Fi")
+  - Shipped `576b7c8`. CTA `<strong>` relabelled "Touch anywhere to start" → "See the menu" (voice hint line kept; the invisible full-bleed `.tt-attract-touch` target keeps its "Touch anywhere to start" aria-label). Footer `.tt-attract-footer` (About link + plain `Wi-Fi: SILVER-GUEST` text) replaced by `.tt-attract-secondaries` — two quiet outline `.tt-attract-secondary` buttons below the carousel: **Popular** → new `onOpenPopular` prop = `startSession()` then `setCurrentScreen("popular")` (same span_id/AOV reasoning as the slide-tap path — Popular can add to cart), **Wi-Fi** → the T13 dialog. `onInfoToast` prop dropped (only the About link used it; no other caller). `.tt-attract-title` loses `flex: 1` + `justify-content: center` and gets `margin: space-4 0` so content packs from the top; `.tt-attract-secondaries` uses `margin-top: auto` to pin utilities to the bottom → closes the tagline↔CTA gap. Removed `.tt-attract-footer` / `.tt-attract-about*` CSS; `.tt-attract-wifi` → `.tt-attract-secondary` + `.tt-wifi-network`. `IdleScreen.test.tsx` +2 (CTA label, Popular secondary). 78 tests green, `pnpm build` clean, eslint clean (the 1 `Index.tsx` exhaustive-deps warning is the pre-existing `completionRules` one).
+  - NOT done here: the 800×1280 portrait no-scroll check + "primary is the only filled accent element" — both are on-device/browser visual steps. Layout math packs from the top with `margin-top: auto` utilities so it should hold, but it wasn't rendered here.
   - Surfaced by: D5 + design-review IA finding
   - Files: `IdleScreen.tsx`, `tabletot.css`
   - Verify: **800×1280 portrait** fits without scroll; primary is the only filled accent element
