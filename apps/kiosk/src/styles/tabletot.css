@@ -5929,9 +5929,22 @@ body {
 }
 
 .tt-wifi-dialog {
+  /* Radix portals Content as a SIBLING of the Overlay, so .tt-modal-scrim's
+     flex centring never reaches it — the box must place itself. */
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 81;
+  width: min(100% - 2 * var(--tt-gutter), 420px);
+  max-width: 420px;
   align-items: center;
   text-align: center;
-  max-width: 420px;
+}
+
+/* Heading fits the narrower dialog on one line ("Wi-Fi" no longer splits). */
+.tt-wifi-dialog h2 {
+  font-size: var(--tt-size-dish);
 }
 
 .tt-wifi-qr {
