@@ -475,6 +475,9 @@ const IndexInner = () => {
               await startSession();
               setCurrentScreen("popular");
             }}
+            // no startSession() here, unlike onOpenPopular — About is read-only
+            // and a guest reading venue info pre-order should not open a span.
+            onOpenAbout={openAbout}
             tableId={TABLE_ID}
           />
         );

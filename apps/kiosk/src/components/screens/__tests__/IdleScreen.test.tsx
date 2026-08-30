@@ -37,6 +37,7 @@ function renderIdle(props: Partial<React.ComponentProps<typeof IdleScreen>> = {}
       onActivate={props.onActivate ?? vi.fn()}
       onSelectHeroItem={props.onSelectHeroItem ?? vi.fn()}
       onOpenPopular={props.onOpenPopular ?? vi.fn()}
+      onOpenAbout={props.onOpenAbout ?? vi.fn()}
       tableId="T1"
     />,
   );
@@ -154,6 +155,13 @@ describe("IdleScreen (merged attract)", () => {
     renderIdle({ onOpenPopular });
     fireEvent.click(screen.getByRole("button", { name: "Popular" }));
     expect(onOpenPopular).toHaveBeenCalledTimes(1);
+  });
+
+  it("the 'About' secondary calls onOpenAbout", () => {
+    const onOpenAbout = vi.fn();
+    renderIdle({ onOpenAbout });
+    fireEvent.click(screen.getByRole("button", { name: "About" }));
+    expect(onOpenAbout).toHaveBeenCalledTimes(1);
   });
 
   it("Wi-Fi button opens a dialog with the heading, instruction and a Close", () => {

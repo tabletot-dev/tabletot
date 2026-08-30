@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import * as Dialog from "@radix-ui/react-dialog";
-import { ChevronLeft, ChevronRight, Star, Wifi } from "lucide-react";
+import { ChevronLeft, ChevronRight, Info, Star, Wifi } from "lucide-react";
 import TabletotLogo from "@/components/TabletotLogo";
 import { useMenu } from "@/lib/menuStore";
 import type { AnchorItem } from "@/lib/menuStore";
@@ -19,13 +19,15 @@ interface IdleScreenProps {
   onSelectHeroItem: (item: AnchorItem) => void;
   /** "Popular" secondary — starts the session and opens the Popular screen. */
   onOpenPopular: () => void;
+  /** "About" secondary — opens the Venue/About screen. Does NOT start a session. */
+  onOpenAbout: () => void;
   tableId?: string;
 }
 
 const ADVANCE_MS = 3500;
 const MAX_SLIDES = 5;
 
-const IdleScreen = ({ onActivate, onSelectHeroItem, onOpenPopular, tableId }: IdleScreenProps) => {
+const IdleScreen = ({ onActivate, onSelectHeroItem, onOpenPopular, onOpenAbout, tableId }: IdleScreenProps) => {
   const { anchors, loading } = useMenu();
   const reduceMotion = useReducedMotion();
 
@@ -244,6 +246,13 @@ const IdleScreen = ({ onActivate, onSelectHeroItem, onOpenPopular, tableId }: Id
               <Wifi size={18} aria-hidden="true" />
             </span>
             Wi-Fi
+            <ChevronRight size={18} className="tt-attract-secondary-arrow" aria-hidden="true" />
+          </button>
+          <button type="button" className="tt-attract-secondary" onClick={onOpenAbout}>
+            <span className="tt-attract-secondary-icon">
+              <Info size={18} aria-hidden="true" />
+            </span>
+            About
             <ChevronRight size={18} className="tt-attract-secondary-arrow" aria-hidden="true" />
           </button>
         </div>
