@@ -69,9 +69,20 @@ in `Index.tsx`), `pnpm build` clean.
   just `setCurrentScreen`), matching the slide-tap path so cart adds on the
   Popular screen stay attributed.
 
+**Attract redesign follow-up (`6504e69`, 2026-08-30):** on client feedback the
+merged Attract screen (T11–T14) was rebuilt to the approved
+`variant-B.png` mockup — centred column, coral "See the menu" pill (no mic
+icon, hint line dropped), full-bleed 3-up chef's-picks filmstrip with
+both-edge peek and a one-way forward loop (tripled render + silent rebase,
+no rewind), bare icon+label+chevron footer, coral accent on the table badge
+and footer icons. Layout/CSS only, existing tokens/fonts; session-start /
+deep-link / Wi-Fi dialog / nudge tracking untouched. Verified in-browser at
+800×1340 (no scroll, no console errors); `IdleScreen.test.tsx` 12 tests, suite 79.
+
 **Still not verified (device / browser steps, not runnable here):** T12 K9
-visual, T13 phone-scan, T14 800×1280 portrait no-scroll fit. Also T5/T8's
-on-device K9 re-checks from session 1.
+visual, T13 phone-scan. T14 portrait fit was checked in a headless browser at
+800×1340 but not on the K9 itself. Also T5/T8's on-device K9 re-checks from
+session 1.
 
 **Known environment issue:** local `menu_items.image_url` values are absolute
 URLs to the **remote** Supabase project's storage — they 400 from local dev, so
