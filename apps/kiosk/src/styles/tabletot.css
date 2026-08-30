@@ -1194,7 +1194,18 @@ button {
 
 
 .order-copy {
-  flex: 1;
+  /* Stack name over unit price so a long dish name can't collide with
+     "₹390 each" at 800px. min-width:0 lets the grid track clamp the name. */
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.order-copy strong {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .stepper {
@@ -3269,8 +3280,20 @@ button {
   border-color: transparent;
 }
 
+/* Radix Dialog overlay — opaque enough that the menu behind reads as
+   dismissed, not merely layered. Warm Espresso ink, not a tokens.css value. */
+.voice-conversation-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 57;
+  /* Strong enough that the menu behind reads as dismissed, not just dimmed —
+     the panel's own sheet is ~96% opaque, this kills the last of the ghost. */
+  background: rgba(23, 17, 15, 0.82);
+}
+
 .voice-conversation-panel {
-  position: absolute;
+  /* Portaled to <body> by Radix Dialog — fixed to the viewport. */
+  position: fixed;
   left: 16px;
   right: 16px;
   top: 92px;
@@ -4467,6 +4490,10 @@ body {
   align-items: center;
   justify-content: center;
   padding: var(--tt-space-3) var(--tt-gutter);
+  /* Last child of .tt-scroll — margin-bottom (unlike the container's
+     padding-bottom) is honoured at scroll end, so the mic clears the
+     docked status strip / cart bar instead of butting against them. */
+  margin-bottom: var(--tt-space-2);
 }
 
 .tt-statusstrip {
@@ -4806,6 +4833,36 @@ body {
 /* At Minimum — qty 1, still tappable (removes the item), just de-emphasized. */
 .tt-stepper button.tt-stepper-minus--floor {
   color: var(--tt-disabled);
+}
+
+/* One-tap clear (qty >= 2). The × sits at the far end of the group from the
+   − button with 24px of dead-space so a stray tap near − can't reach it;
+   it is also a two-tap "Tap again to remove" confirm (see Stepper.tsx). */
+.tt-stepper-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tt-space-4); /* 24px — the toddler dead-space */
+}
+
+.tt-stepper-clear {
+  height: var(--tt-tap);
+  min-width: var(--tt-tap);
+  padding: 0 var(--tt-space-3);
+  border: 2px solid var(--tt-line);
+  border-radius: var(--tt-radius-pill);
+  background: var(--tt-paper);
+  color: var(--tt-ink-60);
+  font-size: var(--tt-size-body);
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tt-stepper-clear.is-confirming {
+  border-color: var(--tt-action);
+  color: var(--tt-action);
+  font-weight: 700;
+  font-size: var(--tt-size-meta);
 }
 
 /* Disabled · Sent — no call site sets this yet; see docs/notes for why. */
@@ -5172,161 +5229,6 @@ body {
   padding: var(--tt-space-3) var(--tt-gutter);
   background: var(--tt-paper);
   border-top: 2px solid var(--tt-line);
-}
-
-/* ── Home ───────────────────────────────────────────────────── */
-
-.tt-home {
-  display: flex;
-  flex-direction: column;
-  gap: var(--tt-space-3);
-}
-
-.tt-home h1 {
-  font-family: var(--tt-font-display);
-  font-weight: 800;
-  font-size: var(--tt-size-heading);
-  margin: 0;
-}
-
-.tt-home-sub {
-  color: var(--tt-ink-60);
-  font-size: var(--tt-size-body);
-  max-width: 60ch;
-}
-
-.tt-home-cta {
-  width: 100%;
-}
-
-.tt-home-spotlight {
-  display: block;
-  width: 100%;
-  min-height: calc(220px * var(--tt-scale));
-  border-radius: var(--tt-radius-card);
-  border: 2px solid var(--tt-line);
-  background-size: cover;
-  background-position: center;
-  position: relative;
-  overflow: hidden;
-  text-align: left;
-  cursor: pointer;
-}
-
-.tt-home-spotlight-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: var(--tt-space-2);
-  padding: var(--tt-space-3);
-  background: linear-gradient(to top, rgba(17, 19, 16, 0.82), rgba(17, 19, 16, 0));
-}
-
-.tt-home-spotlight-badge {
-  align-self: flex-start;
-  background: var(--tt-paper);
-  color: var(--tt-ink);
-}
-
-.tt-home-spotlight-kicker {
-  margin: 0;
-  color: var(--tt-on-dark-70);
-  font-size: var(--tt-size-meta);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.tt-home-spotlight-footer {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--tt-space-2);
-  color: var(--tt-on-dark);
-}
-
-.tt-home-spotlight-footer strong {
-  font-family: var(--tt-font-display);
-  font-size: var(--tt-size-dish);
-}
-
-.tt-home-spotlight-price {
-  font-family: var(--tt-font-display);
-  font-weight: 700;
-  font-size: var(--tt-size-cta);
-}
-
-.tt-home-dots {
-  display: flex;
-  gap: var(--tt-space-1);
-}
-
-.tt-home-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--tt-on-dark-70);
-  opacity: 0.5;
-}
-
-.tt-home-dot.active {
-  opacity: 1;
-}
-
-.tt-home-info-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--tt-space-2);
-}
-
-.tt-home-info-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--tt-space-1);
-  padding: var(--tt-pad-card);
-  border-radius: var(--tt-radius-card);
-  background: var(--tt-paper);
-  border: 2px solid var(--tt-line);
-  text-align: left;
-  cursor: pointer;
-}
-
-.tt-home-info-card--static {
-  cursor: default;
-}
-
-.tt-home-info-card strong {
-  font-size: var(--tt-size-meta);
-}
-
-.tt-home-info-card span {
-  color: var(--tt-ink-60);
-  font-size: var(--tt-size-meta);
-}
-
-.tt-home-about {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--tt-space-1);
-  padding: var(--tt-pad-card);
-  border-radius: var(--tt-radius-card);
-  background: var(--tt-paper);
-  border: 2px solid var(--tt-line);
-}
-
-.tt-home-about h2 {
-  font-family: var(--tt-font-display);
-  font-weight: 700;
-  margin: 0;
-}
-
-.tt-home-about p {
-  color: var(--tt-ink-60);
-  font-size: var(--tt-size-meta);
 }
 
 /* ── Cart ───────────────────────────────────────────────────── */
@@ -5699,7 +5601,7 @@ body {
 .tt-bill-flow-logo svg {
   width: calc(96px * var(--tt-scale));
   height: calc(96px * var(--tt-scale));
-  color: var(--tt-action);
+  color: var(--tt-ink); /* bars ink; the mark's dot carries the coral */
 }
 
 .tt-bill-flow-logo .font-display {
@@ -5765,21 +5667,72 @@ body {
 /* ── Attract ────────────────────────────────────────────────── */
 
 .tt-attract {
+  position: relative;
   width: 100%;
   height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  padding: var(--tt-space-4) var(--tt-space-5);
   background: var(--tt-paper);
   color: var(--tt-ink);
+  overflow: hidden;
+}
+
+/* Full-bleed "touch anywhere" target. Transparent, z-index 0; the content
+   layer (and its CTA / slide buttons) sits above it as flat siblings so no
+   interactive element is nested inside another. */
+.tt-attract-touch {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
   cursor: pointer;
 }
 
+.tt-attract-content {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--tt-space-4) var(--tt-space-5);
+}
+
 .tt-attract-header {
+  align-self: stretch;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--tt-space-3);
+}
+
+/* Coral outline pill — echoes the primary CTA. */
+.tt-attract-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tt-space-2);
+  min-height: calc(36px * var(--tt-scale));
+  padding: 0 var(--tt-space-3);
+  border-radius: var(--tt-radius-pill);
+  border: 2px solid var(--tt-action);
+  color: var(--tt-action);
+  font-weight: 700;
+  font-size: var(--tt-size-meta);
+}
+
+.tt-attract-badge-logo {
+  gap: 0;
+}
+
+.tt-attract-badge-logo svg {
+  width: calc(18px * var(--tt-scale));
+  height: calc(18px * var(--tt-scale));
+}
+
+.tt-attract-badge-logo .font-display {
+  display: none;
 }
 
 .tt-attract-brand {
@@ -5815,11 +5768,14 @@ body {
 }
 
 .tt-attract-title {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: var(--tt-space-2);
+  align-items: center;
+  gap: var(--tt-space-1);
+  /* Free vertical space splits between here and above the footer, so the
+     title/CTA/carousel group floats in the middle instead of jamming under
+     the header (portrait tablets are much taller than this content). */
+  margin: auto 0 var(--tt-space-3);
 }
 
 .tt-attract-title-word {
@@ -5827,97 +5783,309 @@ body {
   font-weight: 800;
   font-size: var(--tt-size-display);
   line-height: 1;
-  text-transform: uppercase;
 }
 
 .tt-attract-title-sub {
+  font-family: var(--tt-font-display);
   font-weight: 700;
-  font-size: var(--tt-size-body);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--tt-ink-60);
+  font-size: var(--tt-size-heading);
 }
 
+/* thin line — coral dot — thin line */
 .tt-attract-rule {
-  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--tt-space-2);
+  width: min(60%, 240px);
+  margin: var(--tt-space-2) auto;
+}
+
+.tt-attract-rule::before,
+.tt-attract-rule::after {
+  content: "";
+  flex: 1;
   height: 2px;
   background: var(--tt-line);
-  margin: var(--tt-space-2) 0;
+}
+
+.tt-attract-rule span {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--tt-radius-pill);
+  background: var(--tt-action);
 }
 
 .tt-attract-tagline {
-  font-weight: 700;
-  font-size: var(--tt-size-heading);
+  font-weight: 600;
+  font-size: var(--tt-size-body);
+  color: var(--tt-ink-60);
   max-width: 34ch;
 }
 
 .tt-attract-cta {
+  position: relative;
+  align-self: center;
   display: flex;
   align-items: center;
-  gap: var(--tt-space-3);
+  justify-content: center;
+  gap: var(--tt-space-2);
+  width: min(72%, 460px);
   min-height: var(--tt-tap-primary);
-  padding: var(--tt-space-3) var(--tt-space-4);
-  border-radius: var(--tt-radius-card);
+  padding: var(--tt-space-3) var(--tt-space-5);
+  border: 0;
+  border-radius: var(--tt-radius-pill);
+  background: var(--tt-action);
+  color: #fff;
+  font-family: var(--tt-font-display);
+  font-weight: 800;
+  font-size: var(--tt-size-cta);
+  cursor: pointer;
+}
+
+.tt-attract-cta-chevron {
+  width: calc(24px * var(--tt-scale));
+  height: calc(24px * var(--tt-scale));
+  flex: none;
+}
+
+/* Breathing pulse — a ring that expands out of the CTA and fades (D2/T12).
+   Pseudo-element only, transform + opacity (no box-shadow animation). */
+.tt-attract-cta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--tt-action);
+  pointer-events: none;
+  animation: tt-attract-cta-breathe 2s ease-in-out infinite;
+}
+
+@keyframes tt-attract-cta-breathe {
+  from {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  to {
+    transform: scale(1.05);
+    opacity: 0;
+  }
+}
+
+/* Subordinate utilities — pinned to the bottom, split by a divider, quiet
+   vs. the coral CTA: bare icon + label + chevron rows, no button box. */
+.tt-attract-secondaries {
+  align-self: stretch;
+  display: flex;
+  margin-top: auto;
+  padding-top: var(--tt-space-3);
+  border-top: 2px solid var(--tt-line);
+}
+
+.tt-attract-secondary {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--tt-space-2);
+  min-height: var(--tt-tap);
+  padding: 0 var(--tt-space-4);
+  border: 0;
+  background: transparent;
+  color: var(--tt-ink);
+  font-weight: 700;
+  font-size: var(--tt-size-meta);
+  cursor: pointer;
+}
+
+.tt-attract-secondary + .tt-attract-secondary {
+  border-left: 2px solid var(--tt-line);
+}
+
+.tt-attract-secondary-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: calc(32px * var(--tt-scale));
+  height: calc(32px * var(--tt-scale));
+  border-radius: var(--tt-radius-pill);
+  border: 2px solid var(--tt-action);
+  color: var(--tt-action);
+}
+
+.tt-attract-secondary-arrow {
+  margin-left: auto;
+  color: var(--tt-action);
+}
+
+.tt-attract-secondary:hover .tt-attract-secondary-icon,
+.tt-attract-secondary:active .tt-attract-secondary-icon {
   background: var(--tt-action);
   color: #fff;
 }
 
-.tt-attract-cta-icon {
-  flex: none;
+.tt-wifi-network {
+  color: var(--tt-ink-60);
+  font-weight: 700;
+  font-size: var(--tt-size-meta);
+}
+
+.tt-wifi-dialog {
+  align-items: center;
+  text-align: center;
+  max-width: 420px;
+}
+
+.tt-wifi-qr {
+  width: calc(220px * var(--tt-scale));
+  height: auto;
+  align-self: center;
+}
+
+/* ── Attract: Chef's picks carousel (variant B) ─────────────── */
+
+/* Full-bleed filmstrip: 3 cards centred under the viewport midpoint with a
+   real card peeking on each edge. Width is viewport-relative so the 50vw
+   centring math in IdleScreen lines up. */
+.tt-chefpicks {
+  --tt-chefpick-w: clamp(160px, 29vw, 224px);
+  align-self: stretch;
+  margin-inline: calc(-1 * var(--tt-space-5));
+  margin-top: var(--tt-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--tt-space-3);
+}
+
+.tt-chefpicks-skeleton {
+  align-self: stretch;
+  margin-top: var(--tt-space-4);
+  height: calc(180px * var(--tt-scale));
+  border-radius: var(--tt-radius-card);
+  background: var(--tt-skeleton-2);
+}
+
+/* Relative frame so the ‹ › nav buttons can sit in the side gutters. */
+.tt-chefpicks-stage {
+  position: relative;
+}
+
+.tt-chefpicks-viewport {
+  overflow: hidden;
+}
+
+.tt-chefpicks-track {
+  display: flex;
+  width: max-content;
+  gap: var(--tt-space-3);
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Silent rebase frame — jump the strip back a copy-width with no animation. */
+.tt-chefpicks-track.no-anim {
+  transition: none;
+}
+
+.tt-chefpick-nav {
+  position: absolute;
+  top: 42%;
+  transform: translateY(-50%);
+  z-index: 2;
   display: grid;
   place-items: center;
   width: calc(40px * var(--tt-scale));
   height: calc(40px * var(--tt-scale));
   border-radius: var(--tt-radius-pill);
-  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid var(--tt-line);
+  background: var(--tt-paper);
+  color: var(--tt-ink);
+  cursor: pointer;
 }
 
-.tt-attract-cta-text {
+.tt-chefpick-nav.prev {
+  left: var(--tt-space-3);
+}
+
+.tt-chefpick-nav.next {
+  right: var(--tt-space-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tt-chefpicks-track {
+    transition: none;
+  }
+
+  .tt-attract-cta::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+.tt-chefpick {
+  flex: 0 0 var(--tt-chefpick-w);
   display: flex;
   flex-direction: column;
-  gap: calc(2px * var(--tt-scale));
+  padding: 0;
+  border: 2px solid var(--tt-line);
+  border-radius: var(--tt-radius-card);
+  background: var(--tt-paper);
+  overflow: hidden;
+  cursor: pointer;
   text-align: left;
 }
 
-.tt-attract-cta-text strong {
-  font-size: var(--tt-size-cta);
-  font-weight: 800;
+.tt-chefpick-thumb {
+  display: block;
+  width: 100%;
+  min-height: calc(150px * var(--tt-scale));
+  aspect-ratio: 4 / 3;
+  background-size: cover !important;
+  background-position: center !important;
 }
 
-.tt-attract-cta-text span {
-  font-size: var(--tt-size-meta);
-  font-weight: 600;
-  color: var(--tt-on-dark-70);
-}
-
-.tt-attract-footer {
+.tt-chefpick-meta {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--tt-space-3);
-  margin-top: var(--tt-space-3);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(2px * var(--tt-scale));
+  padding: var(--tt-space-2) var(--tt-space-3);
 }
 
-.tt-attract-about {
-  min-height: var(--tt-tap);
-  padding: 0 var(--tt-space-3);
-  border-radius: var(--tt-radius-pill);
-  border: 2px solid var(--tt-line);
-  background: transparent;
-  color: var(--tt-ink);
+.tt-chefpick-name {
+  max-width: 100%;
+  font-family: var(--tt-font-display);
   font-weight: 700;
-  font-size: var(--tt-size-meta);
+  font-size: var(--tt-size-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
-.tt-attract-about:hover,
-.tt-attract-about:active {
-  border-color: var(--tt-ink);
-}
-
-.tt-attract-wifi {
-  color: var(--tt-ink-60);
+.tt-chefpick-price {
+  font-family: var(--tt-font-display);
   font-weight: 700;
-  font-size: var(--tt-size-meta);
+  color: var(--tt-action);
+}
+
+.tt-chefpick-dots {
+  display: flex;
+  justify-content: center;
+  gap: var(--tt-space-1);
+  margin-top: var(--tt-space-1);
+}
+
+.tt-chefpick-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--tt-ink-60);
+  opacity: 0.35;
+}
+
+.tt-chefpick-dot.active {
+  background: var(--tt-action);
+  opacity: 1;
 }
 
 /* ── Confirmation ───────────────────────────────────────────── */
@@ -5943,7 +6111,7 @@ body {
 .tt-confirmation-logo svg {
   width: calc(96px * var(--tt-scale));
   height: calc(96px * var(--tt-scale));
-  color: var(--tt-action);
+  color: var(--tt-ink); /* bars ink; the mark's dot carries the coral */
 }
 
 .tt-confirmation-logo .font-display {

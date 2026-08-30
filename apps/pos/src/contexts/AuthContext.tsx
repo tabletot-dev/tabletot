@@ -54,6 +54,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Defaults to 'pending', never 'staff', on any failure to read the role —
+  // an RLS-blocked read (exactly what a pending/unauthorized account now
+  // gets, per migration 0068) must not be mistaken by the client for "no
+  // row found, assume staff." Falling back to a privileged role on an
+  // error condition was itself a bug: the safe default under uncertainty
+  // is the LEAST privileged role, not the most (2026-08-28 audit, finding 2).
   const fetchUserRole = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -63,10 +69,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (error) throw error;
-      setUserRole(data?.role || 'staff');
+      setUserRole(data?.role || 'pending');
     } catch (error) {
       console.error('Error fetching user role:', error);
-      setUserRole('staff');
+      setUserRole('pending');
     }
   };
 

@@ -1,7 +1,7 @@
 # tabletot-pilot — overview
 
 > Living document. Update when the state of the project changes meaningfully.
-> Last updated: 2026-08-02
+> Last updated: 2026-08-28
 
 ## What this is
 
@@ -25,7 +25,7 @@ underneath. See [[0002-pos-agnostic-recommendation-layer]] when written.
 
 ## Build status
 
-Three stages already shipped (in `services/order-engine/`). Detailed history: (in `services/order-engine/CHANGELOG.md`):
+Four stages already shipped (in `services/order-engine/`). Detailed history: (in `services/order-engine/CHANGELOG.md`):
 
 - **Stage 1** — Menu resolver: deterministic 5-step matching cascade,
   time-of-day availability, alias support.
@@ -33,10 +33,31 @@ Three stages already shipped (in `services/order-engine/`). Detailed history: (i
   → response generation), Gemini (gemini-3.1-flash-lite), prompt-driven.
 - **Stage 3** — Voice pipeline: Sarvam STT (saaras:v3) + TTS (bulbul:v3),
   FastAPI backend, voice CLI, voice-test-page React frontend.
+- **Stage 4** — Recommendation patterns wired into the kiosk (post-add
+  pairing, anchor-on-empty, pre-submit nudge — SQL-only touch path),
+  curation dashboard, voice grafted into the kiosk. Attribution guarded by
+  `apps/kiosk/src/components/__tests__/aov-attribution.test.tsx`.
 
-Tests: 136/136 unit, 98/98 batch, 46/48 natural speech (96%).
-Menu (Silver SSC): 49 items in DB (migration 0009); voice engine index entry count TBD — run `python -m cli.interactive` to verify,
-38 categories.
+Since then (all merged to `main` via PR #12, 2026-08-17):
+
+- **Kiosk v1.0 visual redesign** — Sprints 0–5 shipped
+  (`docs/plans/2026-08-08-kiosk-v1-redesign.md`); Games, Table Talk, and
+  the voice UI (Sprints 6–7) intentionally unrebuilt, on a CSS bridge,
+  pending client feedback.
+- **Revenue-integrity hardening** (2026-08-15/16) — payments-sourced AOV
+  (`get_aov_summary` v6, ADR 0023), KOT `cancelled` status (ADR 0022),
+  cancellation cascades, discount fixes, POS QA fixes. Triggered by
+  `docs/notes/pre-launch-readiness-assessment.md`.
+- **Dual-provider voice** (2026-08-17) — ElevenLabs default
+  (`STT_PROVIDER`/`TTS_PROVIDER` env switches), Sarvam fallback, restaurant
+  voice config DB-backed (migration 0064). Always-on voice evaluated and
+  deferred (ADR 0024).
+- **Menu + restaurant config are DB-backed** — order-engine loads both from
+  Supabase at startup; per-restaurant JSON files and `restaurants.json`
+  are gone.
+
+Order-engine tests: 197 passed, 3 skipped (post-ElevenLabs integration).
+Migrations: repo at 0070.
 
 ## Session state architecture — table_events ledger (2026-07-12)
 
@@ -64,35 +85,46 @@ rationale; it supersedes 0010, 0014, and 0017.
   `SUPABASE_PUBLISHABLE_KEY=… npm run test:golden` (11 tests, local Supabase —
   the 12th tested the now-deleted pre-ledger `submit_order` RPC).
 
-## What's next (Stage 4)
+## What's next
 
-Recommendation system + PWA evolution. Four patterns selected:
+**Next major milestone: AOV data accuracy for the pilot restaurant** —
+trustworthy baseline-vs-nudged numbers before Silver Specialty Coffee can
+measure lift (see `CLAUDE.md`, "Current status").
 
-1. **Post-add pairing nudge** — inline "goes well with" on addToCart. SQL-only.
-2. **Anchor-on-empty** — Chef's Picks / bestsellers when cart is empty. SQL-only.
-3. **Ask AI soft upsell** — voice path, two-pass LLM weaves curated pairings.
-4. **Pre-submit review nudge** — gentle completion suggestion. SQL-only.
+A pre-deployment code audit (2026-08-28,
+`docs/notes/2026-08-28-pre-deployment-code-audit.md`) found 10 fixable
+defects (3 P0, 2 High, 3 Medium, 2 Low) blocking the floor — a kiosk
+reload during the 2-minute hold silently destroying the round while
+telling the guest it was confirmed; public POS signup granting full write
+access to orders/payments/menu; cancel-then-reorder resurrecting
+cancelled items onto the bill; cash overpayment inflating AOV revenue;
+among others. All 10 are fixed, verified (real Postgres 16 instance for
+DB changes, the kiosk's vitest suite for frontend changes — no live
+Supabase project was available in this session for either), and pushed to
+`claude/project-status-review-7w70cm`. This also closes the readiness
+assessment's under-tested category — admin/POS-driven state changes
+hitting the event ledger (`docs/notes/pre-launch-readiness-assessment.md`),
+where findings 1, 3 and 5 all landed.
 
-Touch path stays LLM-free. Voice path uses two-pass. Same curation data
-underneath, two render paths on top.
+Open items, in rough order:
 
-## Active sequence (this week)
-
-0. **Kill Google Sheets middleware** between kiosk and POS; wire direct
-   Supabase writes. Prerequisite for everything else.
-1. Schema: 4 recommendation tables + POS mapping table, in shared Supabase.
-2. Menu reconciliation: load `services/order-engine/menu.json` into
-   tabletot POS Supabase + our enrichment tables.
-3. Self-curation pass on the 285-item menu (Rohan as proxy owner). v0 ruleset.
-4. Curation dashboard (hard cap: 2-3 days). Brutally simple.
-5. Graft voice mechanics from `apps/voice-test-page` into `apps/kiosk`.
-6. Wire patterns 1 and 3 (the SQL-only ones) into kiosk.
+1. Merge `claude/project-status-review-7w70cm` (or review it) — the fixes
+   above exist only on that branch, not yet on `main`.
+2. Show the client the redesigned kiosk (Sprints 0–5); decide on
+   Sprints 6–7 (Games, Table Talk, voice UI).
+3. Voice: manual on-device pass on the Tab K9 (both provider defaults and
+   the Sarvam fallback flip), and the ElevenLabs voice-ID listening test
+   (placeholders Adam/Rachel still seeded).
+4. Deploy to the restaurant — still on the Lenovo Tab K9 bench, not yet
+   on the floor.
 
 ## Tech stack reference
 
-- **STT:** Sarvam saaras:v3 (WebSocket, `language_code=unknown` auto-detect)
-- **TTS:** Sarvam bulbul:v3 (WebSocket streaming, persistent per session,
-  codec `linear16`, message type `text`, completion event `final`)
+- **STT:** ElevenLabs Scribe v2 Realtime (default) / Sarvam saaras:v3
+  (fallback via `STT_PROVIDER`; WebSocket, stateless per PTT press)
+- **TTS:** ElevenLabs `eleven_flash_v2_5` (default; WS closes per utterance
+  via `CloseConnection`, reconnects transparently) / Sarvam bulbul:v3
+  (fallback via `TTS_PROVIDER`; persistent per session, codec `linear16`)
 - **LLM:** Gemini gemini-3.1-flash-lite (intent extraction + response generation, two-pass)
 - **Backend:** FastAPI (Python), Supabase Postgres (ap-south-1)
 - **Frontend:** React PWA, Vite, evolving from tabletot frontend PoC

@@ -1,14 +1,15 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { MenuItem, OrderItem } from "@/data/menu";
 import { submitOrder, clearSession } from "@/lib/orderSubmission";
 import { track, type Source } from "@/lib/eventBus";
 import type { TableState } from "@/lib/ledger";
+import { loadCart, saveCart } from "@/lib/cartStorage";
 
 export type ScreenType =
   | "idle"
-  | "home"
   | "listening"
   | "menu"
+  | "popular"
   | "item-detail"
   | "order-summary"
   | "sent"
@@ -28,9 +29,30 @@ export interface OrderRound {
 export function useDeviceNavigation() {
   const [currentScreen, setCurrentScreen] = useState<ScreenType>("idle");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
-  const [order, setOrder] = useState<OrderItem[]>([]);
+  const [order, setOrder] = useState<OrderItem[]>(loadCart);
   const [previousOrders, setPreviousOrders] = useState<OrderRound[]>([]);
   const [voiceOverlayOpen, setVoiceOverlayOpen] = useState(false);
+
+  // Persist on every change, including the clear to [] on submit/cancel/end
+  // — writing '[]' is exactly the "nothing to restore" state loadCart already
+  // treats as empty, so no separate clear path is needed.
+  useEffect(() => {
+    saveCart(order);
+  }, [order]);
+
+  // Runs once, at mount, before useRoundHold's own restore effect and
+  // Index.tsx's server-state hydration effect (both declared later in
+  // IndexInner, so their effects run after this one and can override it).
+  // A restored non-empty cart with nothing more authoritative to show
+  // (no held round, no active server-side order) takes the guest to "menu"
+  // instead of leaving them on the idle/attract screen with a full cart
+  // sitting invisibly behind it.
+  useEffect(() => {
+    if (order.length > 0) {
+      setCurrentScreen("menu");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const addToOrder = useCallback((item: MenuItem, source: Source, qty = 1) => {
     setOrder((prev) => {
@@ -69,14 +91,21 @@ export function useDeviceNavigation() {
   }, []);
 
   // Throws on failure instead of alert()ing — a blocking native dialog has no
-  // "try again" path and stalls the whole kiosk. The cart is left untouched
-  // on failure either way; callers surface the error (toast) and let the
-  // customer retry Confirm.
-  const confirmOrder = useCallback(async () => {
-    if (order.length > 0) {
+  // "try again" path and stalls the whole kiosk.
+  //
+  // Takes `items` explicitly rather than reading the live `order` state.
+  // The only caller is the round-hold's expiry callback, which passes the
+  // items captured at "Send to kitchen" time (persisted in sessionStorage
+  // via useRoundHold/pendingRound). Reading closured `order` here instead
+  // used to submit whatever the live cart happened to contain at expiry —
+  // empty after a reload (the cart itself is not persisted), so a guest who
+  // reloaded mid-hold saw "Order Confirmed" while nothing reached the
+  // kitchen and no revenue was recorded (2026-08-28 audit, finding 1).
+  const confirmOrder = useCallback(async (items: OrderItem[]) => {
+    if (items.length > 0) {
       let orderId: string;
       try {
-        const result = await submitOrder(order);
+        const result = await submitOrder(items);
         orderId = result.orderId;
       } catch (err) {
         console.error("Order submission failed:", err);
@@ -86,15 +115,15 @@ export function useDeviceNavigation() {
         ...prev,
         {
           orderId,
-          items: [...order],
-          total: order.reduce((sum, o) => sum + o.price * o.quantity, 0),
+          items: [...items],
+          total: items.reduce((sum, o) => sum + o.price * o.quantity, 0),
           timestamp: new Date(),
         },
       ]);
       setOrder([]);
     }
     setCurrentScreen("order-confirmation");
-  }, [order]);
+  }, []);
 
   const endSession = useCallback(() => {
     setOrder([]);

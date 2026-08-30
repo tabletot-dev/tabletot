@@ -131,7 +131,11 @@ export function hydrateMenuItemImage<T extends { name: string; image?: string | 
 }
 
 export function itemImageBackground(item: Pick<MenuItem, "name"> & { image?: string | null }): string {
+  // Resolution order: DB image_url (item.image) → name dict → no-photo fallback.
   const image = item.image ?? menuImageForName(item.name);
   if (!image) return NO_PHOTO_FALLBACK;
-  return `${PHOTO_OVERLAY}, url("${image}")`;
+  // Keep NO_PHOTO_FALLBACK as the bottom layer so a set-but-broken image_url
+  // (404 / network fail) reveals the dashed-"T" field, not a dark void.
+  // ponytail: pure-CSS floor — no per-consumer <img onError> wiring needed.
+  return `${PHOTO_OVERLAY}, url("${image}"), ${NO_PHOTO_FALLBACK}`;
 }

@@ -20,12 +20,13 @@ import {
   Grid3X3,
   TrendingUp,
   UtensilsCrossed,
+  Users,
   Settings,
   LogOut,
-  Coffee,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import TabletotLogo from '@/components/TabletotLogo';
 
 const ROLE_LABEL: Record<string, string> = {
   admin: 'Admin',
@@ -59,6 +60,7 @@ const NAV_GROUPS = [
     label: 'Admin',
     items: [
       { title: 'Menu',     url: '/menu',     icon: UtensilsCrossed, roles: ['admin'] },
+      { title: 'Staff',    url: '/staff',    icon: Users,           roles: ['admin'] },
       { title: 'Settings', url: '/settings', icon: Settings,        roles: ['admin'] },
     ],
   },
@@ -81,7 +83,7 @@ export function AppSidebar() {
       <SidebarContent>
         <div className="p-4 flex items-center gap-2 border-b border-border">
           <div className="rounded-lg bg-primary p-2">
-            <Coffee className="h-5 w-5 text-primary-foreground" />
+            <TabletotLogo className="h-5 w-5 text-primary-foreground" />
           </div>
           {!isCollapsed && <span className="font-bold text-lg">Tabletot POS</span>}
         </div>

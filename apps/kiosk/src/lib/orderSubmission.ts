@@ -34,7 +34,7 @@ export function markIdentityResolved(): void {
   sessionStorage.setItem('tt_identity_resolved', 'true');
 }
 
-// Used by the pre-confirm IdentityView: at HomeView we open the span without
+// Used by the pre-confirm IdentityView: on the attract screen we open the span without
 // a name; the customer types it later, just before "Send to Kitchen." We
 // persist the name on the sessions row for the table's CURRENT span (looked
 // up via the ledger, not a client-held key) and mirror it into sessionStorage
@@ -75,7 +75,8 @@ export class OrderSubmissionError extends Error {
   }
 }
 
-// Called when customer taps "Start Ordering" on HomeView. Appends a
+// Called when the customer activates the attract screen (touch anywhere, or a
+// chef's-pick slide tap). Appends a
 // session_started event to the ledger, which opens a span (or joins the
 // existing one — audit C3: never close-and-reopen). Non-blocking: a customer
 // who bypasses this (e.g. a hero-dish tap straight to menu) can still submit,

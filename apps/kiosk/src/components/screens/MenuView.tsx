@@ -9,6 +9,7 @@ interface MenuViewProps {
   onSelect: (item: MenuItem) => void;
   onAddToCart: (item: MenuItem, source: Source) => void;
   onUpdateQuantity: (itemId: string, delta: number, source: Source) => void;
+  onClearItem?: (itemId: string) => void;
   order: OrderItem[];
   voiceDock?: ReactNode;
   voicePanel?: ReactNode;
@@ -16,7 +17,7 @@ interface MenuViewProps {
 
 type DietFilter = "all" | "veg" | "nonveg";
 
-export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, order, voiceDock, voicePanel }: MenuViewProps) {
+export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onClearItem, order, voiceDock, voicePanel }: MenuViewProps) {
   const { categories, itemsByCategory, pairingsByItemId, loading, error, retry } = useMenu();
   const [activeCategory, setActiveCategory] = useState("");
   const [diet, setDiet] = useState<DietFilter>("all");
@@ -131,6 +132,7 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, orde
               onSelect={onSelect}
               onAddPairing={handleAddPairing}
               getQuantity={getQty}
+              onClearItem={onClearItem}
             />
           ))}
         </div>

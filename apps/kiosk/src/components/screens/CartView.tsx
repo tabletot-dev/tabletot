@@ -3,7 +3,9 @@ import type { OrderItem } from "@/data/menu";
 import type { OrderRound } from "@/hooks/useDeviceNavigation";
 import TabletotLogo from "@/components/TabletotLogo";
 import { itemImageBackground } from "@/lib/menuImages";
+import Stepper from "@/components/Stepper";
 import { computeTotals } from "@/lib/pricing";
+import { useRestaurant } from "@/lib/restaurantContext";
 import { formatRupees } from "@/lib/formatCurrency";
 
 const MAX_NAME_LENGTH = 24;
@@ -17,6 +19,8 @@ interface CartViewProps {
   onContinue: () => void;
   onConfirm: (displayName?: string) => void;
   onUpdateQuantity: (itemId: string, delta: number) => void;
+  /** Clears the line in one (confirmed) tap; shown only at qty >= 2. */
+  onClearItem?: (itemId: string) => void;
 }
 
 export default function CartView({
@@ -28,8 +32,10 @@ export default function CartView({
   onContinue,
   onConfirm,
   onUpdateQuantity,
+  onClearItem,
 }: CartViewProps) {
-  const { subtotal, tax, total } = computeTotals(totalBill);
+  const { gstRatePercent } = useRestaurant();
+  const { subtotal, tax, total } = computeTotals(totalBill, gstRatePercent);
   const [displayName, setDisplayName] = useState("");
 
   return (
@@ -57,22 +63,13 @@ export default function CartView({
                 <strong>{item.name}</strong>
                 <span>₹{item.price} each</span>
               </div>
-              <div className="tt-stepper" aria-label={`${item.name} quantity`}>
-                <button
-                  className={item.quantity === 1 ? "tt-stepper-minus--floor" : undefined}
-                  onClick={() => onUpdateQuantity(item.id, -1)}
-                  aria-label={`Decrease ${item.name}`}
-                >
-                  −
-                </button>
-                <span>{item.quantity}</span>
-                <button
-                  onClick={() => onUpdateQuantity(item.id, 1)}
-                  aria-label={`Increase ${item.name}`}
-                >
-                  +
-                </button>
-              </div>
+              <Stepper
+                qty={item.quantity}
+                label={item.name}
+                onDec={() => onUpdateQuantity(item.id, -1)}
+                onInc={() => onUpdateQuantity(item.id, 1)}
+                onClear={onClearItem ? () => onClearItem(item.id) : undefined}
+              />
               <strong className="row-total">{formatRupees(item.price * item.quantity)}</strong>
             </div>
           ))
@@ -114,7 +111,7 @@ export default function CartView({
           <strong>{formatRupees(subtotal)}</strong>
         </div>
         <div className="summary-line">
-          <span>GST (5%)</span>
+          <span>GST ({gstRatePercent}%)</span>
           <strong>{formatRupees(tax)}</strong>
         </div>
         <div className="summary-line total-line">

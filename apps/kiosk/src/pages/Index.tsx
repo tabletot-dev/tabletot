@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState, lazy, Suspense } from "react"
 import { motion, AnimatePresence } from "framer-motion";
 import { useDeviceNavigation } from "@/hooks/useDeviceNavigation";
 import IdleScreen from "@/components/screens/IdleScreen";
-import HomeView from "@/components/screens/HomeView";
 import ListeningScreen from "@/components/screens/ListeningScreen";
 import MenuView from "@/components/screens/MenuView";
+import FrequentlyOrderedView from "@/components/screens/FrequentlyOrderedView";
 import DetailView from "@/components/screens/DetailView";
+// HomeView was merged into IdleScreen (T11, 2026-08-29) — the carousel +
+// slide-tap session-start now live there; the "home" screen is gone.
 import CartView from "@/components/screens/CartView";
 import SentView from "@/components/screens/SentView";
 import CancelConfirm from "@/components/screens/CancelConfirm";
@@ -21,6 +23,7 @@ import AppShell from "@/components/AppShell";
 import OrderBar from "@/components/OrderBar";
 import StatusStrip from "@/components/StatusStrip";
 import { useRoundHold } from "@/hooks/useRoundHold";
+import { useSyncHeldRound } from "@/hooks/useSyncHeldRound";
 import { RestaurantProvider, useRestaurant } from "@/lib/restaurantContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -52,7 +55,7 @@ function wait(ms: number) {
 // Pre-submit browsing screens only — session-idle/games/conversation-starters
 // are static screens where no activity is expected by design (see
 // docs/plans/2026-08-03-idle-table-notification.md).
-const NUDGE_ELIGIBLE_SCREENS = new Set(["home", "menu", "item-detail", "order-summary"]);
+const NUDGE_ELIGIBLE_SCREENS = new Set(["menu", "item-detail", "order-summary"]);
 const NUDGE_THRESHOLD_MS = 3.5 * 60 * 1000;
 
 const IndexInner = () => {
@@ -84,13 +87,17 @@ const IndexInner = () => {
   // and this is the only place that's still true (see orderName leak fix,
   // docs/notes/2026-08-15-order-name-leak-fix.md).
   const hold = useRoundHold(
-    useCallback(async (_items, displayName) => {
+    useCallback(async (items, displayName) => {
       try {
         if (promptForIdentity && !isIdentityResolved()) {
           if (displayName) await setSessionDisplayName(displayName);
           markIdentityResolved();
         }
-        await confirmOrder();
+        // Submit exactly what was held, not the live cart — a reload wipes
+        // the in-memory `order` state but not the persisted hold, and the
+        // guest's confirmed round must survive that (2026-08-28 audit,
+        // finding 1).
+        await confirmOrder(items);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setToast(`Order could not be sent: ${msg}`);
@@ -99,15 +106,29 @@ const IndexInner = () => {
     }, [confirmOrder, setCurrentScreen, promptForIdentity]),
   );
 
+  // An item added via "Order more" while the countdown is still running
+  // must join the round already being held, not vanish when it submits
+  // (2026-08-28 audit, finding 5 — useRoundHold.extendHold existed but was
+  // never wired to anything).
+  useSyncHeldRound(order, hold);
+
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [billRequested, setBillRequested] = useState(false);
   const [tableUuid, setTableUuid] = useState<string | null>(null);
+  // TABLE_NUMBER is set (Index's outer guard already ruled out the empty
+  // case) but doesn't match any row in restaurant_tables — a typo, or a
+  // table deleted from the DB while a device still points at it. Before
+  // this, that failure was swallowed (.catch(() => {})) and the kiosk kept
+  // browsing normally, recording nothing, only surfacing an error at
+  // "Send to kitchen" — too late for a customer who'd been ordering for
+  // ten minutes (2026-08-28 audit, finding 8).
+  const [tableResolutionFailed, setTableResolutionFailed] = useState(false);
 
   // Resolve the physical table UUID once on mount — stable for the device's lifetime.
   // Then hydrate from the ledger: a reloaded/woken kiosk mid-session rebuilds its
   // order history from server truth and lands back on WaitingView (audit M5).
   useEffect(() => {
-    resolveTableId().then(setTableUuid).catch(() => {});
+    resolveTableId().then(setTableUuid).catch(() => setTableResolutionFailed(true));
     getTableState()
       .then((state) => {
         if (state.state !== "idle" && state.rounds.length > 0) {
@@ -395,43 +416,42 @@ const IndexInner = () => {
     return () => clearTimeout(id);
   }, [toast]);
 
+  if (tableResolutionFailed) {
+    return (
+      <UnconfiguredScreen message="This table isn't set up correctly. Please ask a staff member for help." />
+    );
+  }
+
   const renderScreen = () => {
     switch (currentScreen) {
       case "idle":
         return (
           <IdleScreen
             onActivate={async () => {
-              // Mirrors HomeView's "Start Ordering" — session_started must
-              // fire before menu so recommendation/order events get a
-              // span_id to attribute to (see AOV note in CLAUDE.md).
+              // session_started must fire before menu so recommendation/order
+              // events get a span_id to attribute to (see AOV note in
+              // CLAUDE.md).
               await startSession();
               setCurrentScreen("menu");
             }}
-            tableId={TABLE_ID}
-            onInfoToast={(msg) => setToast(msg)}
-          />
-        );
-      case "home":
-        return (
-          <HomeView
-            onStartOrdering={async () => {
-              await startSession();
-              setCurrentScreen("menu");
-            }}
-            onSelectItem={async (item) => {
-              // Mirrors "Start Ordering": append_event writes span_id = NULL
-              // for analytics fired while idle, so a hero-dish tap that skips
-              // straight to item-detail had every item_added/recommendation
-              // event on that path (including pairing_chip adds) landing
-              // unattributed — get_aov_summary joins on span_id, which NULL
-              // never matches. session_started is idempotent for an
-              // already-open span, so this is a no-op if the customer later
-              // also taps "Start Ordering".
+            onSelectHeroItem={async (item) => {
+              // A chef's-pick slide tap skips straight to item-detail.
+              // append_event writes span_id = NULL for analytics fired while
+              // idle, so without this every item_added/recommendation event
+              // on that path lands unattributed — get_aov_summary joins on
+              // span_id, which NULL never matches. session_started is
+              // idempotent for an already-open span, so a later "touch
+              // anywhere" is a no-op.
               await startSession();
               setSelectedItem(item);
               setCurrentScreen("item-detail");
             }}
-            onInfoToast={(msg) => setToast(msg)}
+            onOpenPopular={async () => {
+              // Same span_id reasoning as the slide-tap path — Popular lets
+              // you add to cart, so the session must be open first.
+              await startSession();
+              setCurrentScreen("popular");
+            }}
             tableId={TABLE_ID}
           />
         );
@@ -452,6 +472,7 @@ const IndexInner = () => {
             onSelect={handleSelectItem}
             onAddToCart={handleAddToOrder}
             onUpdateQuantity={handleUpdateQuantity}
+            onClearItem={removeItem}
             order={order}
             voiceDock={
               voiceEnabled ? (
@@ -484,6 +505,17 @@ const IndexInner = () => {
             }
           />
         );
+      case "popular":
+        return (
+          <FrequentlyOrderedView
+            order={order}
+            onSelect={handleSelectItem}
+            onAddToCart={handleAddToOrder}
+            onUpdateQuantity={handleUpdateQuantity}
+            onClearItem={removeItem}
+            onBack={() => setCurrentScreen("menu")}
+          />
+        );
       case "item-detail":
         return selectedItem ? (
           <DetailView
@@ -509,6 +541,7 @@ const IndexInner = () => {
             onContinue={() => setCurrentScreen("menu")}
             onConfirm={handleConfirmOrder}
             onUpdateQuantity={handleUpdateQuantity}
+            onClearItem={removeItem}
           />
         );
       case "sent":
@@ -719,12 +752,45 @@ const IndexInner = () => {
   );
 };
 
-const Index = () => (
-  <RestaurantProvider>
-    <MenuProvider>
-      <IndexInner />
-    </MenuProvider>
-  </RestaurantProvider>
+// Blocks the whole app from mounting when the table isn't resolvable
+// (config.ts no longer falls back to a placeholder table number) — a
+// misconfigured tablet must show a clear setup error, not silently become
+// table T1 and start writing into T1's live session (2026-08-28 audit,
+// finding 6).
+const UnconfiguredScreen = ({ message }: { message: string }) => (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "var(--color-bg, #fff)",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: "1rem",
+      padding: "2rem",
+      textAlign: "center",
+    }}
+  >
+    <p className="eyebrow">Setup needed</p>
+    <h1>This tablet isn't linked to a table.</h1>
+    <p>{message}</p>
+  </div>
 );
+
+const Index = () => {
+  if (!TABLE_ID) {
+    return (
+      <UnconfiguredScreen message="Please ask a staff member to open this device using its assigned table link." />
+    );
+  }
+  return (
+    <RestaurantProvider>
+      <MenuProvider>
+        <IndexInner />
+      </MenuProvider>
+    </RestaurantProvider>
+  );
+};
 
 export default Index;

@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { BarChart2, Anchor, GitFork, CheckSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import TabletotLogo from '@/components/TabletotLogo';
 
 const navItems = [
   { to: '/curation/anchors', label: 'Anchor Items', icon: Anchor },
@@ -12,9 +13,12 @@ const navItems = [
 export function Sidebar() {
   return (
     <aside className="w-56 min-h-screen border-r border-border bg-card flex flex-col shrink-0">
-      <div className="px-4 py-5 border-b border-border">
-        <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">Table-Tot</p>
-        <p className="text-sm font-semibold text-foreground mt-0.5">Dashboard</p>
+      <div className="px-4 py-5 border-b border-border flex items-center gap-2.5">
+        <TabletotLogo className="h-6 w-6 shrink-0 text-foreground" />
+        <div>
+          <p className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">Tabletot</p>
+          <p className="text-sm font-semibold text-foreground mt-0.5">Dashboard</p>
+        </div>
       </div>
 
       <nav className="flex-1 px-2 py-4 space-y-0.5">

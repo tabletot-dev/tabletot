@@ -29,9 +29,17 @@ interface UserRole {
   role: string;
 }
 
+interface PendingAccount {
+  user_id: string;
+  email: string | null;
+  full_name: string | null;
+}
+
 export default function StaffManagement() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [userRoles, setUserRoles] = useState<Map<string, string>>(new Map());
+  const [pendingAccounts, setPendingAccounts] = useState<PendingAccount[]>([]);
+  const [approving, setApproving] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -46,6 +54,7 @@ export default function StaffManagement() {
 
   useEffect(() => {
     fetchStaff();
+    fetchPendingAccounts();
   }, []);
 
   const fetchStaff = async () => {
@@ -68,6 +77,32 @@ export default function StaffManagement() {
     setLoading(false);
   };
 
+  // Self-registered accounts (2026-08-28 audit finding 2: signups now
+  // default to 'pending', not 'staff' — migration 0068) have no `staff`
+  // roster row, so fetchStaff's list never surfaces them. They only exist
+  // in profiles + user_roles until an admin assigns a real role here.
+  const fetchPendingAccounts = async () => {
+    const { data: pendingRoles, error: rolesError } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'pending');
+    if (rolesError || !pendingRoles?.length) {
+      setPendingAccounts([]);
+      return;
+    }
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, email, full_name')
+      .in('id', pendingRoles.map((r) => r.user_id));
+    if (profilesError) {
+      toast({ title: 'Error loading pending accounts', description: profilesError.message, variant: 'destructive' });
+      return;
+    }
+    setPendingAccounts(
+      (profiles || []).map((p) => ({ user_id: p.id, email: p.email, full_name: p.full_name }))
+    );
+  };
+
   const updatePosRole = async (userId: string, role: string) => {
     const { error } = await supabase
       .from('user_roles')
@@ -78,6 +113,13 @@ export default function StaffManagement() {
       setUserRoles(prev => new Map(prev).set(userId, role));
       toast({ title: 'POS role updated' });
     }
+  };
+
+  const approveAccount = async (userId: string, role: string) => {
+    setApproving(userId);
+    await updatePosRole(userId, role);
+    setPendingAccounts((prev) => prev.filter((a) => a.user_id !== userId));
+    setApproving(null);
   };
 
   const resetForm = () => {
@@ -296,6 +338,46 @@ export default function StaffManagement() {
           className="pl-10"
         />
       </div>
+
+      {/* Pending approvals: self-registered accounts with no role yet
+          (2026-08-28 audit finding 2) — invisible to the Staff table below,
+          since they have no `staff` roster row. */}
+      {pendingAccounts.length > 0 && (
+        <Card className="border-amber-500/50">
+          <CardHeader>
+            <CardTitle>Pending Approvals ({pendingAccounts.length})</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Accounts that signed up but have no POS access until you assign a role.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {pendingAccounts.map((account) => (
+              <div
+                key={account.user_id}
+                className="flex items-center justify-between gap-4 rounded-lg border p-3"
+              >
+                <div>
+                  <p className="font-medium">{account.full_name || 'Unnamed'}</p>
+                  <p className="text-sm text-muted-foreground">{account.email}</p>
+                </div>
+                <Select
+                  disabled={approving === account.user_id}
+                  onValueChange={(role) => approveAccount(account.user_id, role)}
+                >
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Approve as..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="staff">Staff</SelectItem>
+                    <SelectItem value="manager">Manager</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

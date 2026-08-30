@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, Coffee } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import TabletotLogo from '@/components/TabletotLogo';
 
 export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
@@ -75,10 +76,10 @@ export default function Auth() {
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
             <div className="rounded-full bg-primary p-3">
-              <Coffee className="h-8 w-8 text-primary-foreground" />
+              <TabletotLogo className="h-8 w-8 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">POS System</CardTitle>
+          <CardTitle className="text-2xl font-bold">Tabletot POS</CardTitle>
           <CardDescription>Sign in to your account or create a new one</CardDescription>
         </CardHeader>
         <CardContent>

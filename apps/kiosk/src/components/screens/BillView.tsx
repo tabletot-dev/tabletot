@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { resolveTableId } from "@/lib/orderSubmission";
 import { appendEvent } from "@/lib/ledger";
 import { computeTotals } from "@/lib/pricing";
+import { useRestaurant } from "@/lib/restaurantContext";
 import { formatRupees } from "@/lib/formatCurrency";
 
 interface BillViewProps {
@@ -31,7 +32,8 @@ export default function BillView({
   );
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const { subtotal, tax, total } = computeTotals(sessionTotal);
+  const { gstRatePercent } = useRestaurant();
+  const { subtotal, tax, total } = computeTotals(sessionTotal, gstRatePercent);
   // Indian mobile convention: 10 digits, starting 6-9 (project-wide rule, see
   // CLAUDE.md). Previously accepted any 10+ digit string. Strips an optional
   // country code (+91/91) before checking the local number.
@@ -145,7 +147,7 @@ export default function BillView({
               <strong>{formatRupees(subtotal)}</strong>
             </div>
             <div className="summary-line">
-              <span>GST (5%)</span>
+              <span>GST ({gstRatePercent}%)</span>
               <strong>{formatRupees(tax)}</strong>
             </div>
             <div className="summary-line total-line">

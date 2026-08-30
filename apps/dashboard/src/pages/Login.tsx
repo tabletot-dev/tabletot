@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, LayoutDashboard } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import TabletotLogo from '@/components/TabletotLogo';
 import { toast } from 'sonner';
 
 export default function Login() {
@@ -36,9 +37,7 @@ export default function Login() {
       <Card className="w-full max-w-sm">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-2">
-            <div className="rounded-full bg-primary p-3">
-              <LayoutDashboard className="h-6 w-6 text-primary-foreground" />
-            </div>
+            <TabletotLogo className="h-10 w-10 text-foreground" />
           </div>
           <CardTitle className="text-xl">Tabletot Dashboard</CardTitle>
           <CardDescription>Sign in to manage recommendations</CardDescription>

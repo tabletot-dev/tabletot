@@ -61,12 +61,12 @@ pos/            restaurant management app (auth, KOT, billing, tables)
 dashboard/      recommendation curation + AOV measurement
 services/
 order-engine/   FastAPI backend: voice pipeline, LLM resolver, menu loader
-menus/        one JSON per restaurant (see MENU-CREATION-GUIDE.md)
-backend/config/restaurants.json — speaker + language config per restaurant
+menus/        MENU-CREATION-GUIDE.md + seed validation SQL only — menu data
+              itself lives in the DB (see "Menu data" below)
 packages/         shared types and utilities — currently empty
 supabase/
 migrations/     applied in order; never edit an existing migration
-                currently at 0036 + remote schema (2026-05-29)
+                currently at 0070
 seed/           reference data only
 ```
 ## Supabase table groups (one project, three logical layers)
@@ -76,14 +76,28 @@ seed/           reference data only
 - **Tabletot-canonical** — `restaurants`, `menu_items`, `external_id_mapping`
   (clean relational; `external_id_mapping` is empty until Petpooja adapter)
 - **Recommendation + analytics** — `item_pairings`, `anchor_items`,
-  `meal_completion_rules`, `recommendation_events` (FK to canonical layer only)
+  `meal_completion_rules` (FK to canonical layer only).
+  `recommendation_events` was dropped in migration 0051. Nudge attribution
+  rides the `table_events` ledger via `append_event` (`item_added` with a
+  `source`), and AOV is computed from that ledger + `payments`
+  (`get_aov_summary` v6, ADR 0023). `kiosk_events` (migration 0041) exists
+  but has **no writer or reader** — dead, see the 2026-08-28 audit
 
-## Menu files
+## Menu data
 
-Every restaurant needs two things:
-1. `services/order-engine/menus/<id>.json` — follow `MENU-CREATION-GUIDE.md`
-   exactly. ID format: `{brand}-{location-short}` kebab-case.
-2. An entry in `services/order-engine/backend/config/restaurants.json`
+Menu and restaurant config are DB-backed — there are no per-restaurant JSON
+files or `restaurants.json` anymore. Every restaurant needs:
+1. A row in the `restaurants` table with `slug` (format
+   `{brand}-{location-short}` kebab-case), `language_code`, Sarvam
+   speaker columns (migration 0028), and ElevenLabs voice-ID columns
+   (migration 0064).
+2. Menu rows in `menu_items` (+ `external_id_mapping` when a POS adapter
+   applies). `MENU-CREATION-GUIDE.md` in `services/order-engine/menus/`
+   documents the expected shape.
+
+The order-engine loads menus and restaurant config from the DB at startup
+(`load_menu_from_db`, `voice_agent/restaurant_config.py` — no JSON
+fallback, startup fails loudly) and refreshes on a background task.
 
 Current restaurants in DB:
 - `silver-ssc-hyd` — Silver Specialty Coffee, Hyderabad (pilot)
@@ -96,12 +110,20 @@ the LLM confirm items it didn't successfully resolve.
 
 **Voice:** THE VOICE PIPELINE IS FROZEN — do not modify voice code unless
 explicitly asked ("i dont want to create some new bugs in the voice").
-PTT only. STT WebSocket is stateless per press (Sarvam saaras:v3).
-TTS WebSocket is persistent per session (Sarvam bulbul:v3, 30s keepalive).
-LLM responds in native script only — no romanised transliteration.
+PTT only. Dual-provider since 2026-08-17: `STT_PROVIDER` and `TTS_PROVIDER`
+env switches, both defaulting to `elevenlabs` (STT: Scribe v2 Realtime;
+TTS: `eleven_flash_v2_5`, WS closes per utterance via `CloseConnection`,
+reconnects transparently), both falling back to `sarvam` with a config
+flip — Sarvam handler code (saaras:v3 STT stateless per press, bulbul:v3
+TTS persistent per session) is byte-for-byte untouched. ElevenLabs voice
+IDs are still placeholders (Adam/Rachel) pending a listening test. LLM
+responds in native script only — no romanised transliteration. See
+`docs/plans/2026-08-15-elevenlabs-voice-integration.md` and ADR 0024
+(always-on voice: feasible, deferred).
 
 **Migrations:** Never edit an existing migration file. Always append a new one.
-Migrations 0009–0036 are applied. Current Silver UUID is
+Repo is at 0070; 0064+ were applied to local Supabase — Rohan pushes remote
+himself per convention. Current Silver UUID is
 `b22b5d53-6dd8-4f5b-8276-2e828cd1ab91` (pinned in migration 0014).
 
 **Env vars:** `VITE_RESTAURANT_ID` and `VITE_TABLE_ID` are set in
@@ -117,27 +139,49 @@ remove the fallback.
 pairings, anchor items. It is not a menu CRUD tool. Menu CRUD belongs in
 apps/pos and only for restaurants without their own POS admin.
 
-## Current status (as of 2026-08-08)
+## Current status (as of 2026-08-28)
 
 All four services deployed on Railway: kiosk, POS, dashboard, order-engine.
 
-**Active phase:** Kiosk v1.0 visual redesign (`docs/plans/2026-08-08-kiosk-v1-redesign.md`).
-Sprints 0–5 ("simple scope" — Attract, Menu, Detail, Cart/Sent with the new
-2-minute kitchen hold, Confirmation, Table Status, Bill) are shipped and
-committed on branch `kiosk-redesign`, not yet pushed or deployed. Games,
-Table Talk, and the voice UI are intentionally unrebuilt (Sprints 6–7) and
-still run on the old "Warm Espresso" palette via a CSS bridge — see
-`docs/design-system.md`. Next step is showing the client Sprints 0–5 before
-deciding on 6–7. See `docs/notes/2026-08-08-kiosk-redesign-sprint-*.md` and
-ADR `docs/decisions/0021-two-minute-kitchen-hold.md`.
+**Kiosk v1.0 redesign is merged to `main`** (PR #12, 2026-08-17 — the
+`kiosk-redesign` branch no longer exists on the remote). Sprints 0–5
+(Attract, Menu, Detail, Cart/Sent with the 2-minute kitchen hold,
+Confirmation, Table Status, Bill) shipped. Games, Table Talk, and the voice
+UI are intentionally unrebuilt (Sprints 6–7) and still run on the old "Warm
+Espresso" palette via a CSS bridge — see `docs/design-system.md`. Sprints
+6–7 wait on client feedback.
+
+**Revenue-integrity hardening (2026-08-15/16)** followed the pre-launch
+readiness assessment (`docs/notes/pre-launch-readiness-assessment.md`,
+verdict: not ready on documented findings alone). AOV is now
+payments-sourced (`get_aov_summary` v6, migration 0062, ADR 0023),
+cancelled orders excluded from revenue and cascaded to KOT tickets
+(ADR 0022), discount handling fixed, plus a batch of POS QA fixes. The
+assessment's core warning — admin/POS-driven ledger interactions are
+under-tested — has not been systematically re-verified since.
+
+**Voice went dual-provider** (2026-08-17, `docs/notes/2026-08-15-elevenlabs-voice-integration-implementation.md`):
+ElevenLabs default, Sarvam fallback, restaurant voice config DB-backed
+(migration 0064). Deferred: manual on-device testing (Rohan's pass) and
+the voice-ID listening test (placeholders seeded). Always-on voice is
+feasible but deferred (ADR 0024) — PTT ships to the pilot first.
 
 Still on a Lenovo Tab K9 for hardware testing, not yet in the restaurant.
+
+**Pre-deployment code audit (2026-08-28)** —
+`docs/notes/2026-08-28-pre-deployment-code-audit.md`. Static audit of all
+three apps + the shared DB layer found 10 fixable defects (3 P0, 2 High,
+3 Medium, 2 Low); all 10 are now fixed, verified, and pushed on
+`claude/project-status-review-7w70cm` (migrations 0066–0070, plus kiosk and
+POS commits — see the audit note's summary table for exact commit hashes
+per finding). Not yet merged to `main`.
 
 **Next major milestone:** AOV data accuracy for the pilot restaurant.
 The system must produce trustworthy AOV numbers before Silver Specialty Coffee
 can use them to measure lift. This means:
-- recommendation_events firing correctly on every pattern (post-add pairing,
-  anchor-on-empty, pre-submit nudge)
+- nudge attribution (`table_events`, `item_added` + `source`) firing
+  correctly on every pattern (post-add pairing, anchor-on-empty,
+  pre-submit nudge)
 - orders and order_items recorded with accurate amounts and item counts
 - AOV baseline vs. nudged sessions distinguishable in the data
 
