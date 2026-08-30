@@ -176,6 +176,20 @@ const IndexInner = () => {
     }, 30_000);
     return () => window.clearInterval(id);
   }, [previousOrders.length]);
+  // Keep the node mounted ~200ms past dismissal so the fade-out can play.
+  const [nudgeMounted, setNudgeMounted] = useState(false);
+  const [nudgeExiting, setNudgeExiting] = useState(false);
+  useEffect(() => {
+    if (showIdleNudge) {
+      setNudgeMounted(true);
+      setNudgeExiting(false);
+      return;
+    }
+    if (!nudgeMounted) return;
+    setNudgeExiting(true);
+    const t = window.setTimeout(() => setNudgeMounted(false), 200);
+    return () => window.clearTimeout(t);
+  }, [showIdleNudge, nudgeMounted]);
 
   const { items: menuItems, pairingsByItemId, anchors, completionRules } = useMenu();
 
@@ -685,22 +699,8 @@ const IndexInner = () => {
           </div>
         )}
 
-        {showIdleNudge && (
-          <div
-            style={{
-              position: "fixed",
-              top: "1.25rem",
-              left: "50%",
-              transform: "translateX(-50%)",
-              background: "var(--color-surface, #fff)",
-              border: "1px solid var(--color-border, #ddd)",
-              borderRadius: "999px",
-              padding: "0.75rem 1.5rem",
-              boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
-              fontWeight: 600,
-              zIndex: 9990,
-            }}
-          >
+        {nudgeMounted && (
+          <div className={`tt-idle-nudge${nudgeExiting ? " tt-idle-nudge--out" : ""}`}>
             Still there? Tap anywhere to continue.
           </div>
         )}
