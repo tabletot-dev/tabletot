@@ -5775,6 +5775,7 @@ body {
 }
 
 .tt-attract-cta {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--tt-space-3);
@@ -5787,6 +5788,29 @@ body {
   color: #fff;
   cursor: pointer;
   text-align: left;
+}
+
+/* Breathing pulse — a ring that expands out of the CTA and fades (D2/T12).
+   Pseudo-element only, transform + opacity (no box-shadow animation). */
+.tt-attract-cta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--tt-action);
+  pointer-events: none;
+  animation: tt-attract-cta-breathe 2s ease-in-out infinite;
+}
+
+@keyframes tt-attract-cta-breathe {
+  from {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  to {
+    transform: scale(1.05);
+    opacity: 0;
+  }
 }
 
 .tt-attract-cta-icon {
@@ -5876,6 +5900,11 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .tt-chefpicks-track {
     transition: none;
+  }
+
+  .tt-attract-cta::after {
+    animation: none;
+    opacity: 0;
   }
 }
 
