@@ -56,8 +56,8 @@ describe("IdleScreen (merged attract)", () => {
     renderIdle({ onActivate });
     // Background "touch anywhere" surface (exact aria-label).
     fireEvent.click(screen.getByRole("button", { name: "Touch anywhere to start" }));
-    // The coral CTA (accessible name includes the "or say…" hint).
-    fireEvent.click(screen.getByRole("button", { name: /or say "Hey Tabletot/i }));
+    // The coral CTA.
+    fireEvent.click(screen.getByRole("button", { name: "See the menu" }));
     expect(onActivate).toHaveBeenCalledTimes(2);
   });
 
@@ -127,10 +127,26 @@ describe("IdleScreen (merged attract)", () => {
     expect(active).toBe(0);
   });
 
-  it("primary CTA reads 'See the menu' and keeps the voice hint", () => {
+  it("primary CTA reads just 'See the menu' — no voice hint copy", () => {
     renderIdle();
-    const cta = screen.getByRole("button", { name: /or say "Hey Tabletot/i });
-    expect(cta).toHaveTextContent("See the menu");
+    expect(screen.getByRole("button", { name: "See the menu" })).toBeInTheDocument();
+    expect(screen.queryByText(/Hey Tabletot/)).not.toBeInTheDocument();
+  });
+
+  it("carousel is a one-way loop: forward past the last card wraps to the first", () => {
+    menu.anchors = [pick({ id: "a" }), pick({ id: "b", name: "B" }), pick({ id: "c", name: "C" })];
+    const { container } = renderIdle();
+    const activeIndex = () =>
+      [...container.querySelectorAll(".tt-chefpick-dot")].findIndex((d) =>
+        d.classList.contains("active"),
+      );
+    const next = () => fireEvent.click(screen.getByRole("button", { name: "Next pick" }));
+    expect(activeIndex()).toBe(0);
+    next();
+    next();
+    expect(activeIndex()).toBe(2);
+    next();
+    expect(activeIndex()).toBe(0); // wrapped forward, not rewound
   });
 
   it("the 'Popular' secondary calls onOpenPopular", () => {

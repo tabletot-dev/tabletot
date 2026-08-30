@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Mic } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star, Wifi } from "lucide-react";
 import TabletotLogo from "@/components/TabletotLogo";
 import { useMenu } from "@/lib/menuStore";
 import type { AnchorItem } from "@/lib/menuStore";
@@ -34,26 +34,48 @@ const IdleScreen = ({ onActivate, onSelectHeroItem, onOpenPopular, tableId }: Id
     .slice(0, MAX_SLIDES);
   const multi = chefPicks.length > 1;
 
-  const [heroIndex, setHeroIndex] = useState(0);
+  const n = chefPicks.length;
   const [wifiOpen, setWifiOpen] = useState(false);
 
-  // Auto-advance: one ~3.5s tick drives both the track transform and the
-  // dots. Disabled under prefers-reduced-motion (slide 1 only) and when
-  // there is 0 or 1 pick. ponytail: a 3.5s setState is not the jank the
-  // perf budget guards against; CSS-only can't sync the dots.
+  // One-way infinite filmstrip. `loopPos` indexes into a tripled `loop` array;
+  // auto-advance only ever moves it forward. When a slide settles outside the
+  // middle copy, `rebase()` snaps it back one copy-width with the transition
+  // suppressed — same picture, so the strip reads as a continuous forward loop
+  // and never rewinds. Starts on the first card of the middle copy.
+  const [loopPos, setLoopPos] = useState(n);
+  const [noAnim, setNoAnim] = useState(false);
+
+  const heroIndex = n > 0 ? (((loopPos - n) % n) + n) % n : 0;
+
+  // Auto-advance: always +1 (forward only). Off under reduced-motion / <2 picks.
+  // ponytail: a 3.5s setState is not the jank the perf budget guards against.
   useEffect(() => {
     if (!multi || reduceMotion) return;
-    const id = window.setInterval(
-      () => setHeroIndex((i) => (i + 1) % chefPicks.length),
-      ADVANCE_MS,
-    );
+    const id = window.setInterval(() => setLoopPos((p) => p + 1), ADVANCE_MS);
     return () => window.clearInterval(id);
-  }, [multi, reduceMotion, chefPicks.length]);
+  }, [multi, reduceMotion]);
 
-  // Keep the index in range if the pick set shrinks on a menu refresh.
+  // Recentre if the pick set changes size on a menu refresh.
   useEffect(() => {
-    if (heroIndex >= chefPicks.length) setHeroIndex(0);
-  }, [chefPicks.length, heroIndex]);
+    setLoopPos(n);
+  }, [n]);
+
+  // Re-enable the transition once the silent rebase jump has painted.
+  useEffect(() => {
+    if (!noAnim) return;
+    const id = requestAnimationFrame(() =>
+      requestAnimationFrame(() => setNoAnim(false)),
+    );
+    return () => cancelAnimationFrame(id);
+  }, [noAnim]);
+
+  const rebase = (e: React.TransitionEvent) => {
+    if (e.propertyName !== "transform" || n < 2) return;
+    if (loopPos < n || loopPos >= 2 * n) {
+      setNoAnim(true);
+      setLoopPos(n + ((((loopPos - n) % n) + n) % n));
+    }
+  };
 
   // One recommendation_shown per pick per "attract visible" cycle.
   const shownIds = useRef<Set<string>>(new Set());
@@ -69,6 +91,21 @@ const IdleScreen = ({ onActivate, onSelectHeroItem, onOpenPopular, tableId }: Id
     track("recommendation_tapped", { itemId: item.id, surface: "attract_carousel" });
     onSelectHeroItem(item);
   };
+
+  const step = (dir: -1 | 1) => {
+    if (reduceMotion) {
+      // No transition to ride (so no transitionend to rebase on) — wrap now.
+      setLoopPos((p) => n + ((((p - n + dir) % n) + n) % n));
+    } else {
+      setLoopPos((p) => p + dir);
+    }
+  };
+
+  // Render the picks three times so a real card always peeks on BOTH edges,
+  // even at the first/last card. The middle copy is the real one (kept in the
+  // tab order + a11y tree); the flanking copies are decorative peek.
+  const loop = multi ? [...chefPicks, ...chefPicks, ...chefPicks] : chefPicks;
+  const centerIdx = multi ? loopPos : heroIndex;
 
   return (
     <div className="tt-attract">
@@ -91,57 +128,91 @@ const IdleScreen = ({ onActivate, onSelectHeroItem, onOpenPopular, tableId }: Id
               <p className="tt-attract-brand-tag">Table Service</p>
             </div>
           </div>
-          {tableId && <span className="tt-badge">Table {tableId}</span>}
+          {tableId && (
+            <span className="tt-attract-badge">
+              <TabletotLogo className="tt-attract-badge-logo" />
+              Table {tableId}
+            </span>
+          )}
         </div>
 
         <div className="tt-attract-title">
           <p className="tt-attract-title-word">Silver</p>
           <p className="tt-attract-title-sub">Specialty Coffee</p>
-          <div className="tt-attract-rule" />
+          <div className="tt-attract-rule">
+            <span />
+          </div>
           <p className="tt-attract-tagline">
-            Your table waiter. Browse the menu, or just ask out loud.
+            Your table waiter.
+            <br />
+            Browse the menu, or just ask out loud.
           </p>
         </div>
 
         <button type="button" className="tt-attract-cta" onClick={onActivate}>
-          <span className="tt-attract-cta-icon">
-            <Mic size={20} />
-          </span>
-          <span className="tt-attract-cta-text">
-            <strong>See the menu</strong>
-            <span>or say "Hey Tabletot, I'm hungry"</span>
-          </span>
+          See the menu
+          <ChevronRight className="tt-attract-cta-chevron" aria-hidden="true" />
         </button>
 
         {loading ? (
           <div className="tt-chefpicks-skeleton" aria-hidden="true" />
         ) : chefPicks.length > 0 ? (
           <div className="tt-chefpicks" aria-label="Chef's picks">
-            <p className="tt-badge">Chef's picks</p>
-            <div className="tt-chefpicks-viewport">
-              <div
-                className="tt-chefpicks-track"
-                style={{ transform: `translateX(calc(${-heroIndex} * (72vw + var(--tt-space-3))))` }}
-              >
-                {chefPicks.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className="tt-chefpick"
-                    onClick={() => handleSlideTap(item)}
-                    aria-label={`View ${item.name}`}
-                  >
-                    <span
-                      className="tt-chefpick-thumb"
-                      style={{ background: itemImageBackground(item) }}
-                    />
-                    <span className="tt-chefpick-meta">
-                      <span className="tt-chefpick-name">{item.name}</span>
-                      <span className="tt-chefpick-price">₹{item.price}</span>
-                    </span>
-                  </button>
-                ))}
+            <div className="tt-chefpicks-stage">
+              {multi && (
+                <button
+                  type="button"
+                  className="tt-chefpick-nav prev"
+                  onClick={() => step(-1)}
+                  aria-label="Previous pick"
+                >
+                  <ChevronLeft size={20} aria-hidden="true" />
+                </button>
+              )}
+              <div className="tt-chefpicks-viewport">
+                <div
+                  className={`tt-chefpicks-track${noAnim ? " no-anim" : ""}`}
+                  onTransitionEnd={rebase}
+                  style={{
+                    transform: `translateX(calc(50vw - ${centerIdx} * (var(--tt-chefpick-w) + var(--tt-space-3)) - (var(--tt-chefpick-w) / 2)))`,
+                  }}
+                >
+                  {loop.map((item, i) => {
+                    const isClone =
+                      multi && (i < chefPicks.length || i >= chefPicks.length * 2);
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        className="tt-chefpick"
+                        onClick={() => handleSlideTap(item)}
+                        aria-label={`View ${item.name}`}
+                        aria-hidden={isClone || undefined}
+                        tabIndex={isClone ? -1 : undefined}
+                      >
+                        <span
+                          className="tt-chefpick-thumb"
+                          style={{ background: itemImageBackground(item) }}
+                        />
+                        <span className="tt-chefpick-meta">
+                          <span className="tt-chefpick-name">{item.name}</span>
+                          <span className="tt-chefpick-price">₹{item.price}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
+              {multi && (
+                <button
+                  type="button"
+                  className="tt-chefpick-nav next"
+                  onClick={() => step(1)}
+                  aria-label="Next pick"
+                >
+                  <ChevronRight size={20} aria-hidden="true" />
+                </button>
+              )}
             </div>
             {multi && (
               <div className="tt-chefpick-dots" aria-hidden="true">
@@ -158,14 +229,22 @@ const IdleScreen = ({ onActivate, onSelectHeroItem, onOpenPopular, tableId }: Id
 
         <div className="tt-attract-secondaries">
           <button type="button" className="tt-attract-secondary" onClick={onOpenPopular}>
+            <span className="tt-attract-secondary-icon">
+              <Star size={18} aria-hidden="true" />
+            </span>
             Popular
+            <ChevronRight size={18} className="tt-attract-secondary-arrow" aria-hidden="true" />
           </button>
           <button
             type="button"
             className="tt-attract-secondary"
             onClick={() => setWifiOpen(true)}
           >
+            <span className="tt-attract-secondary-icon">
+              <Wifi size={18} aria-hidden="true" />
+            </span>
             Wi-Fi
+            <ChevronRight size={18} className="tt-attract-secondary-arrow" aria-hidden="true" />
           </button>
         </div>
       </div>
