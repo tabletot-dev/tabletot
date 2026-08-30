@@ -5601,7 +5601,7 @@ body {
 .tt-bill-flow-logo svg {
   width: calc(96px * var(--tt-scale));
   height: calc(96px * var(--tt-scale));
-  color: var(--tt-action);
+  color: var(--tt-ink); /* bars ink; the mark's dot carries the coral */
 }
 
 .tt-bill-flow-logo .font-display {
@@ -6111,7 +6111,7 @@ body {
 .tt-confirmation-logo svg {
   width: calc(96px * var(--tt-scale));
   height: calc(96px * var(--tt-scale));
-  color: var(--tt-action);
+  color: var(--tt-ink); /* bars ink; the mark's dot carries the coral */
 }
 
 .tt-confirmation-logo .font-display {
