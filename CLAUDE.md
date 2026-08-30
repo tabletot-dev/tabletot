@@ -146,10 +146,18 @@ All four services deployed on Railway: kiosk, POS, dashboard, order-engine.
 **Kiosk v1.0 redesign is merged to `main`** (PR #12, 2026-08-17 — the
 `kiosk-redesign` branch no longer exists on the remote). Sprints 0–5
 (Attract, Menu, Detail, Cart/Sent with the 2-minute kitchen hold,
-Confirmation, Table Status, Bill) shipped. Games, Table Talk, and the voice
-UI are intentionally unrebuilt (Sprints 6–7) and still run on the old "Warm
-Espresso" palette via a CSS bridge — see `docs/design-system.md`. Sprints
-6–7 wait on client feedback.
+Confirmation, Table Status, Bill) shipped.
+
+**Sprints 6–7 + reduced Task 7.0 done on `kiosk-v1-sprint-6-7`**
+(2026-08-30, `docs/plans/2026-08-30-kiosk-sprint-6-7.md`, not yet merged):
+new Venue/About screen (16, from `restaurants.config`, migration 0071);
+"About" added to the Attract secondary panel; Games / Table Talk / voice UI
+classes renamed off the legacy namespace; the **Warm Espresso CSS bridge is
+removed** — every `var()` in `tabletot.css` is now `--tt-*`, `design-system.md`
+is retired. Left for a follow-up: renaming the ~16 pre-`.tt-` primitive
+classes (`.eyebrow`, `.summary-line`, `.panel`, `.order-*`, `.bill-row`,
+`.detail-mic-*`) still used by CartView/BillView/DetailView, and deleting the
+~100 dead pre-v1.0 rules still in the file.
 
 **Revenue-integrity hardening (2026-08-15/16)** followed the pre-launch
 readiness assessment (`docs/notes/pre-launch-readiness-assessment.md`,
