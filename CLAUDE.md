@@ -159,6 +159,21 @@ classes (`.eyebrow`, `.summary-line`, `.panel`, `.order-*`, `.bill-row`,
 `.detail-mic-*`) still used by CartView/BillView/DetailView, and deleting the
 ~100 dead pre-v1.0 rules still in the file.
 
+**Voice channel rebuilt to screens 06/07/08** (2026-08-30, same branch,
+`docs/plans/2026-08-30-voice-channel-redesign-spec.md`, commits
+`a9ebada`..`c02b320`, not yet merged). The "Ask Tabletot" modal is replaced by:
+a docked ink **06 recording overlay** over the live menu with an audio-reactive
+waveform (`useMicLevels`, a read-only 2nd mic stream), and a full-screen
+**07/08 conversation view** (`"voice-conversation"` `ScreenType`) with an
+ink-header answer card. `VoiceConversationPanel` is now a thin frozen-code host;
+`ListeningScreen` deleted (was dead). **The voice pipeline stayed frozen** —
+`lib/voice/*`, `handleVoiceDone`, `handleToggle`, the STT/TTS sequence, refs and
+`bargeIn()` are byte-identical (pinned by `VoiceConversationPanel.frozen.test.tsx`).
+106 kiosk tests pass. Screen 07 browser-verified; **06 and 08 still need the
+Lenovo K9 device pass** (visual + the two-concurrent-mic-streams check). Follow-ups
+in `docs/notes/2026-08-30-kiosk-sprint-6-7.md`: unreachable dock error state,
+older dead voice CSS, instant re-record from the speak-dock, TS toolchain pin.
+
 **Revenue-integrity hardening (2026-08-15/16)** followed the pre-launch
 readiness assessment (`docs/notes/pre-launch-readiness-assessment.md`,
 verdict: not ready on documented findings alone). AOV is now
