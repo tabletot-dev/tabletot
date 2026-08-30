@@ -1006,15 +1006,34 @@ region referencing bridge vars (`var(--brand)`, `var(--panel)`,
    `--shadow-*` → delete the declaration. Raw hex → nearest `--tt-*`.
 3. Then delete the rest of the base layer + bridge as below.
 
+> **State check 2026-08-30 (after 6.2 / 7.1 / 7.2 as-built).** A blind "delete
+> everything above the marker" is NOT safe. `grep -oE
+> '^\.[a-z][A-Za-z0-9_-]*' tabletot.css | sort -u | grep -v '^\.tt-'` returns
+> **115** selectors, in two buckets:
+> - **Dead (~105):** pre-v1.0 screens rebuilt in Sprints 0–5 — `.home-view`,
+>   `.tablet-frame`, `.menu-sidebar*`, `.detail-view`, `.waiting-view`,
+>   `.hero-panel`, `.ttboot-*`, `.utility-*`, `.cart-float*`, `.app-shell`,
+>   `.ludo-board`/`.ludo-cell`/… (the OLD 7-col ludo, NOT the renamed
+>   `.tt-ludo-*`), `.detail-voice-note`, etc. Delete cleanly.
+> - **Live shared primitives (~10):** `.eyebrow`, `.hero-sub`, `.panel`,
+>   `.primary-btn`, `.secondary-btn`, `.view` (renamed Games/Table Talk still
+>   use them), `.card-stepper` (used by **DetailView** — a shipped screen — and
+>   VoiceConversationPanel), `.ghost-pill` (Listening screen). These CANNOT be
+>   deleted blind: migrate each to a `.tt-*` name across **every** consumer
+>   (grep all of `apps/kiosk/src`, not just Sprint 6–7 files) first.
+> Run this as its own focused pass: (a) migrate the live primitives + refs,
+> (b) do the var-sweep + relocation from the block above, (c) then the delete.
+> A wrong move here silently breaks Billing's stepper or the Detail screen.
+
 - [ ] **Step 1: Confirm nothing outside the new system is still defined**
 
 Run:
 ```bash
-grep -oE '^\.[a-z][a-z0-9-]*' apps/kiosk/src/styles/tabletot.css | sort -u | grep -v '^\.tt-'
+grep -oE '^\.[a-z][A-Za-z0-9_-]*' apps/kiosk/src/styles/tabletot.css | sort -u | grep -v '^\.tt-'
 ```
-Expected: **no output**. Every top-level class rule is a `.tt-` class. If a
-legacy name is still defined, find the task that was supposed to delete it
-(6.2 / 7.1 / 7.2) and finish that first — do not proceed.
+Expected: **no output**. Every top-level class rule is a `.tt-` class. Any
+legacy name still defined is either dead (delete it) or a live shared
+primitive (migrate it + its consumers to `.tt-*` first).
 
 - [ ] **Step 2: Delete the base layer and the bridge**
 
