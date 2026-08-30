@@ -12,12 +12,11 @@ interface MenuViewProps {
   onClearItem?: (itemId: string) => void;
   order: OrderItem[];
   voiceDock?: ReactNode;
-  voicePanel?: ReactNode;
 }
 
 type DietFilter = "all" | "veg" | "nonveg";
 
-export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onClearItem, order, voiceDock, voicePanel }: MenuViewProps) {
+export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onClearItem, order, voiceDock }: MenuViewProps) {
   const { categories, itemsByCategory, pairingsByItemId, loading, error, retry } = useMenu();
   const [activeCategory, setActiveCategory] = useState("");
   const [diet, setDiet] = useState<DietFilter>("all");
@@ -139,7 +138,6 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onCl
       )}
 
       {voiceDock && <div className="tt-voicedock">{voiceDock}</div>}
-      {voicePanel}
     </section>
   );
 }

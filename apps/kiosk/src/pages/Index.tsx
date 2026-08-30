@@ -562,28 +562,6 @@ const IndexInner = () => {
                 />
               ) : null
             }
-            voicePanel={
-              voiceEnabled ? (
-                <VoiceConversationPanel
-                  sessionId={voiceSessionId}
-                  turns={voiceTurns}
-                  order={order}
-                  getQuantity={getOrderQuantity}
-                  onClose={closeVoiceConversation}
-                  onDone={handleVoiceDone}
-                  onAddItem={(item) => handleAddToOrder(item, "voice")}
-                  onUpdateQuantity={(id, delta) => handleUpdateQuantity(id, delta, "voice")}
-                  onSelectItem={handleSelectItem}
-                  ttsHandle={voiceTtsHandleRef}
-                  voicePhase={voicePhase}
-                  onPressStatusChange={setVoicePressStatus}
-                  onToggleReady={(t) => { voiceToggleRef.current = t; }}
-                  transcript=""
-                  onExpandHistory={() => setCurrentScreen("voice-conversation")}
-                  onChip={handleVoiceChip}
-                />
-              ) : null
-            }
           />
         );
       case "popular":
@@ -759,6 +737,32 @@ const IndexInner = () => {
     >
       <div style={{ position: "relative", height: "100%" }}>
         {renderScreen()}
+
+        {/* The frozen STT/TTS host lives here, NOT inside a screen's render, so it
+            stays mounted across menu <-> voice-conversation. Unmounting it tears
+            down the voice session and leaves voiceToggleRef.current stale. The
+            06 dock it draws is position:fixed, so it needs no screen layout.
+            (spec: "VoiceConversationPanel stays mounted whenever voice is active".) */}
+        {voiceEnabled && (currentScreen === "menu" || currentScreen === "voice-conversation") && (
+          <VoiceConversationPanel
+            sessionId={voiceSessionId}
+            turns={voiceTurns}
+            order={order}
+            getQuantity={getOrderQuantity}
+            onClose={closeVoiceConversation}
+            onDone={handleVoiceDone}
+            onAddItem={(item) => handleAddToOrder(item, "voice")}
+            onUpdateQuantity={(id, delta) => handleUpdateQuantity(id, delta, "voice")}
+            onSelectItem={handleSelectItem}
+            ttsHandle={voiceTtsHandleRef}
+            voicePhase={voicePhase}
+            onPressStatusChange={setVoicePressStatus}
+            onToggleReady={(t) => { voiceToggleRef.current = t; }}
+            transcript=""
+            onExpandHistory={() => setCurrentScreen("voice-conversation")}
+            onChip={handleVoiceChip}
+          />
+        )}
 
         {paymentConfirmed && (
           <div style={{
