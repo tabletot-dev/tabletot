@@ -629,7 +629,9 @@ Synthesized from this review's findings. Each derives from a specific finding.
   - Surfaced by: D2
   - Files: `tabletot.css`, `IdleScreen.tsx`
   - Verify: K9 visual + reduced-motion off
-- [ ] **T13 (P2, human: ~1h / CC: ~20min)** — Wi-Fi CTA → Radix Dialog with static SVG QR + copy (heading "Join the café Wi-Fi", instruction line, visible Close)
+- [x] **T13 (P2, human: ~1h / CC: ~20min)** — Wi-Fi CTA → Radix Dialog with static SVG QR + copy (heading "Join the café Wi-Fi", instruction line, visible Close)
+  - Shipped `4b8a2f1`. QR pre-generated once with the `qrcode` npm CLI (`npx --yes`, not added as a dep) → `apps/kiosk/src/assets/wifi-qr.svg`, payload `WIFI:S:SILVER-GUEST;T:nopass;;`, standard 4-module quiet zone, imported as a URL (no svgr in this project). The plain `Wi-Fi: SILVER-GUEST` `<p>` is now a `<button>` opening a `@radix-ui/react-dialog` (T9 pattern): `Dialog.Title` "Join the café Wi-Fi", instruction line "Point your phone camera at the code — the network is open, no password needed.", `Dialog.Close` "Close". Reuses `.tt-modal` / `.tt-modal-scrim` / `.tt-modal-actions` / `.tt-btn--secondary`; new CSS is only `.tt-wifi-qr` sizing + `.tt-wifi-dialog` centring + a button-reset on `.tt-attract-wifi`. SSID is `const WIFI_SSID = "SILVER-GUEST"` with a `restaurant_settings` TODO. `IdleScreen.test.tsx` +1 (open → heading + instruction + Close → closes). 76 tests green, `pnpm build` bundles the SVG, eslint clean.
+  - NOT done here: final Attract layout — the Wi-Fi trigger is still the footer text position; T14 moves it to a subordinate secondary and removes the About link. Phone-scan verify is a device step (can't run here).
   - Surfaced by: D3 + design-review persona-03 copy gap
   - Files: `IdleScreen.tsx`, new `public/` or inline SVG, SSID constant
   - Verify: heading + instruction + visible Close present; scan on a phone, joins SILVER-GUEST
