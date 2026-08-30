@@ -6142,3 +6142,59 @@ body {
   color: var(--tt-ink-60);
   font-size: var(--tt-size-body);
 }
+
+/* "Still there?" idle nudge — non-blocking banner, no backdrop. A tap anywhere
+ * lands on the control underneath and also clears this (see Index.tsx). Coral
+ * fill + white label per the token spec; no shadow (glare) — the slide-in
+ * carries the attention instead. */
+.tt-idle-nudge {
+  position: fixed;
+  top: var(--tt-space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9990;
+  width: min(90vw, calc(520px * var(--tt-scale)));
+  padding: var(--tt-space-3) var(--tt-space-4);
+  border-radius: var(--tt-radius-card);
+  background: var(--tt-action);
+  color: var(--tt-paper);
+  font-family: var(--tt-font-text);
+  font-weight: 700;
+  font-size: var(--tt-size-dish);
+  text-align: center;
+  /* slide in once, then a brief head-shake every ~5s to re-catch the eye */
+  animation:
+    tt-idle-nudge-in var(--tt-dur-nav) var(--tt-ease),
+    tt-idle-nudge-shake 5s var(--tt-ease) 1.4s infinite;
+}
+
+/* customer tapped — fade + lift out, then React unmounts it (see Index.tsx) */
+.tt-idle-nudge--out {
+  pointer-events: none;
+  animation: tt-idle-nudge-out 200ms var(--tt-ease) forwards;
+}
+
+@keyframes tt-idle-nudge-in {
+  from { opacity: 0; transform: translate(-50%, calc(-1 * var(--tt-space-4))); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes tt-idle-nudge-out {
+  from { opacity: 1; transform: translate(-50%, 0); }
+  to   { opacity: 0; transform: translate(-50%, calc(-1 * var(--tt-space-3))); }
+}
+
+/* mostly still; the wobble lives in the first ~7% of each cycle */
+@keyframes tt-idle-nudge-shake {
+  0%, 7%, 100% { transform: translateX(-50%); }
+  1.5%         { transform: translate(calc(-50% - 5px), 0); }
+  3%           { transform: translate(calc(-50% + 5px), 0); }
+  4.5%         { transform: translate(calc(-50% - 3px), 0); }
+  6%           { transform: translate(calc(-50% + 2px), 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tt-idle-nudge { animation: tt-idle-nudge-fade var(--tt-dur-nav) var(--tt-ease); }
+  .tt-idle-nudge--out { animation: tt-idle-nudge-fade var(--tt-dur-nav) var(--tt-ease) reverse forwards; }
+  @keyframes tt-idle-nudge-fade { from { opacity: 0; } to { opacity: 1; } }
+}
