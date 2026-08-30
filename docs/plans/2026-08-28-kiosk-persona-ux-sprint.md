@@ -624,7 +624,8 @@ Synthesized from this review's findings. Each derives from a specific finding.
   - Verify: session-start once per path; carousel reduced-motion; keyboard — Tab
     reaches the CTA and each slide, no nested-button warning; `tsc` clean; E2E
     slide-tap; fits **800×1280 portrait** without scroll
-- [ ] **T12 (P2, human: ~30min / CC: ~10min)** — breathing pulse on primary CTA
+- [x] **T12 (P2, human: ~30min / CC: ~10min)** — breathing pulse on primary CTA
+  - Shipped `d3aa061`. CSS-only — `.tt-attract-cta::after` ring, `inset: 0` + `border-radius: inherit` + `2px solid var(--tt-action)`, `pointer-events: none`. `@keyframes tt-attract-cta-breathe` runs `transform: scale(1 → 1.05)` + `opacity: 0.6 → 0`, `2s ease-in-out infinite` (one-directional; scale snap-back happens at opacity 0 so it's invisible). No `box-shadow`. Added `position: relative` to `.tt-attract-cta`. `prefers-reduced-motion` block sets `animation: none; opacity: 0`. IdleScreen.tsx needed no change. No new test (trivial CSS, no logic). tsc + 75 tests green.
   - Surfaced by: D2
   - Files: `tabletot.css`, `IdleScreen.tsx`
   - Verify: K9 visual + reduced-motion off
