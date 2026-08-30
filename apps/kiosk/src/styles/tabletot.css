@@ -6139,3 +6139,94 @@ body {
 }
 .tt-voice-earlier--light .tt-voice-earlier-text { color: var(--tt-ink-60); }
 .tt-voice-earlier-more { flex: none; font-weight: 700; }
+
+/* ─── Voice · answer card (07 rec / 08 info) ───────────────────── */
+.tt-voice-answer {
+  border: 2px solid var(--tt-ink);
+  border-radius: var(--tt-radius-card);
+  overflow: hidden;
+  background: var(--tt-paper);
+}
+.tt-voice-answer-head {
+  display: flex;
+  align-items: center;
+  gap: var(--tt-space-2);
+  padding: var(--tt-space-3);
+  background: var(--tt-ink);
+  color: var(--tt-on-dark);
+}
+.tt-voice-answer-avatar {
+  flex: none;
+  width: calc(36px * var(--tt-scale));
+  height: calc(36px * var(--tt-scale));
+  border-radius: var(--tt-radius-pill);
+  background: var(--tt-action);
+}
+.tt-voice-answer-head-text {
+  margin: 0;
+  font-family: var(--tt-font-text);
+  font-weight: 700;
+  font-size: var(--tt-size-body);
+}
+.tt-voice-answer-body { padding: var(--tt-space-3); }
+.tt-voice-answer-row {
+  display: flex;
+  align-items: center;
+  gap: var(--tt-space-3);
+  padding: var(--tt-space-3) 0;
+}
+.tt-voice-answer-row + .tt-voice-answer-row { border-top: 2px solid var(--tt-line); }
+.tt-voice-answer-thumb {
+  flex: none;
+  width: calc(72px * var(--tt-scale));
+  height: calc(72px * var(--tt-scale));
+  border: 2px solid var(--tt-line);
+  border-radius: var(--tt-radius-chip);
+}
+.tt-voice-answer-meta { flex: 1; min-width: 0; }
+.tt-voice-answer-name {
+  margin: 0;
+  font-family: var(--tt-font-display);
+  font-weight: 700;
+  font-size: var(--tt-size-dish);
+  color: var(--tt-ink);
+}
+.tt-voice-answer-price {
+  margin: var(--tt-space-1) 0 0;
+  font-weight: 700;
+  color: var(--tt-ink-60);
+}
+.tt-voice-answer-add {
+  flex: none;
+  min-height: var(--tt-tap);
+  padding: 0 var(--tt-space-5);
+  border-radius: var(--tt-radius-card);
+  background: var(--tt-action);
+  color: var(--tt-paper);
+  font-family: var(--tt-font-text);
+  font-weight: 800;
+  font-size: var(--tt-size-cta);
+}
+.tt-voice-answer-stepper {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--tt-space-3);
+  padding: 0 var(--tt-space-3);
+  min-height: var(--tt-tap);
+  border: 2px solid var(--tt-line);
+  border-radius: var(--tt-radius-card);
+  font-weight: 700;
+}
+.tt-voice-answer-text {
+  margin: 0;
+  font-family: var(--tt-font-display);
+  font-weight: 700;
+  font-size: var(--tt-size-heading);
+  color: var(--tt-ink);
+}
+.tt-voice-answer-foot {
+  margin: var(--tt-space-3) 0 0;
+  color: var(--tt-ink-60);
+  font-size: var(--tt-size-meta);
+}
