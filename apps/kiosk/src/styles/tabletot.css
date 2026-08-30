@@ -6108,3 +6108,34 @@ body {
   font-size: var(--tt-size-body);
   color: var(--tt-ink);
 }
+
+/* ─── Voice · collapsed history strip ───────────────────────────── */
+.tt-voice-earlier {
+  display: flex;
+  align-items: baseline;
+  gap: var(--tt-space-2);
+  width: 100%;
+  padding: var(--tt-space-2) var(--tt-space-3);
+  border: 2px solid var(--tt-line);
+  border-radius: var(--tt-radius-chip);
+  background: transparent;
+  font-family: var(--tt-font-text);
+  font-size: var(--tt-size-meta);
+  text-align: left;
+}
+.tt-voice-earlier--dark { border-color: var(--tt-line-dark); color: var(--tt-on-dark-70); }
+.tt-voice-earlier-label {
+  flex: none;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tt-action);
+}
+.tt-voice-earlier-text {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.tt-voice-earlier--light .tt-voice-earlier-text { color: var(--tt-ink-60); }
+.tt-voice-earlier-more { flex: none; font-weight: 700; }
