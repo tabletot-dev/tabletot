@@ -1,4 +1,4 @@
-import { render, fireEvent, waitFor } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 
 // vi.hoisted so the fn exists before the hoisted vi.mock factory runs.
@@ -13,18 +13,17 @@ vi.mock("@/lib/voice/api", () => ({ startSession: vi.fn().mockResolvedValue({ vo
 import VoiceConversationPanel from "@/components/VoiceConversationPanel";
 
 it("still calls startSttPress(sessionId, handler, cartItems) when the mark is toggled", async () => {
-  let toggle = () => {};
+  let toggle: (() => void) | null = null;
   render(
     <VoiceConversationPanel
       sessionId="s1" turns={[]} order={[{ id: "a", name: "X", price: 10, quantity: 1 }]}
-      getQuantity={() => 0} onClose={() => {}} onDone={() => {}} onAddItem={() => {}}
-      onUpdateQuantity={() => {}} onSelectItem={() => {}}
+      onClose={() => {}} onDone={() => {}}
       voicePhase="dock" onPressStatusChange={() => {}} onToggleReady={(t) => { toggle = t; }}
-      transcript="" onExpandHistory={() => {}} onChip={() => {}}
+      onExpandHistory={() => {}} onChip={() => {}}
     />,
   );
-  await waitFor(() => expect(typeof toggle).toBe("function"));
-  toggle();
+  await waitFor(() => expect(toggle).not.toBeNull());
+  toggle!();
   await waitFor(() => {
     expect(startSttPress).toHaveBeenCalledWith("s1", expect.any(Function), [
       { id: "a", name: "X", qty: 1, price: 10 },

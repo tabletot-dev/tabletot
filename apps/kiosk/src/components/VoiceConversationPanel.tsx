@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import VoiceDockPanel from "@/components/voice/VoiceDockPanel";
-import type { MenuItem } from "@/data/menu";
 import type { DoneMessage, Turn } from "@/lib/voice/types";
 import { startSttPress, type SttPressHandle } from "@/lib/voice/sttClient";
 import type { TtsClientHandle } from "@/lib/voice/ttsClient";
@@ -20,12 +19,8 @@ interface VoiceConversationPanelProps {
   // modal closing — see docs/notes/voice-conversation-continuity.md.
   turns: Turn[];
   order: CartItem[];
-  getQuantity: (itemId: string) => number;
   onClose: () => void;
   onDone: (msg: DoneMessage) => void;
-  onAddItem: (item: MenuItem) => void;
-  onUpdateQuantity: (itemId: string, delta: number) => void;
-  onSelectItem: (item: MenuItem) => void;
   ttsHandle?: React.RefObject<TtsClientHandle | null>;
   // ── Redesign wiring (additive). The host keeps the frozen STT/TTS machine
   //    below and only reshapes what it renders: the 06 dock overlay, or
@@ -33,7 +28,6 @@ interface VoiceConversationPanelProps {
   voicePhase: "dock" | "answer" | "closed";
   onPressStatusChange: (s: "recording" | "processing" | "idle" | "error") => void;
   onToggleReady: (toggle: () => void) => void;
-  transcript?: string;
   onExpandHistory: () => void;
   onChip: (text: string) => void;
 }
@@ -42,12 +36,8 @@ export default function VoiceConversationPanel({
   sessionId,
   turns,
   order,
-  getQuantity: _getQuantity,
   onClose,
   onDone,
-  onAddItem: _onAddItem,
-  onUpdateQuantity: _onUpdateQuantity,
-  onSelectItem: _onSelectItem,
   ttsHandle,
   voicePhase,
   onPressStatusChange,
@@ -59,24 +49,30 @@ export default function VoiceConversationPanel({
   // Live STT text for the dock. Read off the existing `interim`/`final`
   // messages — no change to the STT call sequence.
   const [transcript, setTranscript] = useState("");
+  const [interim, setInterim] = useState(false);
 
   const sttRef = useRef<SttPressHandle | null>(null);
-  const streamEndRef = useRef<HTMLDivElement | null>(null);
   const pressStatusRef = useRef<PressStatus>("idle");
 
   useEffect(() => {
     pressStatusRef.current = pressStatus;
   }, [pressStatus]);
 
-  // Auto-scroll to bottom on new turns
+  // Clear the last press's transcript when a new capture starts, so stale
+  // final text doesn't linger into the next press. (handleToggle is frozen —
+  // this render-only effect stays out of it.)
   useEffect(() => {
-    streamEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [turns]);
+    if (pressStatus === "recording") {
+      setTranscript("");
+      setInterim(false);
+    }
+  }, [pressStatus]);
 
   const handleSttMessage = useCallback(
     (msg: Parameters<Parameters<typeof startSttPress>[1]>[0]) => {
       if (msg.type === "interim" || msg.type === "final") {
         setTranscript(msg.text);
+        setInterim(msg.type === "interim");
         return;
       }
       if (msg.type === "done") {
@@ -141,6 +137,7 @@ export default function VoiceConversationPanel({
     <VoiceDockPanel
       status={pressStatus === "processing" ? "processing" : "recording"}
       transcript={transcript}
+      interim={interim}
       turns={turns}
       onToggle={() => void handleToggle()}
       onClose={onClose}

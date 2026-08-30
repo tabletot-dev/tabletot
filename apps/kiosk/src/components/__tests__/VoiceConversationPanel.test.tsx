@@ -11,22 +11,17 @@ vi.mock("@/lib/voice/sttClient", () => ({
 
 // The dock's waveform hook opens its own mic stream — stub it out.
 vi.mock("@/hooks/useMicLevels", () => ({
-  useMicLevels: () => ({ levels: Array(24).fill(0), rms: 0 }),
+  useMicLevels: () => ({ levels: Array(24).fill(0), rms: 0, barsRef: () => {} }),
 }));
 
 const baseProps = {
   sessionId: "s1",
   turns: [],
   order: [],
-  getQuantity: () => 0,
   onClose: vi.fn(),
   onDone: vi.fn(),
-  onAddItem: vi.fn(),
-  onUpdateQuantity: vi.fn(),
-  onSelectItem: vi.fn(),
   onPressStatusChange: vi.fn(),
   onToggleReady: vi.fn(),
-  transcript: "",
   onExpandHistory: vi.fn(),
   onChip: vi.fn(),
 };

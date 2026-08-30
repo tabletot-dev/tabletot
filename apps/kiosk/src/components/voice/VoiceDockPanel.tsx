@@ -4,6 +4,8 @@ import EarlierStrip from "@/components/voice/EarlierStrip";
 interface VoiceDockPanelProps {
   status: "recording" | "processing" | "error";
   transcript: string;
+  /** True while `transcript` is a partial STT result — drives the trailing "…". */
+  interim?: boolean;
   turns: { role: "user" | "ai"; text: string }[];
   onToggle: () => void;
   onClose: () => void;
@@ -12,10 +14,12 @@ interface VoiceDockPanelProps {
 }
 
 const CHIPS = ["What's popular?", "Something for two", "No onion or garlic"];
+const BAR_COUNT = 24;
 
 export default function VoiceDockPanel({
   status,
   transcript,
+  interim = false,
   turns,
   onToggle,
   onClose,
@@ -23,8 +27,9 @@ export default function VoiceDockPanel({
   onChip,
 }: VoiceDockPanelProps) {
   const isRecording = status === "recording";
+  const isProcessing = status === "processing";
   const isError = status === "error";
-  const { levels, rms } = useMicLevels(isRecording);
+  const { rms, barsRef } = useMicLevels(isRecording);
   const idle = !isRecording || rms < 0.04;
 
   return (
@@ -32,10 +37,15 @@ export default function VoiceDockPanel({
       <div className="tt-voice-dock-status">
         {isError ? (
           <span className="tt-voice-dock-pill tt-voice-dock-pill--error">Voice unavailable</span>
+        ) : isProcessing ? (
+          <span className="tt-voice-dock-pill tt-voice-dock-pill--processing">● PROCESSING</span>
         ) : (
           <span className="tt-voice-dock-pill">● LISTENING</span>
         )}
-        <span className="tt-voice-dock-hint">Tap the mark again to stop</span>
+        {isRecording && (
+          <span className="tt-voice-dock-hint">Tap the mark again to stop</span>
+        )}
+        {isProcessing && <span className="tt-voice-dock-hint">One moment…</span>}
         <button type="button" className="tt-voice-dock-close" onClick={onClose}>
           Close ✕
         </button>
@@ -44,26 +54,29 @@ export default function VoiceDockPanel({
       <EarlierStrip turns={turns} tone="dark" onExpand={onExpandHistory} />
 
       <div className="tt-voice-dock-wave-row">
-        <div className={`tt-voice-wave${idle ? " tt-voice-wave--idle" : ""}`}>
-          {levels.map((h, i) => (
-            <span
-              key={i}
-              style={{ ["--h" as any]: Math.max(0.08, h) }}
-              className={i % 3 === 0 ? "is-accent" : ""}
-            />
-          ))}
-        </div>
         <button
           type="button"
           className="tt-voice-dock-mark"
           onClick={onToggle}
-          disabled={isError}
+          disabled={!isRecording}
           aria-label={isRecording ? "Stop — tap the mark" : "Voice mark"}
         />
+        <div className={`tt-voice-wave${idle ? " tt-voice-wave--idle" : ""}`}>
+          {Array.from({ length: BAR_COUNT }, (_, i) => (
+            <span
+              key={i}
+              ref={(el) => barsRef(el, i)}
+              className={i % 3 === 0 ? "is-accent" : ""}
+            />
+          ))}
+        </div>
       </div>
 
       {transcript !== "" && (
-        <p className="tt-voice-dock-transcript">{transcript}…</p>
+        <p className="tt-voice-dock-transcript">
+          {transcript}
+          {interim ? "…" : ""}
+        </p>
       )}
 
       <div className="tt-voice-dock-chips">

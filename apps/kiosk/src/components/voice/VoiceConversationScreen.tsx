@@ -12,6 +12,9 @@ interface VoiceConversationScreenProps {
   onSelectItem: (item: MenuItem) => void;
   onClose: () => void;
   onRequestSpeak: () => void;
+  // Shared unmatched-chip fallback (review minor 11): append a visual user turn,
+  // same as the dock's chips. "Back to the menu" / "Add both" stay special-cased.
+  onChip: (text: string) => void;
 }
 
 function SaidCard({ text }: { text: string }) {
@@ -31,28 +34,36 @@ export default function VoiceConversationScreen({
   onSelectItem,
   onClose,
   onRequestSpeak,
+  onChip,
 }: VoiceConversationScreenProps) {
   const [expanded, setExpanded] = useState(false);
 
-  const lastUser = [...turns].reverse().find((t) => t.role === "user");
-  const lastAi = [...turns].reverse().find((t) => t.role === "ai");
-  const earlier = turns.slice(0, -2);
-  const isRec = (lastAi?.matchedItems?.length ?? 0) > 0;
+  // The tail is not guaranteed to be [user, ai] — a visual-only chip turn or a
+  // no_speech press can leave it [..., ai, user]. Anchor on the last ai turn,
+  // then the last user turn before it (review I5).
+  const iAi = turns.map((t) => t.role).lastIndexOf("ai");
+  const iUser = iAi < 0 ? -1 : turns.slice(0, iAi).map((t) => t.role).lastIndexOf("user");
+  const lastAi = iAi >= 0 ? turns[iAi] : undefined;
+  const lastUser = iUser >= 0 ? turns[iUser] : undefined;
+  const earlier = turns.slice(0, iUser >= 0 ? iUser : iAi >= 0 ? iAi : turns.length);
+
+  const itemsShown = (lastAi?.matchedItems ?? []).slice(0, 3);
+  const isRec = itemsShown.length > 0;
 
   const chips = isRec
-    ? ["Add both", "Show me more", "Something warmer"]
+    ? [...(itemsShown.length === 2 ? ["Add both"] : []), "Show me more", "Something warmer"]
     : ["Show me lighter dishes", "Back to the menu"];
 
   const handleChip = (label: string) => {
     if (label === "Add both") {
-      lastAi?.matchedItems?.forEach((it) => onAddItem(it));
+      itemsShown.forEach((it) => onAddItem(it));
       return;
     }
     if (label === "Back to the menu") {
       onClose();
       return;
     }
-    onRequestSpeak();
+    onChip(label);
   };
 
   const renderAnswer = (turn: Turn, key?: string | number) => (
@@ -73,7 +84,7 @@ export default function VoiceConversationScreen({
         <div>
           <h1>Your conversation</h1>
           <p className="tt-voice-convo-sub">
-            {turns.length} messages · kept until you leave the table
+            {turns.length} {turns.length === 1 ? "message" : "messages"} · kept until you leave the table
           </p>
         </div>
         <button type="button" className="tt-voice-convo-close" onClick={onClose}>
@@ -101,20 +112,11 @@ export default function VoiceConversationScreen({
       ) : (
         <>
           {earlier.length > 0 && (
-            <>
-              <EarlierStrip
-                turns={earlier}
-                tone="light"
-                onExpand={() => setExpanded(true)}
-              />
-              <button
-                type="button"
-                className="tt-voice-convo-chip"
-                onClick={() => setExpanded(true)}
-              >
-                Show all
-              </button>
-            </>
+            <EarlierStrip
+              turns={earlier}
+              tone="light"
+              onExpand={() => setExpanded(true)}
+            />
           )}
           {lastUser && <SaidCard text={lastUser.text} />}
           {lastAi && renderAnswer(lastAi)}

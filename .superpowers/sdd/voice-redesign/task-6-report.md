@@ -348,3 +348,143 @@ deleted.
 - `pnpm --dir apps/kiosk test` → **Test Files 26 passed (26) · Tests 104 passed (104)**
 - `pnpm --dir apps/kiosk build` → `tsc --noEmit` clean + `vite build` ✓ 2495 modules,
   built in 2.93s
+
+---
+
+## Final fix wave
+
+Branch `kiosk-v1-sprint-6-7`. One pass, one commit. Every item from
+`final-fix-brief.md` (C1, C2, I2–I5, minors 1–16). I1 left as accepted.
+
+### Critical
+
+**C1 — hoist `VoiceOrderButton` so the voice session survives the answer screen.**
+`VoiceOrderButton` (owns the backend session; unmount cleanup calls `endSession`)
+moved out of `MenuView`'s `voiceDock` slot to the Index top-level overlay block
+(`Index.tsx:764–784`), wrapped in `<div className="tt-voicedock">`. Mounted for
+`voiceEnabled && (currentScreen === "menu" || "voice-conversation" || "item-detail")`;
+hidden (not unmounted) off the menu via `tt-voicedock--hidden` (`Index.tsx:773`).
+`voiceDock` prop removed from the `<MenuView>` call and from `MenuViewProps` /
+the destructure / the render (`MenuView.tsx:8–19,~138`; unused `ReactNode` import
+dropped). `.tt-voicedock` rebuilt as `position: fixed; right: var(--tt-gutter);
+bottom: calc(var(--tt-tap-primary) + var(--tt-space-4)); z-index: 9970` +
+`.tt-voicedock--hidden { display:none }` (`tabletot.css:3876–3891`) — it no longer
+sits in MenuView's flow. The `setVoiceTurns([])` effect on `voiceSessionId` is
+untouched (not guarded), as instructed.
+
+**C2 — the dock's `Close ✕` is now live.**
+New `voiceDockDismissed` state (`Index.tsx:222`). `voicePhase` consults it first:
+`voiceDockDismissed ? "closed" : …` (`Index.tsx:446–452`). New `handleVoiceDockClose`
+(`Index.tsx:459–464`): if `voicePressStatus === "recording"` it calls
+`voiceToggleRef.current?.()` to stop capture, then `setVoiceDockDismissed(true)` +
+close; passed to `<VoiceConversationPanel onClose>` (`Index.tsx:792`). Cleared on
+the next capture in the new `handleVoicePressStatusChange` wrapper — sets
+`voiceDockDismissed=false` when the incoming status is `"recording"`, then
+`setVoicePressStatus` (`Index.tsx:467–473`), wired at `Index.tsx:796`. The
+`processing` case: the answer-screen auto-switch effect is now gated on
+`!voiceDockDismissed` (`Index.tsx:240–250`), so a `done` landing after a Close
+during processing no longer yanks the guest onto the answer screen.
+
+### Important
+
+**I2 — `useMicLevels` no longer `setState`s per frame.** `useMicLevels.ts`
+rewritten: the rAF loop keeps `smoothed` in a closure and writes each bar's
+height straight to the DOM via a `barsRef` callback ref
+(`bars[i].style.setProperty("--h", …)`, `useMicLevels.ts:53`). React state now
+carries only a coarse `rms` bucket (`0`/`1`), pushed only when it flips
+(`useMicLevels.ts:58–59`). Return shape kept as `{ levels, rms, barsRef }` —
+`levels` stays a zeroed array for the inactive / reduced-motion / denied paths.
+`VoiceDockPanel.tsx` renders a fixed 24 `<span>`s with `ref={(el) => barsRef(el, i)}`
+and no inline style (`VoiceDockPanel.tsx:64–70`). Test mocks updated to return
+`barsRef` (`VoiceDockPanel.test.tsx:6`, `VoiceConversationPanel.test.tsx:14`);
+`useMicLevels.test.ts` still passes unchanged (its assertions are all on the
+inactive/denied `levels`/`rms` shape).
+
+**I3 — dock shows a distinct `processing` state.** `VoiceDockPanel.tsx` status is
+now three-way (`VoiceDockPanel.tsx:29–48`): `processing` → `● PROCESSING` pill +
+`One moment…` hint, mic mark disabled, no live waveform (bars render static);
+`recording` → unchanged; `error` → unchanged. Mark `disabled={!isRecording}`
+(`VoiceDockPanel.tsx:61`). Added `.tt-voice-dock-pill--processing`
+(`tabletot.css:5823–5829`). New tests cover the processing pill/hint/disabled
+mark (`VoiceDockPanel.test.tsx`).
+
+**I4 — `Add both` only adds shown items.** `VoiceConversationScreen.tsx`:
+`itemsShown = (lastAi?.matchedItems ?? []).slice(0, 3)` (`:50`); `Add both`
+iterates `itemsShown` (`:59`); the chip renders only when
+`itemsShown.length === 2` (`:54`). For 3 shown the chip is dropped.
+
+**I5 — earlier/recent split no longer assumes the tail is `[user, ai]`.**
+`VoiceConversationScreen.tsx:44–48` now anchors on the last `ai` turn via
+`turns.map(t => t.role).lastIndexOf("ai")`, then the last `user` before it, and
+`earlier = turns.slice(0, iUser >= 0 ? iUser : iAi >= 0 ? iAi : turns.length)`.
+
+### Minors
+
+1. **Dead `streamEndRef`** — removed the ref and the `scrollIntoView`-on-`[turns]`
+   effect from `VoiceConversationPanel.tsx` (the target `<div>` was already gone).
+2. **Dead `transcript` prop** — removed from `VoiceConversationPanelProps`, the
+   `Index.tsx` call site (`transcript=""`), and both test files' props
+   (`VoiceConversationPanel.test.tsx`, `.frozen.test.tsx`). Internal
+   `useState("")` keeps the name.
+3. **Four dead `_`-prefixed host props** — `getQuantity`/`onAddItem`/
+   `onUpdateQuantity`/`onSelectItem` removed from the interface, the destructure,
+   the `Index.tsx` `<VoiceConversationPanel>` call, and the two test files. Unused
+   `MenuItem` import dropped from `VoiceConversationPanel.tsx`.
+4. **Transcript cleared between presses** — new render-only effect in
+   `VoiceConversationPanel.tsx:63–68`: on `pressStatus === "recording"`,
+   `setTranscript("")` + `setInterim(false)`. `handleToggle` untouched.
+5. **Ellipsis only on partials** — `VoiceConversationPanel` now tracks `interim`
+   (`:52`, set beside the frozen `setTranscript(msg.text)` at `:73–75`) and passes
+   `interim={interim}` to the dock (`:140`); `VoiceDockPanel` renders the trailing
+   `…` only when `interim` (`VoiceDockPanel.tsx:76–79`). New test covers both.
+6. **Error state drops the stop hint** — the `Tap the mark again to stop` hint
+   now renders only for `recording` (`VoiceDockPanel.tsx:44–46`); `error` and
+   `processing` don't show it. Test asserts absence.
+7. **Mic mark on the left** — DOM order in `.tt-voice-dock-wave-row` swapped so
+   the `.tt-voice-dock-mark` button precedes the waveform
+   (`VoiceDockPanel.tsx:54–71`).
+8. **`["--h" as any]`** — gone: I2's ref-based writes removed the inline style
+   object entirely.
+9. **Pluralisation** — `VoiceConversationScreen.tsx:87`:
+   `{turns.length} {turns.length === 1 ? "message" : "messages"}`.
+10. **Redundant "Show all"** — deleted the standalone `Show all` button under the
+    `EarlierStrip` in `VoiceConversationScreen.tsx` (the strip is itself
+    tap-to-expand). `Show recent` kept as the single collapse affordance in the
+    expanded view.
+11. **Chip fallback consistency** — `VoiceConversationScreen` now takes an
+    `onChip` prop; unmatched chip labels call `onChip(label)` (`:66`) instead of
+    `onRequestSpeak()`. `Index.tsx` passes the same `handleVoiceChip`
+    (append-a-user-turn) to both the convo screen (`:539`) and the dock panel.
+    `Back to the menu` / `Add both` stay special-cased. `onChip: vi.fn()` added
+    to the screen test's `base`.
+12. **Leftover integration comments in CSS** — removed the two "Paste this block
+    into apps/kiosk/src/styles/tabletot.css …" lines (`tabletot.css`, Task 4 and
+    Task 5 headers).
+13. **Token drift in the new voice CSS** — `border-radius: 999px` →
+    `var(--tt-radius-pill)` in `.tt-voice-convo-close`, `.tt-voice-convo-chip`,
+    `.tt-voice-speakdock-mark`; `var(--tt-font-display, "Sora", sans-serif)` →
+    `var(--tt-font-display)` in `.tt-voice-convo-head h1`;
+    `.tt-voice-speakdock-mark` `40px` w/h → `calc(36px * var(--tt-scale))`.
+14. **Sticky convo chips were transparent** — `.tt-voice-convo-chips` given
+    `background: var(--tt-field)` + `padding: var(--tt-space-2) 0`
+    (`tabletot.css`).
+15. **Test isolation** — `VoiceConversationScreen.test.tsx` got a
+    `beforeEach(() => vi.clearAllMocks())`.
+16. **Frozen guard test tidy** — `VoiceConversationPanel.frozen.test.tsx`:
+    `let toggle: (() => void) | null = null`, `await waitFor(() =>
+    expect(toggle).not.toBeNull())` then `toggle!()`, unused `fireEvent` import
+    removed. The real `startSttPress(sessionId, handler, cartItems)` assertion
+    kept.
+
+### Not done (per brief)
+
+Real `backendStatus`/error signal wiring; deleting the ~200 lines of older dead
+`.tt-voice-*` CSS; graphify refresh.
+
+### Verify
+
+- `pnpm --dir apps/kiosk test` → **Test Files 26 passed (26) · Tests 106 passed
+  (106)** (104 + 2 new VoiceDockPanel tests for the processing state and the
+  interim ellipsis).
+- `pnpm --dir apps/kiosk build` → `tsc --noEmit -p tsconfig.app.json` clean +
+  `vite build` ✓ 2495 modules, built in ~2.9s.

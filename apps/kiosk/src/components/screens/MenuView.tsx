@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, type ReactNode } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useMenu } from "@/lib/menuStore";
 import DishCard from "@/components/DishCard";
 import DietMark from "@/components/DietMark";
@@ -11,12 +11,11 @@ interface MenuViewProps {
   onUpdateQuantity: (itemId: string, delta: number, source: Source) => void;
   onClearItem?: (itemId: string) => void;
   order: OrderItem[];
-  voiceDock?: ReactNode;
 }
 
 type DietFilter = "all" | "veg" | "nonveg";
 
-export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onClearItem, order, voiceDock }: MenuViewProps) {
+export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onClearItem, order }: MenuViewProps) {
   const { categories, itemsByCategory, pairingsByItemId, loading, error, retry } = useMenu();
   const [activeCategory, setActiveCategory] = useState("");
   const [diet, setDiet] = useState<DietFilter>("all");
@@ -136,8 +135,6 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onCl
           ))}
         </div>
       )}
-
-      {voiceDock && <div className="tt-voicedock">{voiceDock}</div>}
     </section>
   );
 }

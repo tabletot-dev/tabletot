@@ -216,6 +216,10 @@ const IndexInner = () => {
   // speak-dock can start a capture without touching the frozen machine.
   const voiceToggleRef = useRef<(() => void) | null>(null);
   const [voiceSessionId, setVoiceSessionId] = useState<string | null>(null);
+  // The guest tapped the dock's Close ✕. Consulted first in voicePhase so the
+  // dock hides immediately even while a capture is still ending; cleared when
+  // the next capture starts (see onPressStatusChange handler below).
+  const [voiceDockDismissed, setVoiceDockDismissed] = useState(false);
   // Voice transcript lives here, not inside VoiceConversationPanel, so it
   // survives the modal closing/reopening. Reset only when the voice session
   // itself changes or ends — see docs/notes/voice-conversation-continuity.md.
@@ -231,12 +235,19 @@ const IndexInner = () => {
   const prevVoiceTurnCountRef = useRef(0);
   useEffect(() => {
     const last = voiceTurns[voiceTurns.length - 1];
-    if (voiceTurns.length > prevVoiceTurnCountRef.current && last?.role === "ai") {
+    // A Close during recording/processing sets voiceDockDismissed — honour it
+    // here too, so a done that lands after the guest closed the dock doesn't
+    // yank them onto the answer screen (review C2).
+    if (
+      voiceTurns.length > prevVoiceTurnCountRef.current &&
+      last?.role === "ai" &&
+      !voiceDockDismissed
+    ) {
       setVoiceAnswerOpen(true);
       setCurrentScreen("voice-conversation");
     }
     prevVoiceTurnCountRef.current = voiceTurns.length;
-  }, [voiceTurns, setCurrentScreen]);
+  }, [voiceTurns, setCurrentScreen, voiceDockDismissed]);
 
   const prevVoiceOrderRef = useRef<OrderSnapshot | null>(null);
   const voiceTtsHandleRef = useRef<TtsClientHandle | null>(null);
@@ -434,11 +445,32 @@ const IndexInner = () => {
   // while a capture is live, and nothing once the answer view has taken over.
   const lastVoiceTurn = voiceTurns[voiceTurns.length - 1];
   const voicePhase: "dock" | "answer" | "closed" =
-    voicePressStatus === "recording" || voicePressStatus === "processing"
-      ? "dock"
-      : lastVoiceTurn?.role === "ai" && voiceAnswerOpen
-        ? "answer"
-        : "closed";
+    voiceDockDismissed
+      ? "closed"
+      : voicePressStatus === "recording" || voicePressStatus === "processing"
+        ? "dock"
+        : lastVoiceTurn?.role === "ai" && voiceAnswerOpen
+          ? "answer"
+          : "closed";
+
+  // The dock's Close ✕. Stop any live capture first, then hide the dock. A
+  // Close during "processing" is covered by the voiceDockDismissed gate on the
+  // answer-screen auto-switch effect above.
+  const handleVoiceDockClose = useCallback(() => {
+    if (voicePressStatus === "recording") voiceToggleRef.current?.();
+    setVoiceDockDismissed(true);
+    setVoiceAnswerOpen(false);
+    setCurrentScreen("menu");
+  }, [voicePressStatus, setCurrentScreen]);
+
+  // Clear the dismissal as soon as the next capture starts.
+  const handleVoicePressStatusChange = useCallback(
+    (s: "recording" | "processing" | "idle" | "error") => {
+      if (s === "recording") setVoiceDockDismissed(false);
+      setVoicePressStatus(s);
+    },
+    [],
+  );
 
   const handleVoiceChip = useCallback((text: string) => {
     // No pipeline entry point for injected text without editing frozen code,
@@ -535,6 +567,7 @@ const IndexInner = () => {
             onSelectItem={handleSelectItem}
             onClose={closeVoiceConversation}
             onRequestSpeak={() => setCurrentScreen("menu")}
+            onChip={handleVoiceChip}
           />
         );
 
@@ -546,19 +579,6 @@ const IndexInner = () => {
             onUpdateQuantity={handleUpdateQuantity}
             onClearItem={removeItem}
             order={order}
-            voiceDock={
-              voiceEnabled ? (
-                <VoiceOrderButton
-                  onDone={handleVoiceDone}
-                  order={order}
-                  restaurantId={RESTAURANT_ID}
-                  tableId={TABLE_ID}
-                  onOpenConversation={() => voiceToggleRef.current?.()}
-                  onSessionReady={setVoiceSessionId}
-                  onTtsReady={(h) => { voiceTtsHandleRef.current = h; }}
-                />
-              ) : null
-            }
           />
         );
       case "popular":
@@ -740,22 +760,41 @@ const IndexInner = () => {
             down the voice session and leaves voiceToggleRef.current stale. The
             06 dock it draws is position:fixed, so it needs no screen layout.
             (spec: "VoiceConversationPanel stays mounted whenever voice is active".) */}
+        {/* The VoiceOrderButton owns the backend voice session (its unmount
+            cleanup calls endSession). It must NOT unmount when the guest leaves
+            the menu for the answer screen or an item detail, or the session
+            dies and the whole thread resets on return (review C1). Mounted for
+            all three screens; hidden (not unmounted) off the menu. */}
+        {voiceEnabled &&
+          (currentScreen === "menu" ||
+            currentScreen === "voice-conversation" ||
+            currentScreen === "item-detail") && (
+            <div
+              className={`tt-voicedock${currentScreen !== "menu" ? " tt-voicedock--hidden" : ""}`}
+            >
+              <VoiceOrderButton
+                onDone={handleVoiceDone}
+                order={order}
+                restaurantId={RESTAURANT_ID}
+                tableId={TABLE_ID}
+                onOpenConversation={() => voiceToggleRef.current?.()}
+                onSessionReady={setVoiceSessionId}
+                onTtsReady={(h) => { voiceTtsHandleRef.current = h; }}
+              />
+            </div>
+          )}
+
         {voiceEnabled && (currentScreen === "menu" || currentScreen === "voice-conversation") && (
           <VoiceConversationPanel
             sessionId={voiceSessionId}
             turns={voiceTurns}
             order={order}
-            getQuantity={getOrderQuantity}
-            onClose={closeVoiceConversation}
+            onClose={handleVoiceDockClose}
             onDone={handleVoiceDone}
-            onAddItem={(item) => handleAddToOrder(item, "voice")}
-            onUpdateQuantity={(id, delta) => handleUpdateQuantity(id, delta, "voice")}
-            onSelectItem={handleSelectItem}
             ttsHandle={voiceTtsHandleRef}
             voicePhase={voicePhase}
-            onPressStatusChange={setVoicePressStatus}
+            onPressStatusChange={handleVoicePressStatusChange}
             onToggleReady={(t) => { voiceToggleRef.current = t; }}
-            transcript=""
             onExpandHistory={() => setCurrentScreen("voice-conversation")}
             onChip={handleVoiceChip}
           />

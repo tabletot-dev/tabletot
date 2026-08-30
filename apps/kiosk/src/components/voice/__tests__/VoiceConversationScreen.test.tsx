@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import VoiceConversationScreen from "@/components/voice/VoiceConversationScreen";
 import type { Turn } from "@/lib/voice/types";
 
@@ -10,7 +10,13 @@ const base = {
   onSelectItem: vi.fn(),
   onClose: vi.fn(),
   onRequestSpeak: vi.fn(),
+  onChip: vi.fn(),
 };
+
+// Shared vi.fn()s across the file — reset between tests so call counts don't leak.
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 const recTurns: Turn[] = [
   { role: "user", text: "Something light, no dairy" },
   { role: "ai", text: "Two dairy-free picks.", matchedItems: [

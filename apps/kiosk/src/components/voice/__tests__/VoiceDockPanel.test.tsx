@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import VoiceDockPanel from "@/components/voice/VoiceDockPanel";
 
 vi.mock("@/hooks/useMicLevels", () => ({
-  useMicLevels: () => ({ levels: Array(24).fill(0), rms: 0 }),
+  useMicLevels: () => ({ levels: Array(24).fill(0), rms: 0, barsRef: () => {} }),
 }));
 
 const base = {
@@ -48,5 +48,23 @@ describe("VoiceDockPanel", () => {
     render(<VoiceDockPanel {...base} status="error" />);
     expect(screen.getByText(/voice unavailable/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /mark/i })).toBeDisabled();
+    expect(screen.queryByText(/again to stop/i)).not.toBeInTheDocument();
+  });
+
+  it("processing status shows a distinct pill, disables the mark, drops the stop hint", () => {
+    render(<VoiceDockPanel {...base} status="processing" />);
+    expect(screen.getByText(/processing/i)).toBeInTheDocument();
+    expect(screen.getByText(/one moment/i)).toBeInTheDocument();
+    expect(screen.queryByText(/again to stop/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /mark/i })).toBeDisabled();
+  });
+
+  it("shows the trailing ellipsis only while the transcript is interim", () => {
+    const { rerender } = render(
+      <VoiceDockPanel {...base} transcript="two flat whites" interim />,
+    );
+    expect(screen.getByText("two flat whites…")).toBeInTheDocument();
+    rerender(<VoiceDockPanel {...base} transcript="two flat whites" interim={false} />);
+    expect(screen.getByText("two flat whites")).toBeInTheDocument();
   });
 });

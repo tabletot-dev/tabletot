@@ -3874,15 +3874,20 @@ body {
 }
 
 .tt-voicedock {
-  flex: none;
+  /* Hoisted out of MenuView's flow to Index top level so the voice session
+     survives the answer screen (review C1) — so it positions itself now.
+     Sits bottom-right, clear of the order bar; below the .tt-voice-dock
+     overlay (z 9980). */
+  position: fixed;
+  right: var(--tt-gutter);
+  bottom: calc(var(--tt-tap-primary) + var(--tt-space-4));
+  z-index: 9970;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--tt-space-3) var(--tt-gutter);
-  /* Last child of .tt-scroll — margin-bottom (unlike the container's
-     padding-bottom) is honoured at scroll end, so the mic clears the
-     docked status strip / cart bar instead of butting against them. */
-  margin-bottom: var(--tt-space-2);
+  justify-content: flex-end;
+}
+
+.tt-voicedock--hidden {
+  display: none;
 }
 
 .tt-statusstrip {
@@ -5769,7 +5774,6 @@ body {
 }
 
 /* Task 4 — VoiceDockPanel (screen 06 recording overlay).
-   Paste this block into apps/kiosk/src/styles/tabletot.css during integration.
    Every colour is a --tt-* token; 2px solid borders only; no box-shadow,
    no backdrop-filter. */
 
@@ -5812,6 +5816,14 @@ body {
   background: transparent;
   color: var(--tt-on-dark);
   border: 2px solid var(--tt-line-dark);
+}
+
+/* Processing / thinking — distinct from the coral LISTENING pill (review I3). */
+.tt-voice-dock-pill--processing {
+  background: transparent;
+  color: var(--tt-on-dark);
+  border: 2px solid var(--tt-line-dark);
+  opacity: 0.8;
 }
 
 .tt-voice-dock-hint {
@@ -5904,7 +5916,6 @@ body {
 }
 
 /* Task 5 — VoiceConversationScreen (screens 07 / 08)
-   Paste into apps/kiosk/src/styles/tabletot.css at integration time.
    Tokens only (var(--tt-*)), 2px solid borders, zero box-shadow / backdrop-filter. */
 
 .tt-voice-convo {
@@ -5925,7 +5936,7 @@ body {
 
 .tt-voice-convo-head h1 {
   margin: 0;
-  font-family: var(--tt-font-display, "Sora", sans-serif);
+  font-family: var(--tt-font-display);
   font-size: var(--tt-size-heading);
   color: var(--tt-ink);
 }
@@ -5941,7 +5952,7 @@ body {
   min-height: var(--tt-tap);
   padding: 0 var(--tt-space-3);
   border: 2px solid var(--tt-line);
-  border-radius: 999px;
+  border-radius: var(--tt-radius-pill);
   background: transparent;
   color: var(--tt-ink);
   font-size: var(--tt-size-meta);
@@ -5975,13 +5986,16 @@ body {
   gap: var(--tt-space-2);
   position: sticky;
   bottom: var(--tt-tap);
+  /* Opaque so scrolling thread content doesn't show through the sticky row. */
+  background: var(--tt-field);
+  padding: var(--tt-space-2) 0;
 }
 
 .tt-voice-convo-chip {
   min-height: var(--tt-tap);
   padding: 0 var(--tt-space-3);
   border: 2px solid var(--tt-line);
-  border-radius: 999px;
+  border-radius: var(--tt-radius-pill);
   background: transparent;
   color: var(--tt-ink);
   font-size: var(--tt-size-meta);
@@ -6004,9 +6018,9 @@ body {
 
 .tt-voice-speakdock-mark {
   flex: none;
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
+  width: calc(36px * var(--tt-scale));
+  height: calc(36px * var(--tt-scale));
+  border-radius: var(--tt-radius-pill);
   background: var(--tt-action);
 }
 
