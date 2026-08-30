@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
-import * as Dialog from "@radix-ui/react-dialog";
-import DietMark from "@/components/DietMark";
-import { itemImageBackground } from "@/lib/menuImages";
+import VoiceDockPanel from "@/components/voice/VoiceDockPanel";
 import type { MenuItem } from "@/data/menu";
 import type { DoneMessage, Turn } from "@/lib/voice/types";
 import { startSttPress, type SttPressHandle } from "@/lib/voice/sttClient";
@@ -30,21 +27,38 @@ interface VoiceConversationPanelProps {
   onUpdateQuantity: (itemId: string, delta: number) => void;
   onSelectItem: (item: MenuItem) => void;
   ttsHandle?: React.RefObject<TtsClientHandle | null>;
+  // ── Redesign wiring (additive). The host keeps the frozen STT/TTS machine
+  //    below and only reshapes what it renders: the 06 dock overlay, or
+  //    nothing when the full-screen answer view (07/08) has taken over.
+  voicePhase: "dock" | "answer" | "closed";
+  onPressStatusChange: (s: "recording" | "processing" | "idle" | "error") => void;
+  onToggleReady: (toggle: () => void) => void;
+  transcript?: string;
+  onExpandHistory: () => void;
+  onChip: (text: string) => void;
 }
 
 export default function VoiceConversationPanel({
   sessionId,
   turns,
   order,
-  getQuantity,
+  getQuantity: _getQuantity,
   onClose,
   onDone,
-  onAddItem,
-  onUpdateQuantity,
-  onSelectItem,
+  onAddItem: _onAddItem,
+  onUpdateQuantity: _onUpdateQuantity,
+  onSelectItem: _onSelectItem,
   ttsHandle,
+  voicePhase,
+  onPressStatusChange,
+  onToggleReady,
+  onExpandHistory,
+  onChip,
 }: VoiceConversationPanelProps) {
   const [pressStatus, setPressStatus] = useState<PressStatus>("idle");
+  // Live STT text for the dock. Read off the existing `interim`/`final`
+  // messages — no change to the STT call sequence.
+  const [transcript, setTranscript] = useState("");
 
   const sttRef = useRef<SttPressHandle | null>(null);
   const streamEndRef = useRef<HTMLDivElement | null>(null);
@@ -61,6 +75,10 @@ export default function VoiceConversationPanel({
 
   const handleSttMessage = useCallback(
     (msg: Parameters<Parameters<typeof startSttPress>[1]>[0]) => {
+      if (msg.type === "interim" || msg.type === "final") {
+        setTranscript(msg.text);
+        return;
+      }
       if (msg.type === "done") {
         // Index.tsx appends this exchange to the persistent thread.
         onDone(msg);
@@ -107,165 +125,27 @@ export default function VoiceConversationPanel({
     };
   }, []);
 
-  const canSpeak = sessionId !== null && pressStatus !== "processing";
+  // ── Lift the frozen toggle + expose derived press status to Index.tsx.
+  //    These read existing state; they do not touch the STT/TTS sequence.
+  useEffect(() => {
+    onToggleReady(handleToggle);
+  }, [handleToggle, onToggleReady]);
 
-  const inputLabel =
-    pressStatus === "recording"
-      ? "Listening…"
-      : pressStatus === "processing"
-        ? "Processing…"
-        : !sessionId
-          ? "Connecting…"
-          : "Tap to speak";
+  useEffect(() => {
+    onPressStatusChange(pressStatus);
+  }, [pressStatus, onPressStatusChange]);
+
+  if (voicePhase !== "dock") return null;
 
   return (
-    <Dialog.Root open onOpenChange={(next) => { if (!next) onClose(); }}>
-      <Dialog.Portal>
-        {/* Opaque backdrop + Radix focus trap / scroll lock make the menu
-            behind genuinely inert — not just visually behind a z-index. */}
-        <Dialog.Overlay className="tt-voice-conversation-backdrop" />
-        <Dialog.Content asChild aria-label="Voice conversation" aria-describedby={undefined}>
-          <motion.section
-            className="tt-voice-conversation-panel"
-            initial={{ opacity: 0, y: 18, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 18, scale: 0.98 }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <div className="tt-voice-conversation-head">
-              <div>
-                <p className="eyebrow">Voice channel</p>
-                <Dialog.Title asChild>
-                  <h2>Ask Tabletot</h2>
-                </Dialog.Title>
-              </div>
-              <Dialog.Close asChild>
-                <button
-                  type="button"
-                  className="tt-voice-conversation-close"
-                  aria-label="Close voice conversation"
-                >
-                  X
-                </button>
-              </Dialog.Close>
-            </div>
-
-            <div className="tt-voice-conversation-stream">
-        {turns.length === 0 && (
-          <>
-            <div className="tt-voice-chat-row ai">
-              <div className="tt-voice-chat-bubble">
-                Tell me what you need. I can recommend meals by appetite, diet,
-                group size, allergens, or pairings.
-              </div>
-            </div>
-            <div className="tt-voice-prompt-grid">
-              <span>Suggest a post-gym meal</span>
-              <span>Recommend for three people</span>
-              <span>High calorie or light?</span>
-              <span>One veg, one non-veg</span>
-            </div>
-          </>
-        )}
-
-        {turns.map((turn, i) => (
-          <div key={i}>
-            <div className={`tt-voice-chat-row ${turn.role}`}>
-              <div className="tt-voice-chat-bubble">{turn.text}</div>
-            </div>
-
-            {turn.role === "ai" && turn.matchedItems && turn.matchedItems.length > 0 && (
-              <div className="tt-voice-recommendation-grid">
-                {turn.matchedItems.slice(0, 2).map((item) => (
-                  <article key={item.id} className="tt-voice-recommendation-card">
-                    <button
-                      type="button"
-                      className="tt-voice-recommendation-media"
-                      style={{ background: itemImageBackground(item) }}
-                      onClick={() => onSelectItem(item)}
-                      aria-label={`View ${item.name}`}
-                    />
-                    <div className="tt-voice-recommendation-body">
-                      <p className="eyebrow">Recommended</p>
-                      <div className="tt-voice-recommendation-title">
-                        <DietMark isVeg={item.is_veg} compact />
-                        <strong>{item.name}</strong>
-                      </div>
-                      <div className="tt-voice-recommendation-action">
-                        <span>₹{item.price}</span>
-                        {getQuantity(item.id) > 0 ? (
-                          <div
-                            className="card-stepper tt-voice-stepper"
-                            aria-label={`${item.name} quantity`}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => onUpdateQuantity(item.id, -1)}
-                              aria-label={`Decrease ${item.name}`}
-                            >
-                              −
-                            </button>
-                            <span>{getQuantity(item.id)}</span>
-                            <button
-                              type="button"
-                              onClick={() => onUpdateQuantity(item.id, 1)}
-                              aria-label={`Increase ${item.name}`}
-                            >
-                              +
-                            </button>
-                          </div>
-                        ) : (
-                          <button type="button" onClick={() => onAddItem(item)}>
-                            Add
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-
-        <div ref={streamEndRef} />
-      </div>
-
-      <div className={`tt-voice-conversation-input${pressStatus === "recording" ? " is-listening" : ""}`}>
-        <div className="tt-voice-input-status">
-          <span className="tt-voice-live-dot" aria-hidden="true" />
-          <span>{inputLabel}</span>
-        </div>
-        <div className="tt-voice-frequency-meter" aria-hidden="true">
-          {Array.from({ length: 18 }, (_, i) => (
-            <span key={i} style={{ "--i": i } as React.CSSProperties} />
-          ))}
-        </div>
-        <button
-          type="button"
-          className={`tt-voice-stop-btn${pressStatus === "idle" ? "" : " muted"}`}
-          onClick={() => void handleToggle()}
-          disabled={!canSpeak}
-          aria-label={pressStatus === "recording" ? "Stop recording" : "Start recording"}
-        >
-          {pressStatus === "processing" ? (
-            <svg className="tt-voice-ptt-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <circle
-                cx="12" cy="12" r="10"
-                stroke="currentColor" strokeWidth="2"
-                strokeDasharray="31.4" strokeDashoffset="10"
-              />
-            </svg>
-          ) : pressStatus === "recording" ? (
-            "Stop"
-          ) : (
-            "Speak"
-          )}
-        </button>
-      </div>
-          </motion.section>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <VoiceDockPanel
+      status={pressStatus === "processing" ? "processing" : "recording"}
+      transcript={transcript}
+      turns={turns}
+      onToggle={() => void handleToggle()}
+      onClose={onClose}
+      onExpandHistory={onExpandHistory}
+      onChip={onChip}
+    />
   );
 }

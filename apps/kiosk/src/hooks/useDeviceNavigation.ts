@@ -7,7 +7,7 @@ import { loadCart, saveCart } from "@/lib/cartStorage";
 
 export type ScreenType =
   | "idle"
-  | "listening"
+  | "voice-conversation"
   | "menu"
   | "popular"
   | "item-detail"

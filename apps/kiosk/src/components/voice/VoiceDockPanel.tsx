@@ -48,7 +48,7 @@ export default function VoiceDockPanel({
           {levels.map((h, i) => (
             <span
               key={i}
-              style={{ height: `${Math.max(8, h * 100)}%` }}
+              style={{ ["--h" as any]: Math.max(0.08, h) }}
               className={i % 3 === 0 ? "is-accent" : ""}
             />
           ))}

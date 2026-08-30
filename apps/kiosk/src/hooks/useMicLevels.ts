@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 
-const IDLE = { levels: [] as number[], rms: 0 };
-
 export function useMicLevels(active: boolean, barCount = 24) {
   const [state, setState] = useState(() => ({ levels: Array(barCount).fill(0), rms: 0 }));
   const raf = useRef<number>();
@@ -56,5 +54,3 @@ export function useMicLevels(active: boolean, barCount = 24) {
 
   return state;
 }
-
-void IDLE;

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState, lazy, Suspense } from "react"
 import { motion, AnimatePresence } from "framer-motion";
 import { useDeviceNavigation, type ScreenType } from "@/hooks/useDeviceNavigation";
 import IdleScreen from "@/components/screens/IdleScreen";
-import ListeningScreen from "@/components/screens/ListeningScreen";
 import MenuView from "@/components/screens/MenuView";
 import FrequentlyOrderedView from "@/components/screens/FrequentlyOrderedView";
 import DetailView from "@/components/screens/DetailView";
@@ -20,6 +19,7 @@ import AboutView from "@/components/screens/AboutView";
 import CompletionNudge from "@/components/CompletionNudge";
 import VoiceOrderButton from "@/components/VoiceOrderButton";
 import VoiceConversationPanel from "@/components/VoiceConversationPanel";
+import VoiceConversationScreen from "@/components/voice/VoiceConversationScreen";
 import AppShell from "@/components/AppShell";
 import OrderBar from "@/components/OrderBar";
 import StatusStrip from "@/components/StatusStrip";
@@ -204,7 +204,17 @@ const IndexInner = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [completionSuggestion, setCompletionSuggestion] = useState<MatchedSuggestion | null>(null);
-  const [voiceConversationOpen, setVoiceConversationOpen] = useState(false);
+  // Voice channel redesign: the frozen host (VoiceConversationPanel) lives on
+  // the menu screen and reports its press status up here. Phase is derived,
+  // never a separate source of truth (see the redesign spec's Phase table).
+  const [voicePressStatus, setVoicePressStatus] =
+    useState<"recording" | "processing" | "idle" | "error">("idle");
+  // Whether the full-screen answer view (07/08) should show for the latest
+  // ai turn. Cleared on Close.
+  const [voiceAnswerOpen, setVoiceAnswerOpen] = useState(false);
+  // The frozen handleToggle, lifted out of the host so the answer screen's
+  // speak-dock can start a capture without touching the frozen machine.
+  const voiceToggleRef = useRef<(() => void) | null>(null);
   const [voiceSessionId, setVoiceSessionId] = useState<string | null>(null);
   // Voice transcript lives here, not inside VoiceConversationPanel, so it
   // survives the modal closing/reopening. Reset only when the voice session
@@ -215,6 +225,18 @@ const IndexInner = () => {
   useEffect(() => {
     setVoiceTurns([]);
   }, [voiceSessionId]);
+
+  // handleVoiceDone is FROZEN, so the screen switch lives here instead: when a
+  // fresh ai turn lands, hand off to the full-screen answer view (07/08).
+  const prevVoiceTurnCountRef = useRef(0);
+  useEffect(() => {
+    const last = voiceTurns[voiceTurns.length - 1];
+    if (voiceTurns.length > prevVoiceTurnCountRef.current && last?.role === "ai") {
+      setVoiceAnswerOpen(true);
+      setCurrentScreen("voice-conversation");
+    }
+    prevVoiceTurnCountRef.current = voiceTurns.length;
+  }, [voiceTurns, setCurrentScreen]);
 
   const prevVoiceOrderRef = useRef<OrderSnapshot | null>(null);
   const voiceTtsHandleRef = useRef<TtsClientHandle | null>(null);
@@ -408,6 +430,28 @@ const IndexInner = () => {
     [order],
   );
 
+  // Derived voice phase — feeds the host so it draws the 06 dock overlay only
+  // while a capture is live, and nothing once the answer view has taken over.
+  const lastVoiceTurn = voiceTurns[voiceTurns.length - 1];
+  const voicePhase: "dock" | "answer" | "closed" =
+    voicePressStatus === "recording" || voicePressStatus === "processing"
+      ? "dock"
+      : lastVoiceTurn?.role === "ai" && voiceAnswerOpen
+        ? "answer"
+        : "closed";
+
+  const handleVoiceChip = useCallback((text: string) => {
+    // No pipeline entry point for injected text without editing frozen code,
+    // so this is the spec's sanctioned fallback: show the phrase as a user
+    // turn (visual only) — the guest re-speaks it. See the redesign spec.
+    setVoiceTurns((prev) => [...prev, { role: "user", text }]);
+  }, []);
+
+  const closeVoiceConversation = useCallback(() => {
+    setVoiceAnswerOpen(false);
+    setCurrentScreen("menu");
+  }, [setCurrentScreen]);
+
   const handleConfirmOrder = useCallback(async (displayName?: string) => {
     if (isSubmitting) return;
     pendingDisplayNameRef.current = displayName;
@@ -481,16 +525,21 @@ const IndexInner = () => {
             tableId={TABLE_ID}
           />
         );
-      case "listening":
-        return voiceEnabled ? (
-          <ListeningScreen
-            order={order}
-            restaurantId={RESTAURANT_ID}
-            tableId={TABLE_ID}
-            onVoiceDone={handleVoiceDone}
-            onDone={() => setCurrentScreen("menu")}
+      case "voice-conversation":
+        return (
+          <VoiceConversationScreen
+            turns={voiceTurns}
+            getQuantity={getOrderQuantity}
+            onAddItem={(item) => handleAddToOrder(item, "voice")}
+            onUpdateQuantity={(id, delta) => handleUpdateQuantity(id, delta, "voice")}
+            onSelectItem={handleSelectItem}
+            onClose={closeVoiceConversation}
+            onRequestSpeak={() => {
+              setCurrentScreen("menu");
+              voiceToggleRef.current?.();
+            }}
           />
-        ) : null;
+        );
 
       case "menu":
         return (
@@ -507,25 +556,31 @@ const IndexInner = () => {
                   order={order}
                   restaurantId={RESTAURANT_ID}
                   tableId={TABLE_ID}
-                  onOpenConversation={() => setVoiceConversationOpen(true)}
+                  onOpenConversation={() => voiceToggleRef.current?.()}
                   onSessionReady={setVoiceSessionId}
                   onTtsReady={(h) => { voiceTtsHandleRef.current = h; }}
                 />
               ) : null
             }
             voicePanel={
-              voiceEnabled && voiceConversationOpen ? (
+              voiceEnabled ? (
                 <VoiceConversationPanel
                   sessionId={voiceSessionId}
                   turns={voiceTurns}
                   order={order}
                   getQuantity={getOrderQuantity}
-                  onClose={() => setVoiceConversationOpen(false)}
+                  onClose={closeVoiceConversation}
                   onDone={handleVoiceDone}
-                  onAddItem={handleAddToOrder}
-                  onUpdateQuantity={handleUpdateQuantity}
+                  onAddItem={(item) => handleAddToOrder(item, "voice")}
+                  onUpdateQuantity={(id, delta) => handleUpdateQuantity(id, delta, "voice")}
                   onSelectItem={handleSelectItem}
                   ttsHandle={voiceTtsHandleRef}
+                  voicePhase={voicePhase}
+                  onPressStatusChange={setVoicePressStatus}
+                  onToggleReady={(t) => { voiceToggleRef.current = t; }}
+                  transcript=""
+                  onExpandHistory={() => setCurrentScreen("voice-conversation")}
+                  onChip={handleVoiceChip}
                 />
               ) : null
             }
