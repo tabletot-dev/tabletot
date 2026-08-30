@@ -6230,3 +6230,259 @@ body {
   color: var(--tt-ink-60);
   font-size: var(--tt-size-meta);
 }
+
+/* Task 4 — VoiceDockPanel (screen 06 recording overlay).
+   Paste this block into apps/kiosk/src/styles/tabletot.css during integration.
+   Every colour is a --tt-* token; 2px solid borders only; no box-shadow,
+   no backdrop-filter. */
+
+.tt-voice-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9980;
+  background: var(--tt-ink);
+  color: var(--tt-on-dark);
+  border-top: 2px solid var(--tt-line-dark);
+  padding: var(--tt-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--tt-space-3);
+}
+
+.tt-voice-dock-status {
+  display: flex;
+  align-items: center;
+  gap: var(--tt-space-3);
+  flex-wrap: wrap;
+}
+
+.tt-voice-dock-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tt-space-1);
+  background: var(--tt-action);
+  color: var(--tt-paper);
+  border-radius: var(--tt-radius-pill);
+  padding: 0 var(--tt-space-3);
+  min-height: var(--tt-tap);
+  font-family: var(--tt-font-display);
+  letter-spacing: 0.08em;
+}
+
+.tt-voice-dock-pill--error {
+  background: transparent;
+  color: var(--tt-on-dark);
+  border: 2px solid var(--tt-line-dark);
+}
+
+.tt-voice-dock-hint {
+  color: var(--tt-on-dark);
+  opacity: 0.7;
+}
+
+.tt-voice-dock-close {
+  margin-left: auto;
+  border: 2px solid var(--tt-line-dark);
+  border-radius: var(--tt-radius-pill);
+  background: transparent;
+  color: var(--tt-on-dark);
+  min-height: var(--tt-tap);
+  padding: 0 var(--tt-space-3);
+}
+
+.tt-voice-dock-wave-row {
+  display: flex;
+  align-items: center;
+  gap: var(--tt-space-3);
+}
+
+.tt-voice-wave {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: calc(64px * var(--tt-scale));
+}
+
+.tt-voice-wave span {
+  width: 6px;
+  border-radius: var(--tt-radius-badge);
+  background: var(--tt-paper);
+  transition: height 90ms linear;
+}
+
+.tt-voice-wave span.is-accent {
+  background: var(--tt-action);
+}
+
+.tt-voice-wave--idle span {
+  height: 12% !important;
+  opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tt-voice-wave span {
+    transition: none;
+  }
+}
+
+.tt-voice-dock-mark {
+  flex: none;
+  width: var(--tt-tap-primary);
+  height: var(--tt-tap-primary);
+  border: none;
+  border-radius: var(--tt-radius-pill);
+  background: var(--tt-action);
+}
+
+.tt-voice-dock-mark:disabled {
+  opacity: 0.4;
+}
+
+.tt-voice-dock-transcript {
+  font-family: var(--tt-font-display);
+  font-size: var(--tt-size-dish);
+  color: var(--tt-on-dark);
+  margin: 0;
+}
+
+.tt-voice-dock-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tt-space-2);
+}
+
+.tt-voice-dock-chip {
+  border: 2px solid var(--tt-line-dark);
+  border-radius: var(--tt-radius-pill);
+  min-height: var(--tt-tap);
+  padding: 0 var(--tt-space-3);
+  color: var(--tt-on-dark);
+  background: transparent;
+}
+
+/* Task 5 — VoiceConversationScreen (screens 07 / 08)
+   Paste into apps/kiosk/src/styles/tabletot.css at integration time.
+   Tokens only (var(--tt-*)), 2px solid borders, zero box-shadow / backdrop-filter. */
+
+.tt-voice-convo {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tt-space-4);
+  padding: var(--tt-gutter) var(--tt-gutter) 0;
+  background: var(--tt-field);
+}
+
+.tt-voice-convo-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--tt-space-3);
+}
+
+.tt-voice-convo-head h1 {
+  margin: 0;
+  font-family: var(--tt-font-display, "Sora", sans-serif);
+  font-size: var(--tt-size-heading);
+  color: var(--tt-ink);
+}
+
+.tt-voice-convo-sub {
+  margin: var(--tt-space-1) 0 0;
+  color: var(--tt-ink-60);
+  font-size: var(--tt-size-meta);
+}
+
+.tt-voice-convo-close {
+  flex: none;
+  min-height: var(--tt-tap);
+  padding: 0 var(--tt-space-3);
+  border: 2px solid var(--tt-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--tt-ink);
+  font-size: var(--tt-size-meta);
+  font-weight: 600;
+}
+
+.tt-voice-said {
+  background: var(--tt-paper);
+  border: 2px solid var(--tt-line);
+  border-radius: var(--tt-radius-card);
+  padding: var(--tt-pad-card);
+}
+
+.tt-voice-said-label {
+  margin: 0 0 var(--tt-space-1);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--tt-action);
+  font-size: var(--tt-size-meta);
+  font-weight: 700;
+}
+
+.tt-voice-said-text {
+  margin: 0;
+  color: var(--tt-ink);
+}
+
+.tt-voice-convo-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tt-space-2);
+  position: sticky;
+  bottom: var(--tt-tap);
+}
+
+.tt-voice-convo-chip {
+  min-height: var(--tt-tap);
+  padding: 0 var(--tt-space-3);
+  border: 2px solid var(--tt-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--tt-ink);
+  font-size: var(--tt-size-meta);
+  font-weight: 600;
+}
+
+.tt-voice-speakdock {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--tt-space-3);
+  width: auto;
+  margin: 0 calc(-1 * var(--tt-gutter));
+  padding: var(--tt-space-3) var(--tt-gutter);
+  border: none;
+  background: var(--tt-ink);
+  text-align: left;
+}
+
+.tt-voice-speakdock-mark {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--tt-action);
+}
+
+.tt-voice-speakdock-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tt-voice-speakdock-line {
+  color: var(--tt-on-dark);
+  font-size: var(--tt-size-meta);
+  font-weight: 600;
+}
+
+.tt-voice-speakdock-line--sub {
+  color: var(--tt-on-dark-70);
+  font-weight: 400;
+}
