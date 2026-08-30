@@ -205,7 +205,7 @@ function DiceFace({ value, rolling }: { value: number | null; rolling: boolean }
   };
 
   return (
-    <div className={`classic-dice-face${rolling ? " rolling" : ""}`} aria-label={`Dice ${value ?? "not rolled"}`}>
+    <div className={`tt-dice-face${rolling ? " rolling" : ""}`} aria-label={`Dice ${value ?? "not rolled"}`}>
       {Array.from({ length: 9 }).map((_, index) => (
         <span key={index} className={dotMap[shownValue].includes(index) ? "visible" : ""} />
       ))}
@@ -433,22 +433,22 @@ export default function GamesView({ onBack }: GamesViewProps) {
   }, []);
 
   return (
-    <section className="view utility-feature-view game-feature-view">
-      <div className="utility-feature-hero game-feature-hero panel">
+    <section className="view tt-activities-view tt-game-feature-view">
+      <div className="tt-activities-hero tt-game-feature-hero panel">
         <div>
           <p className="eyebrow">Table Mode</p>
           <h1>Games</h1>
           <p className="hero-sub">Fast social games built for the table while the kitchen works.</p>
         </div>
-        <button className="secondary-btn utility-back-btn" onClick={onBack}>
+        <button className="secondary-btn tt-activities-back-btn" onClick={onBack}>
           Back
         </button>
       </div>
 
-      <div className="game-mode-strip" aria-label="Select a game">
+      <div className="tt-game-mode-strip" aria-label="Select a game">
         {gameModes.map((game) => (
           <button
-            className={`game-mode-btn${activeGame === game.id ? " active" : ""}`}
+            className={`tt-game-mode-btn${activeGame === game.id ? " active" : ""}`}
             key={game.id}
             onClick={() => setActiveGame(game.id)}
           >
@@ -459,22 +459,22 @@ export default function GamesView({ onBack }: GamesViewProps) {
       </div>
 
       {activeGame === "tic-tac-toe" && (
-        <div className="game-panel panel">
-          <div className="game-panel-header">
+        <div className="tt-game-panel panel">
+          <div className="tt-game-panel-header">
             <div>
               <p className="eyebrow">Precision Grid</p>
               <h2>Tic-Tac-Toe</h2>
             </div>
-            <div className="game-status-block">
+            <div className="tt-game-status-block">
               <span>{ticStatus}</span>
               <button onClick={resetTic}>Reset</button>
             </div>
           </div>
 
-          <div className="tic-board" aria-label="Tic-Tac-Toe board">
+          <div className="tt-tic-board" aria-label="Tic-Tac-Toe board">
             {ticBoard.map((cell, index) => (
               <button
-                className={`tic-cell${cell ? ` player-${cell.toLowerCase()}` : ""}`}
+                className={`tt-tic-cell${cell ? ` player-${cell.toLowerCase()}` : ""}`}
                 key={index}
                 onClick={() => playTic(index)}
                 aria-label={`Cell ${index + 1}${cell ? ` ${cell}` : ""}`}
@@ -487,22 +487,22 @@ export default function GamesView({ onBack }: GamesViewProps) {
       )}
 
       {activeGame === "connect-four" && (
-        <div className="game-panel panel">
-          <div className="game-panel-header">
+        <div className="tt-game-panel panel">
+          <div className="tt-game-panel-header">
             <div>
               <p className="eyebrow">Drop Sequence</p>
               <h2>Connect 4</h2>
             </div>
-            <div className="game-status-block">
+            <div className="tt-game-status-block">
               <span>{connectStatus}</span>
               <button onClick={resetConnect}>Reset</button>
             </div>
           </div>
 
-          <div className="connect-board" aria-label="Connect 4 board">
+          <div className="tt-connect-board" aria-label="Connect 4 board">
             {connectBoard.map((cell, index) => (
               <button
-                className={`connect-cell${cell ? ` ${cell}` : ""}`}
+                className={`tt-connect-cell${cell ? ` ${cell}` : ""}`}
                 key={index}
                 onClick={() => dropConnectChip(index % 7)}
                 aria-label={`Column ${(index % 7) + 1}`}
@@ -515,30 +515,30 @@ export default function GamesView({ onBack }: GamesViewProps) {
       )}
 
       {activeGame === "word-duel" && (
-        <div className="game-panel word-duel-panel panel">
-          <div className="game-panel-header">
+        <div className="tt-game-panel tt-wordduel-panel panel">
+          <div className="tt-game-panel-header">
             <div>
               <p className="eyebrow">Rapid Questions</p>
               <h2>Word Duel</h2>
             </div>
-            <div className="duel-scoreboard" aria-label="Score">
+            <div className="tt-duel-scoreboard" aria-label="Score">
               <span>Team A <strong>{score.A}</strong></span>
               <span>Team B <strong>{score.B}</strong></span>
             </div>
           </div>
 
-          <div className="duel-stage">
-            <div className={`duel-timer${roundActive ? " active" : ""}`}>
+          <div className="tt-duel-stage">
+            <div className={`tt-duel-timer${roundActive ? " active" : ""}`}>
               <strong>{secondsLeft}</strong>
               <span>seconds</span>
             </div>
-            <div className="duel-prompt-card">
+            <div className="tt-duel-prompt-card">
               <p className="eyebrow">Prompt {String(promptIndex + 1).padStart(2, "0")}</p>
               <h3>{duelPrompts[promptIndex]}</h3>
             </div>
           </div>
 
-          <div className="duel-controls">
+          <div className="tt-duel-controls">
             <button
               className="primary-btn"
               onClick={() => {
@@ -551,10 +551,10 @@ export default function GamesView({ onBack }: GamesViewProps) {
             <button className="secondary-btn" onClick={nextPrompt}>
               Next Question
             </button>
-            <button className="duel-point-btn" onClick={() => awardPoint("A")}>
+            <button className="tt-duel-point-btn" onClick={() => awardPoint("A")}>
               Team A +1
             </button>
-            <button className="duel-point-btn" onClick={() => awardPoint("B")}>
+            <button className="tt-duel-point-btn" onClick={() => awardPoint("B")}>
               Team B +1
             </button>
           </div>
@@ -562,9 +562,9 @@ export default function GamesView({ onBack }: GamesViewProps) {
       )}
 
       {activeGame === "ludo" && (
-        <div className="game-panel classic-ludo-panel panel">
+        <div className="tt-game-panel tt-ludo-panel panel">
           {!ludoStarted ? (
-            <div className="classic-ludo-setup">
+            <div className="tt-ludo-setup">
               <div>
                 <p className="eyebrow">Classic Board</p>
                 <h2>Ludo</h2>
@@ -572,7 +572,7 @@ export default function GamesView({ onBack }: GamesViewProps) {
                   Select the table size, then race tokens around the board with classic dice rules.
                 </p>
               </div>
-              <div className="classic-ludo-player-select" aria-label="Select players">
+              <div className="tt-ludo-player-select" aria-label="Select players">
                 {([2, 3, 4] as const).map((count) => (
                   <button
                     key={count}
@@ -584,25 +584,25 @@ export default function GamesView({ onBack }: GamesViewProps) {
                   </button>
                 ))}
               </div>
-              <button className="primary-btn classic-ludo-start" onClick={startLudoGame}>
+              <button className="primary-btn tt-ludo-start" onClick={startLudoGame}>
                 Start Game
               </button>
             </div>
           ) : (
             <>
-              <div className="game-panel-header classic-ludo-header">
+              <div className="tt-game-panel-header tt-ludo-header">
                 <div>
                   <p className="eyebrow">Classic Board</p>
                   <h2>Ludo</h2>
                 </div>
-                <div className="game-status-block">
-                  <span className={`classic-ludo-turn ${currentLudoPlayer}`}>{ludoStatus}</span>
+                <div className="tt-game-status-block">
+                  <span className={`tt-ludo-turn ${currentLudoPlayer}`}>{ludoStatus}</span>
                   <button onClick={openLudoSetup}>New Game</button>
                 </div>
               </div>
 
-              <div className="classic-ludo-layout">
-                <div className="classic-ludo-board" aria-label="Classic Ludo board">
+              <div className="tt-ludo-layout">
+                <div className="tt-ludo-board" aria-label="Classic Ludo board">
                   {Array.from({ length: 225 }).map((_, index) => {
                     const row = Math.floor(index / 15);
                     const col = index % 15;
@@ -615,7 +615,7 @@ export default function GamesView({ onBack }: GamesViewProps) {
                     return (
                       <div
                         className={[
-                          "classic-ludo-cell",
+                          "tt-ludo-cell",
                           typeof mainIndex === "number" ? "track" : "",
                           isSafe ? "safe" : "",
                           finalColor ? `finish ${finalColor}` : "",
@@ -629,7 +629,7 @@ export default function GamesView({ onBack }: GamesViewProps) {
                           return (
                             <button
                               className={[
-                                "classic-ludo-token",
+                                "tt-ludo-token",
                                 token.color,
                                 isValid ? "valid" : "",
                                 ludoLastMoved === tokenId ? "moved" : "",
@@ -649,18 +649,18 @@ export default function GamesView({ onBack }: GamesViewProps) {
                   })}
 
                   {LUDO_COLORS.map((color) => (
-                    <div className={`classic-ludo-home ${color}`} key={color}>
-                      <div className="classic-ludo-home-inner">
+                    <div className={`tt-ludo-home ${color}`} key={color}>
+                      <div className="tt-ludo-home-inner">
                         {LUDO_HOME_SPOTS[color].map((_, index) => {
                           const token = ludoHomeTokens(color).find((candidate) => candidate.tokenIndex === index);
                           const tokenId = `${color}-${index}`;
                           const isValid = color === currentLudoPlayer && ludoValidTokens.includes(index);
                           return (
-                            <div className="classic-ludo-home-slot" key={`${color}-home-${index}`}>
+                            <div className="tt-ludo-home-slot" key={`${color}-home-${index}`}>
                               {token && (
                                 <button
                                   className={[
-                                    "classic-ludo-token",
+                                    "tt-ludo-token",
                                     color,
                                     isValid ? "valid" : "",
                                     ludoCapture === tokenId ? "captured" : "",
@@ -678,11 +678,11 @@ export default function GamesView({ onBack }: GamesViewProps) {
                       </div>
                     </div>
                   ))}
-                  <div className="classic-ludo-center" aria-hidden="true" />
+                  <div className="tt-ludo-center" aria-hidden="true" />
                 </div>
 
-                <aside className="classic-ludo-side">
-                  <div className={`classic-ludo-dice-card ${currentLudoPlayer}`}>
+                <aside className="tt-ludo-side">
+                  <div className={`tt-ludo-dice-card ${currentLudoPlayer}`}>
                     <p className="eyebrow">{ludoDice ? "Move token" : "Roll phase"}</p>
                     <h3>{LUDO_COLOR_LABEL[currentLudoPlayer]}'s Turn</h3>
                     <DiceFace value={ludoDice} rolling={ludoRolling} />
@@ -694,14 +694,14 @@ export default function GamesView({ onBack }: GamesViewProps) {
                       {ludoRolling ? "Rolling..." : "Roll Dice"}
                     </button>
                     {ludoDice && ludoValidTokens.length === 0 && (
-                      <span className="classic-ludo-no-move">No legal move. Passing turn.</span>
+                      <span className="tt-ludo-no-move">No legal move. Passing turn.</span>
                     )}
                   </div>
 
-                  <div className="classic-ludo-status-list">
+                  <div className="tt-ludo-status-list">
                     {ludoPlayers.map((color) => (
                       <div
-                        className={`classic-ludo-status-card ${color}${currentLudoPlayer === color && !ludoWinner ? " active" : ""}`}
+                        className={`tt-ludo-status-card ${color}${currentLudoPlayer === color && !ludoWinner ? " active" : ""}`}
                         key={color}
                       >
                         <span>{LUDO_COLOR_LABEL[color]}</span>
@@ -710,15 +710,15 @@ export default function GamesView({ onBack }: GamesViewProps) {
                     ))}
                   </div>
 
-                  <button className="secondary-btn classic-ludo-reset" onClick={startLudoGame}>
+                  <button className="secondary-btn tt-ludo-reset" onClick={startLudoGame}>
                     Reset Board
                   </button>
                 </aside>
               </div>
 
               {ludoWinner && (
-                <div className="classic-ludo-win-modal" role="dialog" aria-modal="true">
-                  <div className={`classic-ludo-win-card ${ludoWinner}`}>
+                <div className="tt-ludo-win-modal" role="dialog" aria-modal="true">
+                  <div className={`tt-ludo-win-card ${ludoWinner}`}>
                     <p className="eyebrow">Winner</p>
                     <h2>{LUDO_COLOR_LABEL[ludoWinner]} wins</h2>
                     <p>All four tokens reached home.</p>
