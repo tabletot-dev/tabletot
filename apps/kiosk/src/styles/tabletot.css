@@ -5738,11 +5738,10 @@ body {
 }
 
 .tt-attract-title {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   gap: var(--tt-space-2);
+  margin: var(--tt-space-4) 0;
 }
 
 .tt-attract-title-word {
@@ -5841,38 +5840,36 @@ body {
   color: var(--tt-on-dark-70);
 }
 
-.tt-attract-footer {
+/* Subordinate utilities — pinned to the bottom, quiet vs. the coral CTA. */
+.tt-attract-secondaries {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: var(--tt-space-3);
-  margin-top: var(--tt-space-3);
+  margin-top: auto;
+  padding-top: var(--tt-space-3);
 }
 
-.tt-attract-about {
+.tt-attract-secondary {
   min-height: var(--tt-tap);
-  padding: 0 var(--tt-space-3);
+  padding: 0 var(--tt-space-4);
   border-radius: var(--tt-radius-pill);
   border: 2px solid var(--tt-line);
-  background: transparent;
-  color: var(--tt-ink);
-  font-weight: 700;
-  font-size: var(--tt-size-meta);
-}
-
-.tt-attract-about:hover,
-.tt-attract-about:active {
-  border-color: var(--tt-ink);
-}
-
-.tt-attract-wifi {
-  padding: 0;
-  border: 0;
   background: transparent;
   color: var(--tt-ink-60);
   font-weight: 700;
   font-size: var(--tt-size-meta);
   cursor: pointer;
+}
+
+.tt-attract-secondary:hover,
+.tt-attract-secondary:active {
+  border-color: var(--tt-ink);
+  color: var(--tt-ink);
+}
+
+.tt-wifi-network {
+  color: var(--tt-ink-60);
+  font-weight: 700;
+  font-size: var(--tt-size-meta);
 }
 
 .tt-wifi-dialog {

@@ -13,18 +13,19 @@ import wifiQrSrc from "@/assets/wifi-qr.svg";
 const WIFI_SSID = "SILVER-GUEST";
 
 interface IdleScreenProps {
-  /** "Touch anywhere" — starts the session and goes to the menu. */
+  /** "See the menu" / touch anywhere — starts the session and goes to the menu. */
   onActivate: () => void;
   /** A chef's-pick slide tap — starts the session and deep-links to detail. */
   onSelectHeroItem: (item: AnchorItem) => void;
+  /** "Popular" secondary — starts the session and opens the Popular screen. */
+  onOpenPopular: () => void;
   tableId?: string;
-  onInfoToast?: (message: string) => void;
 }
 
 const ADVANCE_MS = 3500;
 const MAX_SLIDES = 5;
 
-const IdleScreen = ({ onActivate, onSelectHeroItem, tableId, onInfoToast }: IdleScreenProps) => {
+const IdleScreen = ({ onActivate, onSelectHeroItem, onOpenPopular, tableId }: IdleScreenProps) => {
   const { anchors, loading } = useMenu();
   const reduceMotion = useReducedMotion();
 
@@ -107,7 +108,7 @@ const IdleScreen = ({ onActivate, onSelectHeroItem, tableId, onInfoToast }: Idle
             <Mic size={20} />
           </span>
           <span className="tt-attract-cta-text">
-            <strong>Touch anywhere to start</strong>
+            <strong>See the menu</strong>
             <span>or say "Hey Tabletot, I'm hungry"</span>
           </span>
         </button>
@@ -155,20 +156,16 @@ const IdleScreen = ({ onActivate, onSelectHeroItem, tableId, onInfoToast }: Idle
           </div>
         ) : null}
 
-        <div className="tt-attract-footer">
-          <button
-            type="button"
-            className="tt-attract-about"
-            onClick={() => onInfoToast?.("Ask the team for today's story and chef's note.")}
-          >
-            About Silver — chef's note, our story →
+        <div className="tt-attract-secondaries">
+          <button type="button" className="tt-attract-secondary" onClick={onOpenPopular}>
+            Popular
           </button>
           <button
             type="button"
-            className="tt-attract-wifi"
+            className="tt-attract-secondary"
             onClick={() => setWifiOpen(true)}
           >
-            Wi-Fi: {WIFI_SSID}
+            Wi-Fi
           </button>
         </div>
       </div>
@@ -187,7 +184,7 @@ const IdleScreen = ({ onActivate, onSelectHeroItem, tableId, onInfoToast }: Idle
               Point your phone camera at the code — the network is open, no
               password needed.
             </p>
-            <p className="tt-attract-wifi">Network: {WIFI_SSID}</p>
+            <p className="tt-wifi-network">Network: {WIFI_SSID}</p>
             <div className="tt-modal-actions">
               <Dialog.Close asChild>
                 <button type="button" className="tt-btn--secondary">

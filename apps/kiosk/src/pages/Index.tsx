@@ -446,8 +446,13 @@ const IndexInner = () => {
               setSelectedItem(item);
               setCurrentScreen("item-detail");
             }}
+            onOpenPopular={async () => {
+              // Same span_id reasoning as the slide-tap path — Popular lets
+              // you add to cart, so the session must be open first.
+              await startSession();
+              setCurrentScreen("popular");
+            }}
             tableId={TABLE_ID}
-            onInfoToast={(msg) => setToast(msg)}
           />
         );
       case "listening":

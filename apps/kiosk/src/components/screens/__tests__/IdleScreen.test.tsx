@@ -36,6 +36,7 @@ function renderIdle(props: Partial<React.ComponentProps<typeof IdleScreen>> = {}
     <IdleScreen
       onActivate={props.onActivate ?? vi.fn()}
       onSelectHeroItem={props.onSelectHeroItem ?? vi.fn()}
+      onOpenPopular={props.onOpenPopular ?? vi.fn()}
       tableId="T1"
     />,
   );
@@ -126,10 +127,23 @@ describe("IdleScreen (merged attract)", () => {
     expect(active).toBe(0);
   });
 
+  it("primary CTA reads 'See the menu' and keeps the voice hint", () => {
+    renderIdle();
+    const cta = screen.getByRole("button", { name: /or say "Hey Tabletot/i });
+    expect(cta).toHaveTextContent("See the menu");
+  });
+
+  it("the 'Popular' secondary calls onOpenPopular", () => {
+    const onOpenPopular = vi.fn();
+    renderIdle({ onOpenPopular });
+    fireEvent.click(screen.getByRole("button", { name: "Popular" }));
+    expect(onOpenPopular).toHaveBeenCalledTimes(1);
+  });
+
   it("Wi-Fi button opens a dialog with the heading, instruction and a Close", () => {
     renderIdle();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Wi-Fi: SILVER-GUEST/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Wi-Fi" }));
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveTextContent("Join the café Wi-Fi");
     expect(dialog).toHaveTextContent(/network is open, no\s+password needed/);
