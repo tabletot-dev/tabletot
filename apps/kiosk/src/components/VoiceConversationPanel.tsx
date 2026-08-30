@@ -123,16 +123,16 @@ export default function VoiceConversationPanel({
       <Dialog.Portal>
         {/* Opaque backdrop + Radix focus trap / scroll lock make the menu
             behind genuinely inert — not just visually behind a z-index. */}
-        <Dialog.Overlay className="voice-conversation-backdrop" />
+        <Dialog.Overlay className="tt-voice-conversation-backdrop" />
         <Dialog.Content asChild aria-label="Voice conversation" aria-describedby={undefined}>
           <motion.section
-            className="voice-conversation-panel"
+            className="tt-voice-conversation-panel"
             initial={{ opacity: 0, y: 18, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
           >
-            <div className="voice-conversation-head">
+            <div className="tt-voice-conversation-head">
               <div>
                 <p className="eyebrow">Voice channel</p>
                 <Dialog.Title asChild>
@@ -142,7 +142,7 @@ export default function VoiceConversationPanel({
               <Dialog.Close asChild>
                 <button
                   type="button"
-                  className="voice-conversation-close"
+                  className="tt-voice-conversation-close"
                   aria-label="Close voice conversation"
                 >
                   X
@@ -150,16 +150,16 @@ export default function VoiceConversationPanel({
               </Dialog.Close>
             </div>
 
-            <div className="voice-conversation-stream">
+            <div className="tt-voice-conversation-stream">
         {turns.length === 0 && (
           <>
-            <div className="voice-chat-row ai">
-              <div className="voice-chat-bubble">
+            <div className="tt-voice-chat-row ai">
+              <div className="tt-voice-chat-bubble">
                 Tell me what you need. I can recommend meals by appetite, diet,
                 group size, allergens, or pairings.
               </div>
             </div>
-            <div className="voice-prompt-grid">
+            <div className="tt-voice-prompt-grid">
               <span>Suggest a post-gym meal</span>
               <span>Recommend for three people</span>
               <span>High calorie or light?</span>
@@ -170,32 +170,32 @@ export default function VoiceConversationPanel({
 
         {turns.map((turn, i) => (
           <div key={i}>
-            <div className={`voice-chat-row ${turn.role}`}>
-              <div className="voice-chat-bubble">{turn.text}</div>
+            <div className={`tt-voice-chat-row ${turn.role}`}>
+              <div className="tt-voice-chat-bubble">{turn.text}</div>
             </div>
 
             {turn.role === "ai" && turn.matchedItems && turn.matchedItems.length > 0 && (
-              <div className="voice-recommendation-grid">
+              <div className="tt-voice-recommendation-grid">
                 {turn.matchedItems.slice(0, 2).map((item) => (
-                  <article key={item.id} className="voice-recommendation-card">
+                  <article key={item.id} className="tt-voice-recommendation-card">
                     <button
                       type="button"
-                      className="voice-recommendation-media"
+                      className="tt-voice-recommendation-media"
                       style={{ background: itemImageBackground(item) }}
                       onClick={() => onSelectItem(item)}
                       aria-label={`View ${item.name}`}
                     />
-                    <div className="voice-recommendation-body">
+                    <div className="tt-voice-recommendation-body">
                       <p className="eyebrow">Recommended</p>
-                      <div className="voice-recommendation-title">
+                      <div className="tt-voice-recommendation-title">
                         <DietMark isVeg={item.is_veg} compact />
                         <strong>{item.name}</strong>
                       </div>
-                      <div className="voice-recommendation-action">
+                      <div className="tt-voice-recommendation-action">
                         <span>₹{item.price}</span>
                         {getQuantity(item.id) > 0 ? (
                           <div
-                            className="card-stepper voice-stepper"
+                            className="card-stepper tt-voice-stepper"
                             aria-label={`${item.name} quantity`}
                           >
                             <button
@@ -231,25 +231,25 @@ export default function VoiceConversationPanel({
         <div ref={streamEndRef} />
       </div>
 
-      <div className={`voice-conversation-input${pressStatus === "recording" ? " is-listening" : ""}`}>
-        <div className="voice-input-status">
-          <span className="voice-live-dot" aria-hidden="true" />
+      <div className={`tt-voice-conversation-input${pressStatus === "recording" ? " is-listening" : ""}`}>
+        <div className="tt-voice-input-status">
+          <span className="tt-voice-live-dot" aria-hidden="true" />
           <span>{inputLabel}</span>
         </div>
-        <div className="voice-frequency-meter" aria-hidden="true">
+        <div className="tt-voice-frequency-meter" aria-hidden="true">
           {Array.from({ length: 18 }, (_, i) => (
             <span key={i} style={{ "--i": i } as React.CSSProperties} />
           ))}
         </div>
         <button
           type="button"
-          className={`voice-stop-btn${pressStatus === "idle" ? "" : " muted"}`}
+          className={`tt-voice-stop-btn${pressStatus === "idle" ? "" : " muted"}`}
           onClick={() => void handleToggle()}
           disabled={!canSpeak}
           aria-label={pressStatus === "recording" ? "Stop recording" : "Start recording"}
         >
           {pressStatus === "processing" ? (
-            <svg className="ptt-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <svg className="tt-voice-ptt-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none">
               <circle
                 cx="12" cy="12" r="10"
                 stroke="currentColor" strokeWidth="2"

@@ -131,20 +131,20 @@ const ListeningScreen = ({
 
   return (
     <>
-      <div className="voice-sheet-backdrop" onClick={phase === "error" ? onDone : undefined} />
-      <section className="voice-sheet" aria-label="Voice assistant">
-        <div className="voice-sheet-handle" />
-        <div className="voice-sheet-top">
-          <div className="voice-active-mark">
-            <div className="voice-orb">
-              <div className="voice-ring" />
-              <div className="voice-ring voice-ring-b" />
+      <div className="tt-voice-sheet-backdrop" onClick={phase === "error" ? onDone : undefined} />
+      <section className="tt-voice-sheet" aria-label="Voice assistant">
+        <div className="tt-voice-sheet-handle" />
+        <div className="tt-voice-sheet-top">
+          <div className="tt-voice-active-mark">
+            <div className="tt-voice-orb">
+              <div className="tt-voice-ring" />
+              <div className="tt-voice-ring tt-voice-ring-b" />
               <svg
-                className="mic-icon"
+                className="tt-voice-mic-icon"
                 viewBox="0 0 24 24"
                 aria-hidden="true"
                 fill="none"
-                stroke="var(--brand)"
+                stroke="var(--tt-action)"
                 strokeWidth="1.5"
                 strokeLinecap="round"
               >
@@ -154,7 +154,7 @@ const ListeningScreen = ({
                 <path d="M9 21h6" />
               </svg>
             </div>
-            <div className="voice-sheet-copy">
+            <div className="tt-voice-sheet-copy">
               <p className="eyebrow">
                 {phase === "connecting" && "Connecting…"}
                 {phase === "recording" && "Listening"}
@@ -171,7 +171,7 @@ const ListeningScreen = ({
             </div>
           </div>
           <button
-            className="voice-close"
+            className="tt-voice-close"
             onClick={handleDone}
             aria-label="Close voice assistant"
           >
@@ -180,7 +180,7 @@ const ListeningScreen = ({
         </div>
 
         {phase === "recording" && (
-          <div className="voice-wave">
+          <div className="tt-voice-wave">
             <span /><span /><span /><span /><span />
           </div>
         )}
