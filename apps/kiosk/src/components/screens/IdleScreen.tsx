@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
+import * as Dialog from "@radix-ui/react-dialog";
 import { Mic } from "lucide-react";
 import TabletotLogo from "@/components/TabletotLogo";
 import { useMenu } from "@/lib/menuStore";
 import type { AnchorItem } from "@/lib/menuStore";
 import { itemImageBackground } from "@/lib/menuImages";
 import { track } from "@/lib/eventBus";
+import wifiQrSrc from "@/assets/wifi-qr.svg";
+
+// Pilot is a single open network. TODO: restaurant_settings key when multi-restaurant lands.
+const WIFI_SSID = "SILVER-GUEST";
 
 interface IdleScreenProps {
   /** "Touch anywhere" — starts the session and goes to the menu. */
@@ -29,6 +34,7 @@ const IdleScreen = ({ onActivate, onSelectHeroItem, tableId, onInfoToast }: Idle
   const multi = chefPicks.length > 1;
 
   const [heroIndex, setHeroIndex] = useState(0);
+  const [wifiOpen, setWifiOpen] = useState(false);
 
   // Auto-advance: one ~3.5s tick drives both the track transform and the
   // dots. Disabled under prefers-reduced-motion (slide 1 only) and when
@@ -157,9 +163,41 @@ const IdleScreen = ({ onActivate, onSelectHeroItem, tableId, onInfoToast }: Idle
           >
             About Silver — chef's note, our story →
           </button>
-          <p className="tt-attract-wifi">Wi-Fi: SILVER-GUEST</p>
+          <button
+            type="button"
+            className="tt-attract-wifi"
+            onClick={() => setWifiOpen(true)}
+          >
+            Wi-Fi: {WIFI_SSID}
+          </button>
         </div>
       </div>
+
+      <Dialog.Root open={wifiOpen} onOpenChange={setWifiOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="tt-modal-scrim" />
+          <Dialog.Content className="tt-modal tt-wifi-dialog" aria-describedby={undefined}>
+            <Dialog.Title>Join the café Wi-Fi</Dialog.Title>
+            <img
+              className="tt-wifi-qr"
+              src={wifiQrSrc}
+              alt={`QR code to join the ${WIFI_SSID} Wi-Fi network`}
+            />
+            <p>
+              Point your phone camera at the code — the network is open, no
+              password needed.
+            </p>
+            <p className="tt-attract-wifi">Network: {WIFI_SSID}</p>
+            <div className="tt-modal-actions">
+              <Dialog.Close asChild>
+                <button type="button" className="tt-btn--secondary">
+                  Close
+                </button>
+              </Dialog.Close>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 };

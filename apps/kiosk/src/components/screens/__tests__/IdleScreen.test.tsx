@@ -125,4 +125,15 @@ describe("IdleScreen (merged attract)", () => {
     );
     expect(active).toBe(0);
   });
+
+  it("Wi-Fi button opens a dialog with the heading, instruction and a Close", () => {
+    renderIdle();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Wi-Fi: SILVER-GUEST/ }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Join the café Wi-Fi");
+    expect(dialog).toHaveTextContent(/network is open, no\s+password needed/);
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
 });

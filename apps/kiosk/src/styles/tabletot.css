@@ -5866,9 +5866,25 @@ body {
 }
 
 .tt-attract-wifi {
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--tt-ink-60);
   font-weight: 700;
   font-size: var(--tt-size-meta);
+  cursor: pointer;
+}
+
+.tt-wifi-dialog {
+  align-items: center;
+  text-align: center;
+  max-width: 420px;
+}
+
+.tt-wifi-qr {
+  width: calc(220px * var(--tt-scale));
+  height: auto;
+  align-self: center;
 }
 
 /* ── Attract: Chef's picks carousel (variant B) ─────────────── */
