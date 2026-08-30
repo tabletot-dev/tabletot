@@ -672,6 +672,20 @@ git commit -m "feat(kiosk): add About to the Attract secondary panel"
 
 ---
 
+> **Revised 2026-08-30 (as built, commit `8a8c7bf`).** The base-layer game CSS
+> turned out to be layered with dead rules (`.ludo-*` alongside live
+> `.classic-ludo-*`) and scattered across 1300–4075 interleaved with keyframes,
+> making an in-place cut-move-rewrite fragile. Executed instead as a **pure
+> mechanical rename**: `.classic-ludo-*` → `.tt-ludo-*`, `.game-*` →
+> `.tt-game-*`, `.conversation-*` → `.tt-talk-*`, etc., across both TSX files
+> and `tabletot.css`, rule bodies untouched. The screens render identically
+> (still on bridge vars). **Two pieces moved to Task 7.0:** (a) the
+> bridge-var → `--tt-*` sweep and physical relocation of these `.tt-*` rules
+> into the `.tt-*` section — do it there as one operation; (b) the in-screen
+> `StatusStrip` was dropped — it needs cooking-round data `GamesView` doesn't
+> take, so it belongs with a real Sprint 6 design pass, not the rename.
+> Steps below are kept for historical context.
+
 ## Task 6.2: Activities — Games & Table Talk on the token set
 
 **Files:**
@@ -972,6 +986,25 @@ git commit -m "feat(kiosk): voice conversation panel on the answer-card shapes"
 Runs **last**, after 6.2, 7.1, and 7.2 are all committed. This is the end of the
 whole redesign — it removes the Task 1.2 bridge so it cannot become a permanent
 fifth layer.
+
+**Absorbed from Task 6.2 (revised 2026-08-30):** the `.tt-ludo-*` / `.tt-game-*`
+/ `.tt-talk-*` / `.tt-duel-*` / `.tt-tic-*` / `.tt-connect-*` / `.tt-dice-*` /
+`.tt-activities-*` rules were renamed in place and still sit in the base-layer
+region referencing bridge vars (`var(--brand)`, `var(--panel)`,
+`var(--shadow-md)`, `var(--radius-lg)`, …). Before deleting the base layer:
+1. **Relocate** those `.tt-*` rule blocks (and the `@keyframes` they use —
+   `ludoTokenPulse`, `classicDiceRoll`, `classicLudoValid`, `classicLudoMove`,
+   `classicLudoCapture`) into the `.tt-*` section.
+2. **Sweep the vars** in those relocated blocks to real tokens, per the bridge
+   map at `tabletot.css:213`: `--brand`→`--tt-action`,
+   `--brand-deep`→`--tt-action-press`, `--brand-gold`→`--tt-action`,
+   `--panel`/`--panel-strong`→`--tt-paper`, `--panel-dark`→`--tt-ink`,
+   `--bg`→`--tt-field`, `--text`→`--tt-ink`, `--muted`→`--tt-ink-60`,
+   `--soft`→`--tt-disabled`, `--line`/`--line-strong`→`--tt-line`,
+   `--green`→`--tt-veg`, `--radius-xl`/`--radius-lg`→`--tt-radius-card`,
+   `--radius-md`/`--radius-sm`→`--tt-radius-chip`, `--touch`→`--tt-tap`,
+   `--shadow-*` → delete the declaration. Raw hex → nearest `--tt-*`.
+3. Then delete the rest of the base layer + bridge as below.
 
 - [ ] **Step 1: Confirm nothing outside the new system is still defined**
 
