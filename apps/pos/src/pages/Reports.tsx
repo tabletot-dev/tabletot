@@ -9,11 +9,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Loader2, Download, Calendar, IndianRupee, ShoppingBag,
-  TrendingUp, MoonStar, AlertTriangle, ArrowRight,
+  TrendingUp, MoonStar, AlertTriangle, ArrowRight, ExternalLink,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
 import { formatRupees } from '@/lib/formatCurrency';
+
+// Base URL of the curation dashboard (separate app). The AOV Lift page there
+// shows nudge-attributed lift, which this Reports page does not. Blank in dev
+// or if unset → the link is hidden. Dashboard requires an admin login.
+const DASHBOARD_URL = (import.meta.env.VITE_DASHBOARD_URL as string | undefined)?.replace(/\/$/, '') || '';
 
 interface HistoryOrder {
   id: string;
@@ -253,6 +258,18 @@ export default function Reports() {
                   </CardContent>
                 </Card>
               </div>
+
+              {DASHBOARD_URL && (
+                <a
+                  href={`${DASHBOARD_URL}/curation/aov`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                >
+                  See full AOV lift breakdown
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              )}
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
