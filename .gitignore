@@ -80,3 +80,5 @@ graphify-out/
 
 *.wav
 *.mp3
+
+.superpowers/

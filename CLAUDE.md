@@ -122,9 +122,11 @@ responds in native script only — no romanised transliteration. See
 (always-on voice: feasible, deferred).
 
 **Migrations:** Never edit an existing migration file. Always append a new one.
-Repo is at 0070; 0064+ were applied to local Supabase — Rohan pushes remote
-himself per convention. Current Silver UUID is
-`b22b5d53-6dd8-4f5b-8276-2e828cd1ab91` (pinned in migration 0014).
+`main` is at 0070 and 0066–0070 were applied to the remote Supabase on
+2026-08-30 (commit `90deb91`); 0071 exists only on `kiosk-v1-sprint-6-7`
+and is local-only. Rohan pushes remote himself per convention. Current
+Silver UUID is `b22b5d53-6dd8-4f5b-8276-2e828cd1ab91` (pinned in
+migration 0014).
 
 **Env vars:** `VITE_RESTAURANT_ID` and `VITE_TABLE_ID` are set in
 `apps/kiosk/.env.local`. All four services have env vars configured in Railway.
@@ -139,7 +141,7 @@ remove the fallback.
 pairings, anchor items. It is not a menu CRUD tool. Menu CRUD belongs in
 apps/pos and only for restaurants without their own POS admin.
 
-## Current status (as of 2026-08-28)
+## Current status (as of 2026-09-04)
 
 All four services deployed on Railway: kiosk, POS, dashboard, order-engine.
 
@@ -171,10 +173,13 @@ Still on a Lenovo Tab K9 for hardware testing, not yet in the restaurant.
 **Pre-deployment code audit (2026-08-28)** —
 `docs/notes/2026-08-28-pre-deployment-code-audit.md`. Static audit of all
 three apps + the shared DB layer found 10 fixable defects (3 P0, 2 High,
-3 Medium, 2 Low); all 10 are now fixed, verified, and pushed on
-`claude/project-status-review-7w70cm` (migrations 0066–0070, plus kiosk and
-POS commits — see the audit note's summary table for exact commit hashes
-per finding). Not yet merged to `main`.
+3 Medium, 2 Low); all 10 are fixed, verified, and **merged to `main`**
+via PRs #13–#15 on 2026-08-30 (migrations 0066–0070, plus kiosk and POS
+commits — see the audit note's summary table for exact commit hashes per
+finding). Migrations 0066–0070 were applied to the remote Supabase the
+same day (commit `90deb91`, which also regenerated the Supabase types).
+The `claude/project-status-review-7w70cm` branch is now fully contained
+in `main`.
 
 **Next major milestone:** AOV data accuracy for the pilot restaurant.
 The system must produce trustworthy AOV numbers before Silver Specialty Coffee

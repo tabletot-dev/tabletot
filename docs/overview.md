@@ -1,7 +1,7 @@
 # tabletot-pilot — overview
 
 > Living document. Update when the state of the project changes meaningfully.
-> Last updated: 2026-08-28
+> Last updated: 2026-09-04
 
 ## What this is
 
@@ -57,7 +57,8 @@ Since then (all merged to `main` via PR #12, 2026-08-17):
   are gone.
 
 Order-engine tests: 197 passed, 3 skipped (post-ElevenLabs integration).
-Migrations: repo at 0070.
+Migrations: `main` at 0070 (0066–0070 applied to remote Supabase
+2026-08-30); 0071 exists only on `kiosk-v1-sprint-6-7`.
 
 ## Session state architecture — table_events ledger (2026-07-12)
 
@@ -99,17 +100,20 @@ telling the guest it was confirmed; public POS signup granting full write
 access to orders/payments/menu; cancel-then-reorder resurrecting
 cancelled items onto the bill; cash overpayment inflating AOV revenue;
 among others. All 10 are fixed, verified (real Postgres 16 instance for
-DB changes, the kiosk's vitest suite for frontend changes — no live
-Supabase project was available in this session for either), and pushed to
-`claude/project-status-review-7w70cm`. This also closes the readiness
-assessment's under-tested category — admin/POS-driven state changes
-hitting the event ledger (`docs/notes/pre-launch-readiness-assessment.md`),
-where findings 1, 3 and 5 all landed.
+DB changes, the kiosk's vitest suite for frontend changes), and **merged
+to `main`** via PRs #13–#15 on 2026-08-30 (migrations 0066–0070 applied
+to the remote Supabase the same day, commit `90deb91`). This also closes
+the readiness assessment's under-tested category — admin/POS-driven state
+changes hitting the event ledger
+(`docs/notes/pre-launch-readiness-assessment.md`), where findings 1, 3
+and 5 all landed.
 
 Open items, in rough order:
 
-1. Merge `claude/project-status-review-7w70cm` (or review it) — the fixes
-   above exist only on that branch, not yet on `main`.
+1. Merge `kiosk-v1-sprint-6-7` — the only unmerged branch. Carries
+   Sprints 6–7 (About/Venue screen, migration 0071, Warm Espresso bridge
+   removal) and the voice channel redesign. Rebase `main` in first
+   (it is 1 commit behind — the `90deb91` types regen).
 2. Show the client the redesigned kiosk (Sprints 0–5); decide on
    Sprints 6–7 (Games, Table Talk, voice UI).
 3. Voice: manual on-device pass on the Tab K9 (both provider defaults and
