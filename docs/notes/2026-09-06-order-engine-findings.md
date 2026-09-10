@@ -50,6 +50,8 @@ Symptom: browser plays the reply but stops before the transcript ends.
 
 ### 2a. Backend: sentence silently skipped on ElevenLabs reconnect (most likely)
 
+**Status (2026-09-10): FIXED on this branch** — `speak()` in `voice_agent/elevenlabs_tts_handler.py` now wraps send/receive in `try/finally` and always closes + nulls the socket, so the next call reconnects cleanly instead of racing a not-yet-read close frame. 3 regression tests in `tests/test_elevenlabs_tts_handler.py` (10/10 pass). On-device voice test still pending (Rohan).
+
 `services/order-engine/voice_agent/elevenlabs_tts_handler.py`
 
 - `speak()` (line ~88) sends the sentence plus an empty-text close message,
@@ -162,6 +164,16 @@ session/TTS handle into a parent that never unmounts.
 - Prices hidden, so "how much is it" gets a dodge.
 
 ### Recommended path (no agent, no latency cost)
+
+**Status (2026-09-10): plumbing DONE on this branch; content is Rohan's.**
+- Item `facts` jsonb column: migration `0072_menu_items_facts.sql` (numbered 0072 because `kiosk-v1-sprint-6-7` already has an unmerged 0071). Nullable, open shape.
+- `MenuItem.facts` field + both DB loaders select it + `generate_menu_summary` renders present keys as a compact `[…]` suffix. Still no prices/IDs.
+- Prompt: length rule relaxed to “up to 4 short sentences for real questions”; new Truth Rule 6 forbids stating any fact not shown for the item (no estimating).
+- **Blocking manual step:** apply migration 0072 to local Supabase before running the updated order-engine — the loader SELECTs the new column and startup fails loudly without it. Then regenerate Supabase types for pos/kiosk. Rohan pushes 0072 to remote himself.
+- **Not done:** restaurant-level facts (hours/story) into the voice prompt — staged on the sprint branch in `restaurants.config`; wire voice to it once that branch merges.
+- **Content, Rohan:** populate `menu_items.facts` per item; enrich the one-clause descriptions.
+
+Original recommendation follows for reference:
 
 1. Add a `facts` JSONB column on `menu_items` (calories, allergens, spice
    level, prep minutes, ingredients) and render it in the menu summary.

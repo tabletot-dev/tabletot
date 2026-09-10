@@ -1,8 +1,9 @@
 """Generate a simplified menu summary for LLM context injection.
 
 The output contains item names, categories, variant options, modifier choices,
-and descriptions — but NO prices and NO IDs. This prevents the LLM from
-hallucinating financial data.
+descriptions, and (when set) structured facts like calories/allergens/prep
+time — but NO prices and NO IDs. This prevents the LLM from hallucinating
+financial data.
 
 Generated once at startup and reused for every LLM call.
 """
@@ -67,6 +68,9 @@ def _format_item(item: dict) -> str:
         desc = item.get("description")
         if desc:
             line += f" — {desc}"
+        facts = _format_facts(item.get("facts"))
+        if facts:
+            line += f" [{facts}]"
 
     # Modifiers
     modifiers = item.get("modifiers")
@@ -79,6 +83,28 @@ def _format_item(item: dict) -> str:
         line += f" (Choose: {'; '.join(mod_parts)})"
 
     return line
+
+
+def _format_facts(facts: dict | None) -> str:
+    """Render optional structured item facts (migration 0072) as a compact
+    string. Only keys that are present appear; anything else the model is told
+    not to guess (system_prompt Truth Rule 6)."""
+    if not facts:
+        return ""
+    parts: list[str] = []
+    if facts.get("calories_kcal") is not None:
+        parts.append(f"{facts['calories_kcal']} kcal")
+    if facts.get("allergens"):
+        parts.append("contains " + ", ".join(facts["allergens"]))
+    if facts.get("spice_level"):
+        parts.append(f"spice: {facts['spice_level']}")
+    if facts.get("prep_minutes") is not None:
+        parts.append(f"~{facts['prep_minutes']} min")
+    if facts.get("ingredients"):
+        parts.append("ingredients: " + ", ".join(facts["ingredients"]))
+    if facts.get("notes"):
+        parts.append(str(facts["notes"]))
+    return "; ".join(parts)
 
 
 def _format_tag(tags: list[str]) -> str:
