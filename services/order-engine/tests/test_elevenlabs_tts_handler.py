@@ -172,3 +172,91 @@ async def test_is_configured_reflects_configure_call():
         await handler.configure(language_code="hi-IN", speaker="pNInz6obpgDQGcFmaJgB")
 
     assert handler.is_configured is True
+
+
+# ---------------------------------------------------------------------------
+# Regression: reconnect race that silently dropped sentences (finding 2a,
+# docs/notes/2026-09-06-order-engine-findings.md)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_speak_drops_socket_reference_after_completion():
+    """After speak() finishes, _ws must be None and the socket closed, so the
+    next speak() reconnects instead of racing a socket ElevenLabs already
+    half-closed (which yielded zero audio and dropped the sentence)."""
+    final = json.dumps({"isFinal": True})
+    ws = make_elevenlabs_tts_ws([final])
+
+    handler = ElevenLabsTTSHandler(api_key="test-key")
+    handler._ws = ws
+    handler._language_code = "hi-IN"
+    handler._voice_id = "pNInz6obpgDQGcFmaJgB"
+
+    async for _ in handler.speak("Hello"):
+        pass
+
+    assert handler._ws is None
+    assert ws.close.called
+
+
+@pytest.mark.asyncio
+async def test_speak_drops_socket_even_when_server_closes_mid_stream():
+    """If recv() raises ConnectionClosedOK, the finally block must still drop
+    the socket reference so the next call reconnects cleanly."""
+    import websockets
+
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+    ws.close = AsyncMock()
+    ws.recv = AsyncMock(
+        side_effect=websockets.exceptions.ConnectionClosedOK(None, None)
+    )
+
+    handler = ElevenLabsTTSHandler(api_key="test-key")
+    handler._ws = ws
+    handler._language_code = "hi-IN"
+    handler._voice_id = "pNInz6obpgDQGcFmaJgB"
+
+    async for _ in handler.speak("Hello"):
+        pass
+
+    assert handler._ws is None
+    assert ws.close.called
+
+
+@pytest.mark.asyncio
+async def test_consecutive_speak_calls_reconnect():
+    """Two speak() calls in a row: the second must open a fresh WebSocket via
+    _ensure_connected() rather than reuse the first, which ElevenLabs closed
+    after isFinal."""
+    import base64
+
+    audio_b64 = base64.b64encode(b"\x01\x02").decode()
+
+    def fresh_ws() -> AsyncMock:
+        return make_elevenlabs_tts_ws(
+            [json.dumps({"audio": audio_b64}), json.dumps({"isFinal": True})]
+        )
+
+    handler = ElevenLabsTTSHandler(api_key="test-key")
+    handler._language_code = "hi-IN"
+    handler._voice_id = "pNInz6obpgDQGcFmaJgB"
+    handler._ws = fresh_ws()  # initial socket for the first utterance
+
+    with patch(
+        "voice_agent.elevenlabs_tts_handler.websockets.connect",
+        new_callable=AsyncMock,
+    ) as mock_connect:
+        mock_connect.return_value = fresh_ws()
+
+        chunks1 = [c async for c in handler.speak("First sentence.")]
+        assert handler._ws is None  # socket dropped after utterance 1
+
+        chunks2 = [c async for c in handler.speak("Second sentence.")]
+
+    assert chunks1 == [b"\x01\x02"]
+    assert chunks2 == [b"\x01\x02"]
+    assert mock_connect.call_count == 1  # exactly one reconnect, for utterance 2
+
+    await handler.close()

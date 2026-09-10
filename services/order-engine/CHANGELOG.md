@@ -6,6 +6,10 @@ All notable changes to the Menu Resolver project.
 
 ## [Unreleased]
 
+### Fixed
+
+- **TTS reconnect race silently dropped sentences** (`voice_agent/elevenlabs_tts_handler.py`) — `speak()` broke out of its receive loop on `isFinal` without clearing `self._ws`. Because the `{"text": ""}` close message makes ElevenLabs close the socket after every utterance, the next `speak()` could race a socket whose state still read `OPEN` (its close frame not yet read): `_ensure_connected()` skipped the reconnect, `recv()` raised `ConnectionClosedOK` immediately, the loop treated that as "complete", and the sentence was dropped from the spoken reply with no audio and no exception — so the one retry in `backend/routers/voice.py` never fired. The customer heard a reply that stopped short of the displayed text. `speak()` now wraps its send/receive in `try/finally` and always closes and nulls the socket when it ends (normal completion, server close, early consumer break, or error), so the next call reconnects cleanly via `_ensure_connected()`. Reconnect-per-utterance was already the effective behaviour on the non-racy path; this just closes the timing window. Three regression tests added in `tests/test_elevenlabs_tts_handler.py`. Manual on-device voice test still pending (Rohan).
+
 ### Added
 
 - **Session reaper — idle session cleanup** (`voice_agent/session_manager.py`, `backend/main.py`) — sessions that are never explicitly ended (tablet turned off, customer walks away) previously accumulated in `SessionManager._sessions` indefinitely. `VoiceSession` gains a `last_active_at` timestamp (UTC, updated on every PTT press via `SessionManager.touch_session()`). `SessionManager.reap_idle_sessions(idle_seconds)` sweeps the session map and calls `end_session` on any session idle past the threshold. A `_reaper_loop` background task runs every 5 minutes and reaps sessions idle for more than 15 minutes; it is started and cancelled alongside the existing menu refresh task in `lifespan`.
