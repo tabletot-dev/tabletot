@@ -84,8 +84,30 @@ after every `isFinal` since the connection is closed per sentence anyway.
   Popular / Detail / Cart while the reply is playing, stops playback
   mid-sentence and destroys the backend session. Returning to the menu opens
   a fresh session with no conversation memory.
-- The voice single-surface rework plan on `kiosk-v1-sprint-6-7` is the right
-  place to address this.
+
+**Status (2026-09-10): DEFERRED to `kiosk-v1-sprint-6-7` — not fixed on this
+branch.** Decision (Rohan): do not touch kiosk code on the findings branch;
+the sprint branch has 20+ unmerged commits on the voice surface and a
+divergent `Index.tsx`, so a fix here would conflict.
+
+What the sprint branch already does (checked 2026-09-10, tip `7399b60`):
+`Index.tsx` keeps `VoiceOrderButton` **mounted but hidden** (not unmounted)
+across `menu`, `voice-conversation`, and `item-detail` — commit `c02b320`
+"address final voice-redesign review (session lifetime, dock close…)",
+referenced in-code as "review C1". So Detail no longer kills the session
+there.
+
+What is still NOT covered on the sprint branch: navigating to `popular`
+(FrequentlyOrderedView), `order-summary` (Cart), `sent`, or any other screen
+outside those three still unmounts `VoiceOrderButton` and tears down the
+session mid-reply. The remaining screens need folding into the same
+"mounted, hidden off-menu" list, or the voice-session ownership lifted out of
+`VoiceOrderButton` entirely per the single-surface rework
+(`docs/plans/2026-08-31-voice-single-surface-rework.md`).
+
+Action for whoever picks up the sprint branch: extend the mount condition in
+`Index.tsx` to every screen reachable while voice is active, or hoist the
+session/TTS handle into a parent that never unmounts.
 
 ### Checked and ruled out
 
