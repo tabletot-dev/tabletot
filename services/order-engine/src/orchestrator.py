@@ -124,7 +124,7 @@ class Orchestrator:
             elif action == "recommend":
                 self._handle_recommend(intent, current_time, resolver_results, new_feedback, turn_outcomes)
             elif action == "ask_menu":
-                turn_outcomes.append({"status": "menu_question", "raw_name": intent.get("raw_name", "")})
+                self._handle_ask_menu(intent, current_time, resolver_results, new_feedback, turn_outcomes)
             elif action in ("none", "accept_upsell", "reject_upsell"):
                 turn_outcomes.append({"status": "none", "raw_name": ""})
 
@@ -557,6 +557,31 @@ class Orchestrator:
         else:
             # No matching category found — treat as a general menu question.
             turn_outcomes.append({"status": "menu_question", "raw_name": raw_name})
+
+    def _handle_ask_menu(
+        self,
+        intent: dict,
+        current_time: datetime | None,
+        resolver_results: list[ResolverCall],
+        new_feedback: list[dict],
+        turn_outcomes: list[dict],
+    ) -> None:
+        """Informational questions ("what's in the aglio e olio?", "is X spicy?").
+
+        Never mutates order state — this is a question, not an add. When the
+        question names a real menu item, resolve it so the client can show a
+        suggestion card alongside Pass 2's text answer (previously this action
+        produced no resolver_results at all, so the client had nothing to
+        render even when the LLM's reply named a specific dish).
+        """
+        raw_name = intent.get("raw_name", "").strip()
+        if raw_name:
+            result = resolve(raw_name, self.menu_index, current_time)
+            if isinstance(result, (ConfidentMatch, ChooseFromCategory)):
+                resolver_results.append(
+                    ResolverCall(intent, raw_name, result, applied_to_order=False, feedback_generated=None)
+                )
+        turn_outcomes.append({"status": "menu_question", "raw_name": raw_name})
 
 
     def _handle_recommend(

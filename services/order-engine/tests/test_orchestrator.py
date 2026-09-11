@@ -470,3 +470,28 @@ def test_recommend_no_graph_falls_back_gracefully():
 
     assert len(result.resolver_results) == 0
     assert result.order_state_snapshot["total"] == 0
+
+
+def test_ask_menu_named_item_surfaces_as_unapplied_suggestion():
+    """ask_menu for a real item should resolve it so the client can show a
+    card, but never add it to the order (this is a question, not an add)."""
+    resp = _make_response([{"action": "ask_menu", "raw_name": "cappuccino", "quantity": 0, "modifiers": [], "special_notes": ""}])
+    orch, _ = _build_orchestrator([resp])
+    result = orch.process_turn("cappuccino mein kya hai?")
+
+    assert len(result.resolver_results) == 1
+    rr = result.resolver_results[0]
+    assert isinstance(rr.result, ConfidentMatch)
+    assert rr.applied_to_order is False
+    assert result.order_state_snapshot["total"] == 0
+
+
+def test_ask_menu_unresolved_name_falls_back_to_menu_question():
+    """A question that doesn't name a real menu item should degrade to a
+    plain menu_question with no resolver_results, same as before."""
+    resp = _make_response([{"action": "ask_menu", "raw_name": "does this place have wifi", "quantity": 0, "modifiers": [], "special_notes": ""}])
+    orch, _ = _build_orchestrator([resp])
+    result = orch.process_turn("does this place have wifi?")
+
+    assert len(result.resolver_results) == 0
+    assert result.order_state_snapshot["total"] == 0

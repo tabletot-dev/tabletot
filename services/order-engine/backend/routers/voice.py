@@ -25,7 +25,14 @@ from pydantic import BaseModel
 
 _SSL_CTX = ssl.create_default_context(cafile=certifi.where())
 
-from src.models import Ambiguous, ConfidentMatch, NeedsVariantSelection, NoMatch, Unavailable
+from src.models import (
+    Ambiguous,
+    ChooseFromCategory,
+    ConfidentMatch,
+    NeedsVariantSelection,
+    NoMatch,
+    Unavailable,
+)
 from src.orchestrator import ResolverCall, TurnResult
 from voice_agent.elevenlabs_tts_handler import ElevenLabsTTSHandler
 from voice_agent.factory import create_stt_handler
@@ -141,6 +148,20 @@ def _serialize_resolver_results(calls: list[ResolverCall]) -> list[dict]:
                 "score": round(r.score, 1),
                 "applied": call.applied_to_order,
             })
+        elif isinstance(r, ChooseFromCategory):
+            # Suggestions only (recommend / ask_menu) — never applied to the
+            # order, so each option surfaces as its own unapplied "match" for
+            # the client to render as a card. Previously had no branch here at
+            # all, so recommend/ask_menu suggestions were silently dropped.
+            for option in r.options:
+                out.append({
+                    "raw": call.raw_name,
+                    "type": "match",
+                    "item": option.item_name,
+                    "method": option.match_method,
+                    "score": round(option.score, 1),
+                    "applied": False,
+                })
         elif isinstance(r, NeedsVariantSelection):
             out.append({
                 "raw": call.raw_name,
