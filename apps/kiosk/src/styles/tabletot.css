@@ -3312,7 +3312,8 @@ button {
 }
 
 .tt-voice-recommendation-media {
-  height: 86px;
+  width: 100%;
+  aspect-ratio: 4 / 3;
   border: 0;
   border-radius: 16px;
   background-size: cover;
