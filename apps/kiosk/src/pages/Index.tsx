@@ -221,6 +221,12 @@ const IndexInner = () => {
 
   const handleEndSession = useCallback(() => {
     prevVoiceOrderRef.current = null;
+    // voiceConversationOpen/voiceSessionId live outside useDeviceNavigation's
+    // state, so endSession() alone can't clear them — without this, a party
+    // that had the voice modal open when the POS ended their session leaves
+    // it open (with a now-dead sessionId) for the next customer's fresh menu.
+    setVoiceConversationOpen(false);
+    setVoiceSessionId(null);
     endSession();
   }, [endSession]);
 
