@@ -440,7 +440,7 @@ def load_menu_from_db(db_url: str | None = None, restaurant_id: str | None = Non
 
         cur.execute(
             """
-            SELECT json_id, name, category, price, is_veg, description, modifiers
+            SELECT json_id, name, category, price, is_veg, description, modifiers, facts
             FROM   menu_items
             WHERE  restaurant_id = %s
               AND  json_id IS NOT NULL
@@ -470,7 +470,7 @@ def load_menu_from_db(db_url: str | None = None, restaurant_id: str | None = Non
 
     index = MenuIndex()
 
-    for (json_id, name, category, price, is_veg, description, modifiers) in item_rows:
+    for (json_id, name, category, price, is_veg, description, modifiers, facts) in item_rows:
         tags = ["veg"] if is_veg else ["non-veg"]
         item = MenuItem(
             id=json_id,
@@ -481,6 +481,7 @@ def load_menu_from_db(db_url: str | None = None, restaurant_id: str | None = Non
             description=description,
             tags=tags,
             modifiers=modifiers,
+            facts=facts,
         )
         index.items_by_id[json_id] = item
         if category not in index.categories:
@@ -517,7 +518,7 @@ def load_menu_data_from_db(db_url: str | None = None, restaurant_id: str | None 
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT json_id, name, category, price, is_veg, description, modifiers
+            SELECT json_id, name, category, price, is_veg, description, modifiers, facts
             FROM   menu_items
             WHERE  restaurant_id = %s
               AND  json_id IS NOT NULL
@@ -536,7 +537,7 @@ def load_menu_data_from_db(db_url: str | None = None, restaurant_id: str | None 
     cat_set: set[str] = set()
     items_list: list[dict] = []
 
-    for (json_id, name, category, price, is_veg, description, modifiers) in rows:
+    for (json_id, name, category, price, is_veg, description, modifiers, facts) in rows:
         if category not in cat_set:
             seen_cats.append(category)
             cat_set.add(category)
@@ -549,6 +550,7 @@ def load_menu_data_from_db(db_url: str | None = None, restaurant_id: str | None 
             "tags": ["veg"] if is_veg else ["non-veg"],
             "description": description,
             "modifiers": modifiers or {},
+            "facts": facts or None,
         })
 
     categories_list = [{"id": cat, "name": cat} for cat in seen_cats]

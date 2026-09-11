@@ -30,6 +30,7 @@ class MenuItem:
     tags: list[str] = field(default_factory=list)
     modifiers: dict | None = None          # {key: {label, options[], required, price_impact}}
     serves: int | None = None
+    facts: dict | None = None              # optional structured info: calories, allergens, spice_level, prep_minutes, ingredients (migration 0072)
     # Items themselves never carry time windows in the current menu — windows
     # come from the category. The fields are kept here for forward-compatibility
     # in case a single item gets a special window in the future.

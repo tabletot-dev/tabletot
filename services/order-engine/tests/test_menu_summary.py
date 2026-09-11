@@ -73,3 +73,65 @@ def test_summary_not_empty():
     menu_data = _load_menu()
     summary = generate_menu_summary(menu_data)
     assert len(summary) > 500
+
+
+# ---------------------------------------------------------------------------
+# Structured facts rendering (migration 0072, finding 3 of
+# docs/notes/2026-09-06-order-engine-findings.md) — no DB needed.
+# ---------------------------------------------------------------------------
+
+_FACTS_MENU = {
+    "categories": [{"id": "Food", "name": "Food"}],
+    "items": [
+        {
+            "id": "avocado_toast", "name": "Avocado Toast", "category": "Food",
+            "type": "simple", "price": 300, "tags": ["veg"],
+            "description": "Avocado mash on sourdough.",
+            "modifiers": {},
+            "facts": {
+                "calories_kcal": 320,
+                "allergens": ["dairy", "gluten"],
+                "spice_level": "medium",
+                "prep_minutes": 8,
+                "ingredients": ["sourdough", "avocado", "chilli flakes"],
+            },
+        },
+        {
+            "id": "plain_water", "name": "Water", "category": "Food",
+            "type": "simple", "price": 0, "tags": ["veg"],
+            "description": None, "modifiers": {}, "facts": None,
+        },
+    ],
+    "aliases": {},
+}
+
+
+def test_facts_rendered_when_present():
+    summary = generate_menu_summary(_FACTS_MENU)
+    assert "320 kcal" in summary
+    assert "contains dairy, gluten" in summary
+    assert "spice: medium" in summary
+    assert "~8 min" in summary
+    assert "ingredients: sourdough, avocado, chilli flakes" in summary
+
+
+def test_no_facts_bracket_when_facts_absent():
+    summary = generate_menu_summary(_FACTS_MENU)
+    water_line = next(ln for ln in summary.splitlines() if "Water" in ln)
+    assert water_line.strip() == "- Water [V]"  # no facts bracket appended
+
+
+def test_partial_facts_only_show_present_keys():
+    menu = {
+        "categories": [{"id": "Food", "name": "Food"}],
+        "items": [{
+            "id": "x", "name": "Soup", "category": "Food", "type": "simple",
+            "price": 100, "tags": ["veg"], "description": None, "modifiers": {},
+            "facts": {"prep_minutes": 5},
+        }],
+        "aliases": {},
+    }
+    summary = generate_menu_summary(menu)
+    assert "[~5 min]" in summary
+    assert "kcal" not in summary
+    assert "spice" not in summary

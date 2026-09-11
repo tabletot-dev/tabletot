@@ -522,6 +522,7 @@ export type Database = {
           category: string | null
           created_at: string
           description: string | null
+          facts: Json | null
           id: string
           image_url: string | null
           is_veg: boolean
@@ -537,6 +538,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           description?: string | null
+          facts?: Json | null
           id?: string
           image_url?: string | null
           is_veg?: boolean
@@ -552,6 +554,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           description?: string | null
+          facts?: Json | null
           id?: string
           image_url?: string | null
           is_veg?: boolean

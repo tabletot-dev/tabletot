@@ -77,46 +77,62 @@ class ElevenLabsTTSHandler:
 
         await self._ensure_connected()
 
-        await self._ws.send(json.dumps({"text": text, "flush": True}))
-        # ElevenLabs doesn't proactively signal completion (no isFinal, no
-        # close) after a flush alone — it waits for either more text or this
-        # explicit CloseConnection message before finishing. Confirmed via
-        # live testing 2026-08-17: without this, the connection hangs until
-        # the server's own inactivity_timeout fires (~180s), never yielding
-        # isFinal. Unlike Sarvam, which closes proactively when done.
-        await self._ws.send(json.dumps({"text": ""}))
-        logger.debug("TTS speak: %r", text[:60])
+        try:
+            await self._ws.send(json.dumps({"text": text, "flush": True}))
+            # ElevenLabs doesn't proactively signal completion (no isFinal, no
+            # close) after a flush alone — it waits for either more text or this
+            # explicit CloseConnection message before finishing. Confirmed via
+            # live testing 2026-08-17: without this, the connection hangs until
+            # the server's own inactivity_timeout fires (~180s), never yielding
+            # isFinal. Unlike Sarvam, which closes proactively when done.
+            await self._ws.send(json.dumps({"text": ""}))
+            logger.debug("TTS speak: %r", text[:60])
 
-        while True:
-            try:
-                msg = await self._ws.recv()
-            except websockets.exceptions.ConnectionClosedOK:
-                logger.debug("TTS speak: connection closed by server (complete)")
-                break
-            except websockets.exceptions.ConnectionClosed as e:
-                logger.warning("TTS speak: unexpected connection close: %s", e)
-                raise
-            if isinstance(msg, bytes):
-                continue
-            try:
-                data = json.loads(msg)
-            except json.JSONDecodeError:
-                logger.debug("TTS speak: non-JSON server message: %r", msg[:120])
-                continue
-
-            # The final message can carry the last audio chunk alongside
-            # isFinal in the same payload — yield audio before breaking, or
-            # every sentence loses its trailing audio.
-            audio_b64 = data.get("audio")
-            if audio_b64:
+            while True:
                 try:
-                    yield base64.b64decode(audio_b64)
-                except (ValueError, TypeError) as e:
-                    logger.warning("TTS speak: bad base64 audio payload: %s", e)
+                    msg = await self._ws.recv()
+                except websockets.exceptions.ConnectionClosedOK:
+                    logger.debug("TTS speak: connection closed by server (complete)")
+                    break
+                except websockets.exceptions.ConnectionClosed as e:
+                    logger.warning("TTS speak: unexpected connection close: %s", e)
+                    raise
+                if isinstance(msg, bytes):
+                    continue
+                try:
+                    data = json.loads(msg)
+                except json.JSONDecodeError:
+                    logger.debug("TTS speak: non-JSON server message: %r", msg[:120])
+                    continue
 
-            if data.get("isFinal"):
-                logger.debug("TTS speak: final event received")
-                break
+                # The final message can carry the last audio chunk alongside
+                # isFinal in the same payload — yield audio before breaking, or
+                # every sentence loses its trailing audio.
+                audio_b64 = data.get("audio")
+                if audio_b64:
+                    try:
+                        yield base64.b64decode(audio_b64)
+                    except (ValueError, TypeError) as e:
+                        logger.warning("TTS speak: bad base64 audio payload: %s", e)
+
+                if data.get("isFinal"):
+                    logger.debug("TTS speak: final event received")
+                    break
+        finally:
+            # ElevenLabs closes the socket after every utterance (the
+            # {"text": ""} above). Drop it so the next speak() reconnects clean
+            # via _ensure_connected() instead of racing a not-yet-read close
+            # frame — that race made recv() raise ConnectionClosedOK at once,
+            # the loop count it "complete", and the sentence vanish from the
+            # spoken reply with no audio and no exception (voice.py never
+            # retried). ponytail: reconnect-per-utterance was already the
+            # non-racy path; this just closes the window.
+            if self._ws is not None:
+                try:
+                    await self._ws.close()
+                except Exception:
+                    pass
+                self._ws = None
 
     # ------------------------------------------------------------------
     # Internal helpers
