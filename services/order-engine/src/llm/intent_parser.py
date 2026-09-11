@@ -125,10 +125,24 @@ def _validate_intent(intent: dict) -> dict | None:
     # Normalize special_notes
     special_notes = str(intent.get("special_notes", "")).strip()
 
-    return {
+    validated = {
         "action": action,
         "raw_name": raw_name,
         "quantity": quantity,
         "modifiers": modifiers,
         "special_notes": special_notes,
     }
+
+    # filter and recommend both carry an optional dietary "attribute" ("veg"/
+    # "non-veg") — filter also carries "category". Previously dropped here
+    # entirely (this dict used to be the full return value), so every filter
+    # intent reached the orchestrator with attribute="" regardless of what
+    # Pass 1 extracted, making _handle_filter return every menu item
+    # unfiltered. recommend's attribute lets its candidate search respect a
+    # dietary constraint even when Pass 1 doesn't classify the turn as filter.
+    if action in ("filter", "recommend"):
+        validated["attribute"] = str(intent.get("attribute", "")).strip().lower()
+    if action == "filter":
+        validated["category"] = str(intent.get("category", "")).strip()
+
+    return validated

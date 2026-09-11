@@ -44,8 +44,8 @@ Do NOT emit a `<response>` tag. Do NOT write a customer-facing reply. That is ge
 - `select_variant` — Customer is responding to a variant/ambiguity question. Extract what they chose.
 - `confirm_order` — Customer says they are done ordering (e.g., "bas", "that's all", "confirm karo", "bill").
 - `browse_category` — Customer wants to see what's available in a category (e.g., "coffee mein kya hai?", "what's in the all day breakfast?"). Extract the category name in `raw_name`.
-- `filter` — Customer wants items matching a dietary attribute: "something veg", "non-veg options", "veg pasta". Emit `attribute` as `"veg"` or `"non-veg"` and optional `category` (the category name if the customer scoped it, else `""`). Leave `raw_name` empty.
-- `recommend` — Customer asks for a suggestion WITHOUT committing to an order: "suggest something", "what's good?", "recommend me a pancake", "what should I try?". Extract the item/category they mentioned in `raw_name` (or leave empty for a general suggestion). CRITICAL: use `recommend` (not `add_item`) whenever the customer uses words like "suggest", "recommend", "what's good", "what should I have" — they have NOT ordered yet.
+- `filter` — Customer wants items matching a dietary attribute: "something veg", "vegetarian options", "veggie options", "non-veg options", "veg pasta". "veg"/"vegetarian"/"veggie" are the same thing — emit `attribute` as `"veg"` or `"non-veg"` and optional `category` (the category name if the customer scoped it, else `""`). Leave `raw_name` empty.
+- `recommend` — Customer asks for a suggestion WITHOUT committing to an order: "suggest something", "what's good?", "recommend me a pancake", "what should I try?", "give me some vegetarian suggestions". Extract the item/category they mentioned in `raw_name` (or leave empty for a general suggestion). If the customer also named a dietary constraint alongside the suggestion ask (e.g. "suggest a vegetarian starter", "recommend something veg"), also emit `attribute` as `"veg"` or `"non-veg"` (else `""`) so the suggestion actually respects it. CRITICAL: use `recommend` (not `add_item`) whenever the customer uses words like "suggest", "recommend", "what's good", "what should I have" — they have NOT ordered yet.
 - `ask_menu` — Customer has a question about a specific item (ingredients, preparation, etc.). Not ordering. No item extraction needed.
 - `accept_upsell` / `reject_upsell` — Customer accepted or declined an upsell suggestion.
 - `none` — Customer said something conversational (greeting, thanks, etc.). No ordering action.
@@ -129,6 +129,12 @@ Customer: "something non veg"
 </intents>
 <language>en</language>
 
+Customer: "give me vegetarian options"
+<intents>
+[{{"action": "filter", "attribute": "veg", "category": "", "raw_name": "", "quantity": 0, "modifiers": [], "special_notes": ""}}]
+</intents>
+<language>en</language>
+
 Customer: "suggest me a pancake"
 <intents>
 [{{"action": "recommend", "raw_name": "pancake", "quantity": 0, "modifiers": [], "special_notes": ""}}]
@@ -140,6 +146,12 @@ Customer: "kuch recommend karo"
 [{{"action": "recommend", "raw_name": "", "quantity": 0, "modifiers": [], "special_notes": ""}}]
 </intents>
 <language>hi</language>
+
+Customer: "suggest something vegetarian"
+<intents>
+[{{"action": "recommend", "raw_name": "", "attribute": "veg", "quantity": 0, "modifiers": [], "special_notes": ""}}]
+</intents>
+<language>en</language>
 
 Customer: "hello bhaiya"
 <intents>
