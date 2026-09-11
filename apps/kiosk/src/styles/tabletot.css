@@ -4349,10 +4349,18 @@ body {
   align-items: center;
   justify-content: center;
   padding: var(--tt-space-3) var(--tt-gutter);
-  /* Last child of .tt-scroll — margin-bottom (unlike the container's
-     padding-bottom) is honoured at scroll end, so the mic clears the
-     docked status strip / cart bar instead of butting against them. */
+  /* Docked bar at the .tt-shell level (AppShell), alongside statusStrip/
+     orderBar — kept mounted on every screen and hidden via the [hidden]
+     attribute rather than unmounted, so VoiceOrderButton's session/TTS
+     lifecycle survives screen navigation. margin-bottom clears the other
+     docked bars above it. */
   margin-bottom: var(--tt-space-2);
+}
+
+/* display: flex above beats the UA's [hidden] { display: none } by cascade
+   origin, not specificity — this rule has to win the override explicitly. */
+.tt-voicedock[hidden] {
+  display: none;
 }
 
 .tt-statusstrip {

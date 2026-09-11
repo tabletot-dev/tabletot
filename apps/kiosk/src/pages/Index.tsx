@@ -470,6 +470,30 @@ const IndexInner = () => {
       />
     ) : null;
 
+  // Mounted for the whole active session (any screen but "idle"), not just
+  // "menu", and passed straight through to AppShell, which owns hiding it
+  // visually off the menu screen. VoiceOrderButton's own effect owns the
+  // whole voice session/TTS lifecycle — start on mount, fully end + close
+  // on unmount (frozen code, VoiceOrderButton.tsx) — so gating this on
+  // currentScreen === "menu" tore the session down on every navigation
+  // away from it, leaving voiceTtsHandleRef/voiceSessionId pointing at a
+  // dead session for any other screen's voice entry point (item-detail's
+  // mic button hit this exact bug: reused a closed AudioContext and threw
+  // on bargeIn()). Excluding "idle" specifically (not just "!== menu") so
+  // a kiosk sitting on the Attract screen with nobody at the table doesn't
+  // hold a live backend voice/TTS session open all day.
+  const voiceDock = voiceEnabled && currentScreen !== "idle" ? (
+    <VoiceOrderButton
+      onDone={handleVoiceDone}
+      order={order}
+      restaurantId={RESTAURANT_ID}
+      tableId={TABLE_ID}
+      onOpenConversation={() => setVoiceConversationOpen(true)}
+      onSessionReady={setVoiceSessionId}
+      onTtsReady={(h) => { voiceTtsHandleRef.current = h; }}
+    />
+  ) : null;
+
   const renderScreen = () => {
     switch (currentScreen) {
       case "idle":
@@ -526,19 +550,6 @@ const IndexInner = () => {
             onClearItem={removeItem}
             order={order}
             onBackToStatus={previousOrders.length > 0 ? () => setCurrentScreen("session-idle") : undefined}
-            voiceDock={
-              voiceEnabled ? (
-                <VoiceOrderButton
-                  onDone={handleVoiceDone}
-                  order={order}
-                  restaurantId={RESTAURANT_ID}
-                  tableId={TABLE_ID}
-                  onOpenConversation={() => setVoiceConversationOpen(true)}
-                  onSessionReady={setVoiceSessionId}
-                  onTtsReady={(h) => { voiceTtsHandleRef.current = h; }}
-                />
-              ) : null
-            }
             voicePanel={voicePanel}
           />
         );
@@ -696,6 +707,7 @@ const IndexInner = () => {
       tableId={TABLE_ID}
       venueName={venueName || "Tabletot"}
       onAbout={openAbout}
+      voiceDock={voiceDock}
       orderBar={
         currentScreen === "menu" ? (
           <OrderBar
