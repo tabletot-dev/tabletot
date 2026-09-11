@@ -13,11 +13,15 @@ interface MenuViewProps {
   order: OrderItem[];
   voiceDock?: ReactNode;
   voicePanel?: ReactNode;
+  // Only passed when there's an ongoing order to return to (i.e. arrived
+  // here via WaitingView's "Order more") — omitted otherwise so first-time
+  // browsing doesn't show a Back button with nowhere real to go.
+  onBackToStatus?: () => void;
 }
 
 type DietFilter = "all" | "veg" | "nonveg";
 
-export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onClearItem, order, voiceDock, voicePanel }: MenuViewProps) {
+export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onClearItem, order, voiceDock, voicePanel, onBackToStatus }: MenuViewProps) {
   const { categories, itemsByCategory, pairingsByItemId, loading, error, retry } = useMenu();
   const [activeCategory, setActiveCategory] = useState("");
   const [diet, setDiet] = useState<DietFilter>("all");
@@ -90,6 +94,11 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onCl
 
       <div className="tt-menu-header">
         <h1>{filteredItems.length} {filteredItems.length === 1 ? "dish" : "dishes"}</h1>
+        {onBackToStatus && (
+          <button type="button" className="tt-btn--secondary" onClick={onBackToStatus}>
+            Back to order
+          </button>
+        )}
         <div className="tt-segmented">
           {(["all", "veg", "nonveg"] as DietFilter[]).map((d) => (
             <button
