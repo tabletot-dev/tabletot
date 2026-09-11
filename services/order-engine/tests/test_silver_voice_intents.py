@@ -273,7 +273,10 @@ def test_ask_menu_does_not_modify_order():
     orch = _build([_resp([_intent("ask_menu", "smoothie bowls", quantity=0)])])
     result = orch.process_turn("smoothie bowls mein kya hai?", _now())
 
-    assert len(result.resolver_results) == 0
+    # ask_menu may now resolve the named item/category so the client can show
+    # a suggestion card, but it must never be applied to the order.
+    for rr in result.resolver_results:
+        assert rr.applied_to_order is False
     assert result.order_state_snapshot["total"] == 0
 
 

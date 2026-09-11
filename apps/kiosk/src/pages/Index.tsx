@@ -221,6 +221,12 @@ const IndexInner = () => {
 
   const handleEndSession = useCallback(() => {
     prevVoiceOrderRef.current = null;
+    // voiceConversationOpen/voiceSessionId live outside useDeviceNavigation's
+    // state, so endSession() alone can't clear them — without this, a party
+    // that had the voice modal open when the POS ended their session leaves
+    // it open (with a now-dead sessionId) for the next customer's fresh menu.
+    setVoiceConversationOpen(false);
+    setVoiceSessionId(null);
     endSession();
   }, [endSession]);
 
@@ -445,6 +451,25 @@ const IndexInner = () => {
     );
   }
 
+  // Shared across every screen that can open the voice conversation dialog
+  // (menu, item-detail) — it's a self-mounting Radix Dialog portal, so it's
+  // safe to render as a sibling rather than nested inside one screen only.
+  const voicePanel =
+    voiceEnabled && voiceConversationOpen ? (
+      <VoiceConversationPanel
+        sessionId={voiceSessionId}
+        turns={voiceTurns}
+        order={order}
+        getQuantity={getOrderQuantity}
+        onClose={() => setVoiceConversationOpen(false)}
+        onDone={handleVoiceDone}
+        onAddItem={handleAddToOrder}
+        onUpdateQuantity={handleUpdateQuantity}
+        onSelectItem={handleSelectItem}
+        ttsHandle={voiceTtsHandleRef}
+      />
+    ) : null;
+
   const renderScreen = () => {
     switch (currentScreen) {
       case "idle":
@@ -500,6 +525,7 @@ const IndexInner = () => {
             onUpdateQuantity={handleUpdateQuantity}
             onClearItem={removeItem}
             order={order}
+            onBackToStatus={previousOrders.length > 0 ? () => setCurrentScreen("session-idle") : undefined}
             voiceDock={
               voiceEnabled ? (
                 <VoiceOrderButton
@@ -513,22 +539,7 @@ const IndexInner = () => {
                 />
               ) : null
             }
-            voicePanel={
-              voiceEnabled && voiceConversationOpen ? (
-                <VoiceConversationPanel
-                  sessionId={voiceSessionId}
-                  turns={voiceTurns}
-                  order={order}
-                  getQuantity={getOrderQuantity}
-                  onClose={() => setVoiceConversationOpen(false)}
-                  onDone={handleVoiceDone}
-                  onAddItem={handleAddToOrder}
-                  onUpdateQuantity={handleUpdateQuantity}
-                  onSelectItem={handleSelectItem}
-                  ttsHandle={voiceTtsHandleRef}
-                />
-              ) : null
-            }
+            voicePanel={voicePanel}
           />
         );
       case "popular":
@@ -544,16 +555,20 @@ const IndexInner = () => {
         );
       case "item-detail":
         return selectedItem ? (
-          <DetailView
-            item={selectedItem}
-            pairings={getDetailPairings(selectedItem)}
-            onAdd={handleAddFromDetail}
-            onAddItem={(i) => handleAddToOrder(i, "pairing_chip")}
-            onUpdateQuantity={handleUpdateQuantity}
-            getQuantity={getOrderQuantity}
-            onBack={() => setCurrentScreen("menu")}
-            onSelectPairing={handleSelectItem}
-          />
+          <>
+            <DetailView
+              item={selectedItem}
+              pairings={getDetailPairings(selectedItem)}
+              onAdd={handleAddFromDetail}
+              onAddItem={(i) => handleAddToOrder(i, "pairing_chip")}
+              onUpdateQuantity={handleUpdateQuantity}
+              getQuantity={getOrderQuantity}
+              onBack={() => setCurrentScreen("menu")}
+              onSelectPairing={handleSelectItem}
+              onOpenVoice={voiceEnabled ? () => setVoiceConversationOpen(true) : undefined}
+            />
+            {voicePanel}
+          </>
         ) : null;
 
       case "order-summary":

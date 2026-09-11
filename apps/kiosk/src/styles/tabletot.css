@@ -3312,10 +3312,17 @@ button {
 }
 
 .tt-voice-recommendation-media {
-  height: 86px;
+  width: 100%;
+  aspect-ratio: 4 / 3;
   border: 0;
   border-radius: 16px;
-  background-size: cover;
+  /* itemImageBackground() is applied as an inline `background` shorthand
+     (gradient + photo + no-photo-fallback layers) — shorthand resets size
+     /position to auto for any layer that doesn't set its own, and inline
+     style wins over this class unless !important fights back. Same reason
+     .tt-dishcard-media and .tt-chefpick-thumb both need it. */
+  background-size: cover !important;
+  background-position: center !important;
   cursor: pointer;
 }
 
