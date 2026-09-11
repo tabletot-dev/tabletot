@@ -3316,6 +3316,7 @@ button {
   border: 0;
   border-radius: 16px;
   background-size: cover;
+  background-position: center;
   cursor: pointer;
 }
 
