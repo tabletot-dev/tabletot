@@ -36,7 +36,15 @@ export default function AppShell({
       <main className="tt-scroll" style={bare ? { padding: 0 } : undefined}>{children}</main>
       {statusStrip}
       {orderBar}
-      {voiceDock}
+      {/* Stays mounted on every screen — VoiceOrderButton owns the voice
+          session/TTS lifecycle for its whole mounted lifetime (frozen code),
+          so unmounting it whenever the screen isn't "menu" would tear the
+          session down on every navigation. Hidden, not removed. */}
+      {voiceDock && (
+        <div className="tt-voicedock" hidden={currentScreen !== "menu"}>
+          {voiceDock}
+        </div>
+      )}
     </div>
   );
 }

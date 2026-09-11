@@ -11,7 +11,6 @@ interface MenuViewProps {
   onUpdateQuantity: (itemId: string, delta: number, source: Source) => void;
   onClearItem?: (itemId: string) => void;
   order: OrderItem[];
-  voiceDock?: ReactNode;
   voicePanel?: ReactNode;
   // Only passed when there's an ongoing order to return to (i.e. arrived
   // here via WaitingView's "Order more") — omitted otherwise so first-time
@@ -21,7 +20,7 @@ interface MenuViewProps {
 
 type DietFilter = "all" | "veg" | "nonveg";
 
-export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onClearItem, order, voiceDock, voicePanel, onBackToStatus }: MenuViewProps) {
+export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onClearItem, order, voicePanel, onBackToStatus }: MenuViewProps) {
   const { categories, itemsByCategory, pairingsByItemId, loading, error, retry } = useMenu();
   const [activeCategory, setActiveCategory] = useState("");
   const [diet, setDiet] = useState<DietFilter>("all");
@@ -147,7 +146,6 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onCl
         </div>
       )}
 
-      {voiceDock && <div className="tt-voicedock">{voiceDock}</div>}
       {voicePanel}
     </section>
   );
