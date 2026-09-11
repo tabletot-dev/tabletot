@@ -198,21 +198,21 @@ const VoiceOrderButton = ({ onDone, order, restaurantId, tableId, onStatusChange
     : "Tap to speak";
 
   const btnClass = [
-    "ptt-btn",
-    pressStatus === "recording" ? "ptt-recording" : "",
-    pressStatus === "processing" ? "ptt-processing" : "",
-    !conversationMode && (backendStatus === "error" || micBlocked) ? "ptt-error" : "",
-    !conversationMode && backendStatus === "starting" ? "ptt-starting" : "",
+    "tt-voice-ptt-btn",
+    pressStatus === "recording" ? "tt-voice-ptt-recording" : "",
+    pressStatus === "processing" ? "tt-voice-ptt-processing" : "",
+    !conversationMode && (backendStatus === "error" || micBlocked) ? "tt-voice-ptt-error" : "",
+    !conversationMode && backendStatus === "starting" ? "tt-voice-ptt-starting" : "",
   ].filter(Boolean).join(" ");
 
   return (
-    <div className="ptt-wrap">
+    <div className="tt-voice-ptt-wrap">
       {micBlocked && (
-        <div className="ptt-blocked-msg">
+        <div className="tt-voice-ptt-blocked-msg">
           Allow microphone access in browser settings to use voice ordering.
         </div>
       )}
-      <div className="ptt-bubbles" aria-hidden="true">
+      <div className="tt-voice-ptt-bubbles" aria-hidden="true">
         <span>Suggest a meal?</span>
         <span>For three people?</span>
         <span>Post-gym?</span>
@@ -225,12 +225,12 @@ const VoiceOrderButton = ({ onDone, order, restaurantId, tableId, onStatusChange
         title={label}
       >
         {pressStatus === "processing" ? (
-          <svg className="ptt-spinner" width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <svg className="tt-voice-ptt-spinner" width="20" height="20" viewBox="0 0 24 24" fill="none">
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"
               strokeDasharray="31.4" strokeDashoffset="10" />
           </svg>
         ) : (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="ptt-mic-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="tt-voice-ptt-mic-icon">
             <rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.8" />
             <path d="M5 10a7 7 0 0014 0" stroke="currentColor" strokeWidth="1.8" fill="none" />
             <line x1="12" y1="17" x2="12" y2="22" stroke="currentColor" strokeWidth="1.8" />

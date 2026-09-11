@@ -11,6 +11,9 @@ interface RestaurantCtx {
   promptForIdentity: boolean;
   venueName: string;
   promos: Promo[];
+  hours: string;
+  chefName: string;
+  chefNote: string;
   gstRatePercent: number;
 }
 
@@ -21,6 +24,9 @@ const RestaurantContext = createContext<RestaurantCtx>({
   promptForIdentity: false,
   venueName: "",
   promos: [],
+  hours: "",
+  chefName: "",
+  chefNote: "",
   gstRatePercent: DEFAULT_GST_RATE_PERCENT,
 });
 
@@ -35,6 +41,9 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
   const [promptForIdentity, setPromptForIdentity] = useState(false);
   const [venueName, setVenueName] = useState("");
   const [promos, setPromos] = useState<Promo[]>([]);
+  const [hours, setHours] = useState("");
+  const [chefName, setChefName] = useState("");
+  const [chefNote, setChefNote] = useState("");
   // Defaults to DEFAULT_GST_RATE_PERCENT (5) to avoid a flash of 0% tax
   // before the fetch resolves, same reasoning as voiceEnabled above — not
   // a fallback path, just the pre-load display value.
@@ -67,6 +76,9 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
           if (Array.isArray(cfg.promos)) {
             setPromos(cfg.promos as Promo[]);
           }
+          if (typeof cfg.hours === "string") setHours(cfg.hours);
+          if (typeof cfg.chef_name === "string") setChefName(cfg.chef_name);
+          if (typeof cfg.chef_note === "string") setChefNote(cfg.chef_note);
         }
       });
 
@@ -98,7 +110,7 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
 
   return (
     <RestaurantContext.Provider
-      value={{ restaurantId, tableId, voiceEnabled, promptForIdentity, venueName, promos, gstRatePercent }}
+      value={{ restaurantId, tableId, voiceEnabled, promptForIdentity, venueName, promos, hours, chefName, chefNote, gstRatePercent }}
     >
       {children}
     </RestaurantContext.Provider>

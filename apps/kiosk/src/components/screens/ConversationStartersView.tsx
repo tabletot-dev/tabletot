@@ -205,27 +205,27 @@ export default function ConversationStartersView({ onBack }: ConversationStarter
   };
 
   return (
-    <section className="view utility-feature-view conversation-layer-view">
-      <div className="utility-feature-hero conversation-hero panel">
+    <section className="view tt-activities-view tt-talk-layer-view">
+      <div className="tt-activities-hero tt-talk-hero panel">
         <div>
           <p className="eyebrow">Table Mode</p>
           <h1>Conversation Starters</h1>
           <p className="hero-sub">A premium social layer for thoughtful, natural table energy.</p>
         </div>
-        <button className="secondary-btn utility-back-btn" onClick={onBack}>
+        <button className="secondary-btn tt-activities-back-btn" onClick={onBack}>
           Back
         </button>
       </div>
 
       {!selectedCategory ? (
-        <div className="conversation-category-grid">
+        <div className="tt-talk-category-grid">
           {categories.map((category, index) => (
             <button
-              className="conversation-category-card"
+              className="tt-talk-category-card"
               key={category.id}
               onClick={() => selectCategory(category)}
             >
-              <span className="conversation-category-index">{String(index + 1).padStart(2, "0")}</span>
+              <span className="tt-talk-category-index">{String(index + 1).padStart(2, "0")}</span>
               <strong>{category.title}</strong>
               <small>{category.signal}</small>
               <p>{category.description}</p>
@@ -233,10 +233,10 @@ export default function ConversationStartersView({ onBack }: ConversationStarter
           ))}
         </div>
       ) : (
-        <div className="conversation-session-panel panel">
-          <div className="conversation-session-head">
+        <div className="tt-talk-session-panel panel">
+          <div className="tt-talk-session-head">
             <button
-              className="conversation-change-btn"
+              className="tt-talk-change-btn"
               onClick={() => {
                 setSelectedId(null);
                 setQuestionIndex(0);
@@ -248,13 +248,13 @@ export default function ConversationStartersView({ onBack }: ConversationStarter
               <p className="eyebrow">{selectedCategory.signal}</p>
               <h2>{selectedCategory.title}</h2>
             </div>
-            <span className="conversation-counter">
+            <span className="tt-talk-counter">
               {String(questionIndex + 1).padStart(2, "0")} / {String(selectedCategory.questions.length).padStart(2, "0")}
             </span>
           </div>
 
           <button
-            className="conversation-question-card"
+            className="tt-talk-question-card"
             key={`${selectedCategory.id}-${questionIndex}`}
             onClick={nextQuestion}
             onPointerDown={(event) => setTouchStartX(event.clientX)}
@@ -272,7 +272,7 @@ export default function ConversationStartersView({ onBack }: ConversationStarter
             <small>Tap or swipe for the next question</small>
           </button>
 
-          <div className="conversation-controls">
+          <div className="tt-talk-controls">
             <button className="secondary-btn" onClick={previousQuestion}>
               Previous
             </button>

@@ -30,7 +30,7 @@ describe("VoiceConversationPanel — Radix Dialog wrapper (B1)", () => {
 
   it("renders an opaque backdrop behind the panel", () => {
     render(<VoiceConversationPanel {...baseProps} onClose={vi.fn()} />);
-    expect(document.querySelector(".voice-conversation-backdrop")).toBeInTheDocument();
+    expect(document.querySelector(".tt-voice-conversation-backdrop")).toBeInTheDocument();
   });
 
   it("Escape closes the panel", () => {

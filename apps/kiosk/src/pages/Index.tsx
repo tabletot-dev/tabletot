@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useDeviceNavigation } from "@/hooks/useDeviceNavigation";
+import { useDeviceNavigation, type ScreenType } from "@/hooks/useDeviceNavigation";
 import IdleScreen from "@/components/screens/IdleScreen";
 import ListeningScreen from "@/components/screens/ListeningScreen";
 import MenuView from "@/components/screens/MenuView";
@@ -16,6 +16,7 @@ import WaitingView from "@/components/screens/WaitingView";
 const BillView = lazy(() => import("@/components/screens/BillView"));
 const GamesView = lazy(() => import("@/components/screens/GamesView"));
 const ConversationStartersView = lazy(() => import("@/components/screens/ConversationStartersView"));
+import AboutView from "@/components/screens/AboutView";
 import CompletionNudge from "@/components/CompletionNudge";
 import VoiceOrderButton from "@/components/VoiceOrderButton";
 import VoiceConversationPanel from "@/components/VoiceConversationPanel";
@@ -59,7 +60,7 @@ const NUDGE_ELIGIBLE_SCREENS = new Set(["menu", "item-detail", "order-summary"])
 const NUDGE_THRESHOLD_MS = 3.5 * 60 * 1000;
 
 const IndexInner = () => {
-  const { voiceEnabled, promptForIdentity, venueName } = useRestaurant();
+  const { voiceEnabled, promptForIdentity, venueName, hours, chefName, chefNote } = useRestaurant();
   const {
     currentScreen,
     setCurrentScreen,
@@ -150,6 +151,14 @@ const IndexInner = () => {
   // the latest value without needing to re-subscribe on every screen change.
   const currentScreenRef = useRef(currentScreen);
   useEffect(() => { currentScreenRef.current = currentScreen; }, [currentScreen]);
+
+  // Venue/About (screen 16). Reached from the app bar mid-session and from the
+  // Attract screen. `aboutReturn` is where Back goes — the screen you came from.
+  const [aboutReturn, setAboutReturn] = useState<ScreenType>("idle");
+  const openAbout = useCallback(() => {
+    setAboutReturn(currentScreenRef.current);
+    setCurrentScreen("about");
+  }, [setCurrentScreen]);
 
   // "Still there?" nudge: pure client-side UX, nothing written to the ledger.
   // Separate from the POS idle badge (longer threshold, DB-backed) — the two
@@ -466,6 +475,9 @@ const IndexInner = () => {
               await startSession();
               setCurrentScreen("popular");
             }}
+            // no startSession() here, unlike onOpenPopular — About is read-only
+            // and a guest reading venue info pre-order should not open a span.
+            onOpenAbout={openAbout}
             tableId={TABLE_ID}
           />
         );
@@ -647,6 +659,17 @@ const IndexInner = () => {
             />
           </Suspense>
         );
+      case "about":
+        return (
+          <AboutView
+            venueName={venueName || "Silver Specialty Coffee"}
+            hours={hours}
+            address="Plot 910C, Banjara Hills, Road 46, Khairatabad, Hyderabad"
+            chefName={chefName}
+            chefNote={chefNote}
+            onBack={() => setCurrentScreen(aboutReturn)}
+          />
+        );
       default:
         return null;
     }
@@ -657,6 +680,7 @@ const IndexInner = () => {
       currentScreen={currentScreen}
       tableId={TABLE_ID}
       venueName={venueName || "Tabletot"}
+      onAbout={openAbout}
       orderBar={
         currentScreen === "menu" ? (
           <OrderBar
