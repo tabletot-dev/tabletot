@@ -199,3 +199,59 @@ def test_modifiers_non_list_normalized():
 """
     intents, _, _ = parse_intents(raw)
     assert intents[0]["modifiers"] == []  # non-list is normalized to empty
+
+
+def test_filter_preserves_attribute_and_category():
+    """Regression: _validate_intent used to return a fixed 5-key dict that
+    silently dropped attribute/category, so every filter intent reached the
+    orchestrator with attribute="" — _handle_filter then matched every menu
+    item instead of just vegetarian ones (client-reported bug)."""
+    raw = """
+<intents>
+[{"action": "filter", "attribute": "veg", "category": "Pastas", "raw_name": "", "quantity": 0, "modifiers": [], "special_notes": ""}]
+</intents>
+<response>Here are our veg pastas.</response>
+<language>en</language>
+"""
+    intents, _, _ = parse_intents(raw)
+    assert intents[0]["attribute"] == "veg"
+    assert intents[0]["category"] == "Pastas"
+
+
+def test_filter_attribute_defaults_to_empty_string():
+    raw = """
+<intents>
+[{"action": "filter", "raw_name": "", "quantity": 0, "modifiers": [], "special_notes": ""}]
+</intents>
+<response>ok</response>
+<language>en</language>
+"""
+    intents, _, _ = parse_intents(raw)
+    assert intents[0]["attribute"] == ""
+    assert intents[0]["category"] == ""
+
+
+def test_recommend_preserves_attribute_but_not_category():
+    raw = """
+<intents>
+[{"action": "recommend", "raw_name": "", "attribute": "veg", "category": "Pastas", "quantity": 0, "modifiers": [], "special_notes": ""}]
+</intents>
+<response>ok</response>
+<language>en</language>
+"""
+    intents, _, _ = parse_intents(raw)
+    assert intents[0]["attribute"] == "veg"
+    assert "category" not in intents[0]  # recommend has no category concept
+
+
+def test_other_actions_have_no_attribute_or_category_keys():
+    raw = """
+<intents>
+[{"action": "add_item", "raw_name": "cappuccino", "quantity": 1, "modifiers": [], "special_notes": "", "attribute": "veg", "category": "Hot Coffee"}]
+</intents>
+<response>ok</response>
+<language>en</language>
+"""
+    intents, _, _ = parse_intents(raw)
+    assert "attribute" not in intents[0]
+    assert "category" not in intents[0]

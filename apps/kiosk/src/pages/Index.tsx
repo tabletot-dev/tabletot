@@ -248,6 +248,19 @@ const IndexInner = () => {
             setVoiceTurns([]);
           }, 3000);
         }
+        // Reverse direction of the branch above: a session started
+        // elsewhere (POS placing an order for this table) while this
+        // device sat on the Attract screen — e.g. touch is broken and
+        // staff are ordering for the guest from POS. Same condition the
+        // mount-time hydrate above uses, just re-checked on every poll
+        // instead of only once at load, so it doesn't need a page reload
+        // to catch up. rounds.length > 0 avoids firing on a bare
+        // session_started with no items yet.
+        if (st.state !== "idle" && st.rounds.length > 0 && currentScreenRef.current === "idle") {
+          hydrateFromTableState(st);
+          if (st.state === "bill_requested") setBillRequested(true);
+          setCurrentScreen("session-idle");
+        }
         spanIdRef.current = st.span_id;
       } catch { /* next poke retries */ }
     };

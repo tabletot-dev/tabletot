@@ -495,3 +495,87 @@ def test_ask_menu_unresolved_name_falls_back_to_menu_question():
 
     assert len(result.resolver_results) == 0
     assert result.order_state_snapshot["total"] == 0
+
+
+def _recommend_intent(attribute: str = "", raw_name: str = "") -> dict:
+    return {
+        "action": "recommend",
+        "raw_name": raw_name,
+        "attribute": attribute,
+        "quantity": 0,
+        "modifiers": [],
+        "special_notes": "",
+    }
+
+
+def test_recommend_veg_filters_mixed_anchor_list():
+    """Client-reported bug: "give me vegetarian options" surfaced a non-veg
+    anchor item (Egg Bagel) as a suggested card. With no cart pairings to
+    fall back to, a veg-constrained recommend must only surface veg anchors,
+    never the non-veg ones mixed into the same anchor list."""
+    resp = _make_response([_recommend_intent(attribute="veg")])
+    graph = _make_graph(anchors=[
+        AnchorEntry("avocado_toast", "Avocado Toast", "chef_pick", 1),
+        AnchorEntry("egg_bagel", "Egg Bagel", "chef_pick", 2),
+        AnchorEntry("nashville_chicken_burger", "Nashville Chicken", "bestseller", 3),
+    ])
+    orch, _ = _build_orchestrator([resp], menu_graph=graph)
+    result = orch.process_turn("give me vegetarian options")
+
+    rr = result.resolver_results[0]
+    assert isinstance(rr.result, ChooseFromCategory)
+    option_names = {o.item_name for o in rr.result.options}
+    assert option_names == {"Avocado Toast"}
+    assert "Egg Bagel" not in option_names
+    assert "Nashville Chicken" not in option_names
+
+
+def test_recommend_veg_filters_cart_pairings():
+    """Same constraint applied to the cart-pairings candidate source, not
+    just anchors."""
+    add_resp = _make_response([{"action": "add_item", "raw_name": "avocado toast", "quantity": 1, "modifiers": [], "special_notes": ""}])
+    rec_resp = _make_response([_recommend_intent(attribute="veg")])
+    graph = _make_graph(pairings={"avocado_toast": ["egg_bagel", "veggie_bagel"]})
+    orch, _ = _build_orchestrator([add_resp, rec_resp], menu_graph=graph)
+
+    orch.process_turn("avocado toast")
+    result = orch.process_turn("suggest something vegetarian to go with it")
+
+    rr = result.resolver_results[0]
+    option_names = {o.item_name for o in rr.result.options}
+    assert option_names == {"Veggie Bagel"}
+    assert "Egg Bagel" not in option_names
+
+
+def test_recommend_veg_falls_back_to_whole_menu_scan_when_anchors_dont_match():
+    """If every anchor is non-veg, a veg-constrained recommend must not
+    silently return them (or nothing) — it should scan the full menu for a
+    veg option rather than dropping the constraint."""
+    resp = _make_response([_recommend_intent(attribute="veg")])
+    graph = _make_graph(anchors=[
+        AnchorEntry("egg_bagel", "Egg Bagel", "chef_pick", 1),
+        AnchorEntry("nashville_chicken_burger", "Nashville Chicken", "bestseller", 2),
+    ])
+    orch, _ = _build_orchestrator([resp], menu_graph=graph)
+    result = orch.process_turn("give me vegetarian options")
+
+    rr = result.resolver_results[0]
+    option_names = {o.item_name for o in rr.result.options}
+    assert len(option_names) > 0
+    assert "Egg Bagel" not in option_names
+    assert "Nashville Chicken" not in option_names
+
+
+def test_recommend_no_attribute_unaffected():
+    """A plain recommend (no dietary word) keeps today's behavior — no
+    filtering applied, matching the pre-existing anchor-fallback tests."""
+    resp = _make_response([_recommend_intent()])
+    graph = _make_graph(anchors=[
+        AnchorEntry("egg_bagel", "Egg Bagel", "chef_pick", 1),
+    ])
+    orch, _ = _build_orchestrator([resp], menu_graph=graph)
+    result = orch.process_turn("kuch suggest karo")
+
+    rr = result.resolver_results[0]
+    option_names = {o.item_name for o in rr.result.options}
+    assert "Egg Bagel" in option_names

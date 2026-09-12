@@ -473,13 +473,7 @@ class Orchestrator:
     ) -> None:
         attribute = intent.get("attribute", "").strip().lower()
         category_hint = intent.get("category", "").strip()
-
-        # Map attribute to is_veg flag
-        is_veg: bool | None = None
-        if attribute in ("veg", "vegetarian"):
-            is_veg = True
-        elif attribute.startswith("non"):
-            is_veg = False
+        is_veg = _attribute_to_is_veg(attribute)
 
         # Optional category narrowing
         cat_name: str | None = None
@@ -595,22 +589,36 @@ class Orchestrator:
         raw_name = intent.get("raw_name", "").strip()
         graph = self.menu_graph
 
+        # Optional dietary constraint alongside the suggestion ask
+        # ("recommend something veg") — applied to every candidate source
+        # below so a diet-aware ask never falls back to an unfiltered
+        # anchor/pairing suggestion (audit: "give me vegetarian options"
+        # was surfacing a non-veg anchor item as the suggested card).
+        is_veg = _attribute_to_is_veg(intent.get("attribute", ""))
+
+        def matches_diet(item_id: str) -> bool:
+            if is_veg is None:
+                return True
+            item = self.menu_index.items_by_id.get(item_id)
+            return item is not None and ("veg" in item.tags) == is_veg
+
         candidates: list[ConfidentMatch] = []
 
         # 1. Named item: suggest it without adding, or browse its category.
         if raw_name:
             result = resolve(raw_name, self.menu_index, current_time)
             if isinstance(result, ConfidentMatch):
-                candidates.append(result)
+                if matches_diet(result.item_id):
+                    candidates.append(result)
             elif isinstance(result, ChooseFromCategory):
-                candidates = result.options[:3]
+                candidates = [c for c in result.options if matches_diet(c.item_id)][:3]
 
         # 2. No specific item: try pairings for items already in the cart.
         if not candidates and graph and not self.order_state.is_empty():
             seen: set[str] = set()
             for order_item in self.order_state.items[:3]:
                 for pair_id in graph.pairs_for(order_item.item_id)[:2]:
-                    if pair_id in self.menu_index.items_by_id and pair_id not in seen:
+                    if pair_id in self.menu_index.items_by_id and pair_id not in seen and matches_diet(pair_id):
                         seen.add(pair_id)
                         item = self.menu_index.items_by_id[pair_id]
                         candidates.append(ConfidentMatch(
@@ -627,7 +635,7 @@ class Orchestrator:
         if not candidates and graph:
             seen = set()
             for anchor in graph.top_anchors:
-                if anchor.item_id in self.menu_index.items_by_id and anchor.item_id not in seen:
+                if anchor.item_id in self.menu_index.items_by_id and anchor.item_id not in seen and matches_diet(anchor.item_id):
                     seen.add(anchor.item_id)
                     item = self.menu_index.items_by_id[anchor.item_id]
                     candidates.append(ConfidentMatch(
@@ -639,6 +647,25 @@ class Orchestrator:
                         match_method="recommend_anchor",
                         requires_modifier=item.modifiers if item.modifiers else None,
                     ))
+
+        # 4. Diet-constrained but nothing in the cart/anchors matched —
+        #    scan the whole menu rather than silently dropping the
+        #    constraint (pairings/anchors are curated lists, not guaranteed
+        #    to contain a veg or non-veg option).
+        if not candidates and is_veg is not None:
+            for item in self.menu_index.items_by_id.values():
+                if ("veg" in item.tags) == is_veg:
+                    candidates.append(ConfidentMatch(
+                        item_id=item.id,
+                        item_name=item.name,
+                        price=item.price or 0,
+                        category=item.category,
+                        score=100.0,
+                        match_method="recommend_filtered",
+                        requires_modifier=item.modifiers if item.modifiers else None,
+                    ))
+                if len(candidates) >= 3:
+                    break
 
         if not candidates:
             # MenuGraph not loaded or anchors empty — graceful degradation.
@@ -658,6 +685,20 @@ class Orchestrator:
             "status": "recommend",
             "suggestions": [{"name": c.item_name, "category": c.category} for c in candidates[:3]],
         })
+
+
+def _attribute_to_is_veg(attribute: str) -> bool | None:
+    """Map a filter/recommend intent's "attribute" field to is_veg.
+
+    Shared by _handle_filter and _handle_recommend so "veg"/"vegetarian" vs
+    "non-veg" parsing can't drift between the two call sites.
+    """
+    attribute = attribute.strip().lower()
+    if attribute in ("veg", "vegetarian"):
+        return True
+    if attribute.startswith("non"):
+        return False
+    return None
 
 
 def _candidate_name(c: ConfidentMatch | NeedsVariantSelection) -> dict:
