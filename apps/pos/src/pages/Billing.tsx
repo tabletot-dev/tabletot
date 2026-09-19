@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   Loader2, Users, Bell, Droplets, ChefHat, Plus,
-  Receipt, CreditCard, UserCheck, Minus, Wifi, WifiOff, Trash2, Clock,
+  Receipt, CreditCard, UserCheck, Minus, Wifi, WifiOff, Trash2, Clock, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatRupees } from '@/lib/formatCurrency';
@@ -935,77 +935,94 @@ export default function Billing() {
 
       {/* ── Add Items dialog ─────────────────────────────────────────────── */}
       <Dialog open={showAddItems} onOpenChange={(open) => { if (!open) { setPendingItems([]); setShowAddItems(false); } }}>
-        <DialogContent className="max-w-5xl h-[90vh] p-0 gap-0 overflow-hidden">
-          <div className="flex h-full">
-            {/* Menu */}
-            <div className="flex-1 overflow-hidden border-r">
-              <MenuGrid onAddToCart={(item) => setPendingItems((prev) => mergeIntoCart(prev, item))} />
-            </div>
-
-            {/* Pending cart */}
-            <div className="w-72 shrink-0 flex flex-col">
-              <div className="p-4 border-b">
-                <h3 className="font-semibold">New Items ({pendingItems.reduce((s, i) => s + i.quantity, 0)})</h3>
-              </div>
-              <ScrollArea className="flex-1">
-                {pendingItems.length === 0 ? (
-                  <p className="text-center text-sm text-muted-foreground p-8">Tap items on the menu to add them</p>
-                ) : (
-                  <div className="p-3 space-y-2">
-                    {pendingItems.map((item) => (
-                      <div key={item.id} className="flex justify-between items-center p-2 bg-muted/50 rounded-lg">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{item.name}</p>
-                          <p className="text-xs text-muted-foreground">₹{item.price} × {item.quantity}</p>
-                        </div>
-                        <div className="flex items-center gap-1 ml-2">
-                          <button
-                            className="h-6 w-6 rounded flex items-center justify-center hover:bg-muted"
-                            onClick={() =>
-                              setPendingItems((prev) =>
-                                item.quantity <= 1
-                                  ? prev.filter((i) => i.id !== item.id)
-                                  : prev.map((i) => i.id === item.id ? { ...i, quantity: i.quantity - 1, total: i.total - i.price } : i),
-                              )
-                            }
-                          >
-                            <Minus className="h-3 w-3" />
-                          </button>
-                          <span className="text-sm w-5 text-center">{item.quantity}</span>
-                          <button
-                            className="h-6 w-6 rounded flex items-center justify-center hover:bg-muted"
-                            onClick={() =>
-                              setPendingItems((prev) =>
-                                prev.map((i) => i.id === item.id ? { ...i, quantity: i.quantity + 1, total: i.total + i.price } : i),
-                              )
-                            }
-                          >
-                            <Plus className="h-3 w-3" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-              <div className="p-4 border-t space-y-2">
-                <div className="flex justify-between text-sm font-medium">
-                  <span>Subtotal</span>
-                  <span>{formatRupees(pendingItems.reduce((s, i) => s + i.total, 0))}</span>
-                </div>
-                <Button
-                  className="w-full"
-                  disabled={pendingItems.length === 0 || saving}
-                  onClick={handleSendToKitchen}
-                >
-                  {saving
-                    ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    : <ChefHat className="h-4 w-4 mr-2" />}
-                  Send to Kitchen
-                </Button>
-              </div>
-            </div>
+        {/* flex flex-col overrides DialogContent's base `display: grid` (ui/dialog.tsx).
+            Grid's implicit row auto-sizes to content height, not the h-[90vh] box, so
+            the inner overflow-auto panes never got a bounded height to scroll within —
+            they were just being hard-clipped by this dialog's own overflow-hidden. */}
+        <DialogContent className="max-w-5xl h-[90vh] p-0 gap-0 overflow-hidden flex flex-col">
+          {/* Header — own row so the close button can never end up under the
+              scrolling category tabs (that's what made the dialog unclosable). */}
+          <div className="flex items-center justify-between p-4 border-b shrink-0">
+            <h2 className="text-lg font-semibold">Add Items</h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { setPendingItems([]); setShowAddItems(false); }}
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
+
+          <div className="flex flex-1 min-h-0">
+              {/* Menu */}
+              <div className="flex-1 overflow-hidden border-r">
+                <MenuGrid onAddToCart={(item) => setPendingItems((prev) => mergeIntoCart(prev, item))} />
+              </div>
+
+              {/* Pending cart */}
+              <div className="w-72 shrink-0 flex flex-col">
+                <div className="p-4 border-b">
+                  <h3 className="font-semibold">New Items ({pendingItems.reduce((s, i) => s + i.quantity, 0)})</h3>
+                </div>
+                <ScrollArea className="flex-1">
+                  {pendingItems.length === 0 ? (
+                    <p className="text-center text-sm text-muted-foreground p-8">Tap items on the menu to add them</p>
+                  ) : (
+                    <div className="p-3 space-y-2">
+                      {pendingItems.map((item) => (
+                        <div key={item.id} className="flex justify-between items-center p-2 bg-muted/50 rounded-lg">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{item.name}</p>
+                            <p className="text-xs text-muted-foreground">₹{item.price} × {item.quantity}</p>
+                          </div>
+                          <div className="flex items-center gap-1 ml-2">
+                            <button
+                              className="h-6 w-6 rounded flex items-center justify-center hover:bg-muted"
+                              onClick={() =>
+                                setPendingItems((prev) =>
+                                  item.quantity <= 1
+                                    ? prev.filter((i) => i.id !== item.id)
+                                    : prev.map((i) => i.id === item.id ? { ...i, quantity: i.quantity - 1, total: i.total - i.price } : i),
+                                )
+                              }
+                            >
+                              <Minus className="h-3 w-3" />
+                            </button>
+                            <span className="text-sm w-5 text-center">{item.quantity}</span>
+                            <button
+                              className="h-6 w-6 rounded flex items-center justify-center hover:bg-muted"
+                              onClick={() =>
+                                setPendingItems((prev) =>
+                                  prev.map((i) => i.id === item.id ? { ...i, quantity: i.quantity + 1, total: i.total + i.price } : i),
+                                )
+                              }
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+                <div className="p-4 border-t space-y-2">
+                  <div className="flex justify-between text-sm font-medium">
+                    <span>Subtotal</span>
+                    <span>{formatRupees(pendingItems.reduce((s, i) => s + i.total, 0))}</span>
+                  </div>
+                  <Button
+                    className="w-full"
+                    disabled={pendingItems.length === 0 || saving}
+                    onClick={handleSendToKitchen}
+                  >
+                    {saving
+                      ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      : <ChefHat className="h-4 w-4 mr-2" />}
+                    Send to Kitchen
+                  </Button>
+                </div>
+              </div>
+            </div>
         </DialogContent>
       </Dialog>
 

@@ -138,6 +138,18 @@ export default function Kitchen() {
     }
   };
 
+  // Ticket badges must read the same as the filter tab they'll show up under
+  // ("New (1)") — the raw DB status ('accepted') confused kitchen staff.
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'accepted': return 'New';
+      case 'preparing': return 'Preparing';
+      case 'ready': return 'Ready';
+      case 'cancelled': return 'Cancelled';
+      default: return status;
+    }
+  };
+
   const filteredTickets = filter === 'all'
     ? tickets
     : tickets.filter(t => t.status === filter);
@@ -250,7 +262,7 @@ export default function Kitchen() {
                       </p>
                     </div>
                     <Badge className={getStatusColor(ticket.status)}>
-                      {ticket.status}
+                      {getStatusLabel(ticket.status)}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
