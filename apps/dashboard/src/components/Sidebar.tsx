@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { BarChart2, Anchor, GitFork, CheckSquare } from 'lucide-react';
+import { BarChart2, Anchor, GitFork, CheckSquare, Image } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import TabletotLogo from '@/components/TabletotLogo';
 
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/curation/pairings', label: 'Item Pairings', icon: GitFork },
   { to: '/curation/rules', label: 'Completion Rules', icon: CheckSquare },
   { to: '/curation/aov', label: 'AOV Lift', icon: BarChart2 },
+  { to: '/curation/ads', label: 'Ads', icon: Image },
 ];
 
 export function Sidebar() {
