@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase, hasSupabaseConfig } from "@/integrations/supabase/client";
 import type { OrderRound } from "@/hooks/useDeviceNavigation";
 import { getDisplayName } from "@/lib/orderSubmission";
-import { categoryGradient } from "@/lib/categoryGradients";
 import { useRestaurant } from "@/lib/restaurantContext";
 
 interface WaitingViewProps {
@@ -30,14 +29,6 @@ const STATUS_STAGE: Record<KitchenStatus, { label: string; index: number }> = {
 
 const STAGES = ["Queued", "Cooking", "Plating", "Served"];
 
-// Zero-network-dependency gradients to sit behind whatever promo copy the
-// restaurant configures — no real creative assets exist per-restaurant yet.
-const PROMO_GRADIENTS = [
-  categoryGradient("Hot Coffee"),
-  categoryGradient("Desserts"),
-  categoryGradient("Signature Coffee"),
-];
-
 function WaterIcon() {
   return (
     <svg className="water-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -57,15 +48,15 @@ export default function WaitingView({
   onRequestWater,
   onCallStaff,
 }: WaitingViewProps) {
-  const { promos } = useRestaurant();
+  const { ads } = useRestaurant();
   const [promoIndex, setPromoIndex] = useState(0);
   const [kitchenStatus, setKitchenStatus] = useState<KitchenStatus>("unknown");
 
   useEffect(() => {
-    if (promos.length === 0) return;
-    const id = setInterval(() => setPromoIndex((i) => (i + 1) % promos.length), 4500);
+    if (ads.length === 0) return;
+    const id = setInterval(() => setPromoIndex((i) => (i + 1) % ads.length), 4500);
     return () => clearInterval(id);
-  }, [promos.length]);
+  }, [ads.length]);
 
   useEffect(() => {
     if (!currentRoundOrderId || !hasSupabaseConfig) return;
@@ -122,26 +113,29 @@ export default function WaitingView({
     [previousOrders],
   );
 
-  const promo = promos[promoIndex];
+  const ad = ads[promoIndex];
 
   return (
     <section className="tt-status">
-      {promo && (
+      {ad && (
         <div className="tt-status-promo">
           <div
             className="tt-status-promo-media"
-            style={{ background: PROMO_GRADIENTS[promoIndex % PROMO_GRADIENTS.length] }}
+            style={{ backgroundImage: `url(${ad.image_url})` }}
           />
-          <div className="tt-status-promo-copy">
-            <p className="tt-badge">While you wait</p>
-            <strong>{promo.title}</strong>
-            <span>{promo.copy}</span>
-            <div className="tt-status-promo-dots">
-              {promos.map((p, i) => (
-                <span key={p.id} className={`tt-status-promo-dot${i === promoIndex ? " active" : ""}`} />
-              ))}
+          {(ad.title || ads.length > 1) && (
+            <div className="tt-status-promo-copy">
+              <p className="tt-badge">While you wait</p>
+              {ad.title && <strong>{ad.title}</strong>}
+              {ads.length > 1 && (
+                <div className="tt-status-promo-dots">
+                  {ads.map((a, i) => (
+                    <span key={a.id} className={`tt-status-promo-dot${i === promoIndex ? " active" : ""}`} />
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </div>
       )}
 

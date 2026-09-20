@@ -5238,17 +5238,21 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--tt-space-3);
+  min-height: 100%;
 }
 
 .tt-status-promo {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   border-radius: var(--tt-radius-card);
   border: 2px solid var(--tt-line);
   overflow: hidden;
 }
 
 .tt-status-promo-media {
+  flex: 1 1 auto;
   min-height: calc(120px * var(--tt-scale));
   background-size: cover;
   background-position: center;

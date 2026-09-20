@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { supabase, hasSupabaseConfig } from "@/integrations/supabase/client";
 import { DEFAULT_GST_RATE_PERCENT } from "@/lib/pricing";
 
-export type Promo = { id: string; title: string; copy: string };
+export type Ad = { id: string; image_url: string; title: string | null };
 
 interface RestaurantCtx {
   restaurantId: string;
@@ -10,7 +10,7 @@ interface RestaurantCtx {
   voiceEnabled: boolean;
   promptForIdentity: boolean;
   venueName: string;
-  promos: Promo[];
+  ads: Ad[];
   hours: string;
   chefName: string;
   chefNote: string;
@@ -23,7 +23,7 @@ const RestaurantContext = createContext<RestaurantCtx>({
   voiceEnabled: true,
   promptForIdentity: false,
   venueName: "",
-  promos: [],
+  ads: [],
   hours: "",
   chefName: "",
   chefNote: "",
@@ -40,7 +40,7 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [promptForIdentity, setPromptForIdentity] = useState(false);
   const [venueName, setVenueName] = useState("");
-  const [promos, setPromos] = useState<Promo[]>([]);
+  const [ads, setAds] = useState<Ad[]>([]);
   const [hours, setHours] = useState("");
   const [chefName, setChefName] = useState("");
   const [chefNote, setChefNote] = useState("");
@@ -73,13 +73,23 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
           if ("prompt_for_identity" in cfg) {
             setPromptForIdentity(Boolean(cfg.prompt_for_identity));
           }
-          if (Array.isArray(cfg.promos)) {
-            setPromos(cfg.promos as Promo[]);
-          }
           if (typeof cfg.hours === "string") setHours(cfg.hours);
           if (typeof cfg.chef_name === "string") setChefName(cfg.chef_name);
           if (typeof cfg.chef_note === "string") setChefNote(cfg.chef_note);
         }
+      });
+
+    supabase
+      .from("ads")
+      .select("id, image_url, title")
+      .eq("restaurant_id", restaurantId)
+      .order("sort_order")
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("[RestaurantProvider] Failed to load ads:", error.message);
+          return;
+        }
+        if (data) setAds(data);
       });
 
     // restaurant_settings supports a per-restaurant override alongside a
@@ -110,7 +120,7 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
 
   return (
     <RestaurantContext.Provider
-      value={{ restaurantId, tableId, voiceEnabled, promptForIdentity, venueName, promos, hours, chefName, chefNote, gstRatePercent }}
+      value={{ restaurantId, tableId, voiceEnabled, promptForIdentity, venueName, ads, hours, chefName, chefNote, gstRatePercent }}
     >
       {children}
     </RestaurantContext.Provider>

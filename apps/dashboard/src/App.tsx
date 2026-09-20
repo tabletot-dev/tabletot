@@ -7,6 +7,7 @@ import AnchorItems from '@/pages/AnchorItems';
 import ItemPairings from '@/pages/ItemPairings';
 import CompletionRules from '@/pages/CompletionRules';
 import AovView from '@/pages/AovView';
+import AdsView from '@/pages/AdsView';
 import Login from '@/pages/Login';
 import './index.css';
 
@@ -37,6 +38,7 @@ export default function App() {
                     <Route path="/curation/pairings" element={<ItemPairings />} />
                     <Route path="/curation/rules" element={<CompletionRules />} />
                     <Route path="/curation/aov" element={<AovView />} />
+                    <Route path="/curation/ads" element={<AdsView />} />
                   </Routes>
                 </Layout>
               </ProtectedRoute>
