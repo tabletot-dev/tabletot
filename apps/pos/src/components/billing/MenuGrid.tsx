@@ -79,7 +79,10 @@ export function MenuGrid({ onAddToCart }: MenuGridProps) {
       </div>
 
       {/* Menu Items Grid */}
-      <div className="flex-1 overflow-auto p-6">
+      {/* min-h-0 is required: without it a flex-column child's default
+          min-height:auto stops it shrinking below its content, so
+          overflow-auto never actually engages and the grid can't scroll. */}
+      <div className="flex-1 min-h-0 overflow-auto p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredItems.map((item) => (
             <Card
