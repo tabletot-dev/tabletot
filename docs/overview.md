@@ -1,7 +1,7 @@
 # tabletot-pilot — overview
 
 > Living document. Update when the state of the project changes meaningfully.
-> Last updated: 2026-09-04
+> Last updated: 2026-09-23
 
 ## What this is
 
@@ -56,9 +56,35 @@ Since then (all merged to `main` via PR #12, 2026-08-17):
   Supabase at startup; per-restaurant JSON files and `restaurants.json`
   are gone.
 
-Order-engine tests: 197 passed, 3 skipped (post-ElevenLabs integration).
-Migrations: `main` at 0070 (0066–0070 applied to remote Supabase
-2026-08-30); 0071 exists only on `kiosk-v1-sprint-6-7`.
+Since Sep 4 (all merged to `main`, latest commit `75367c2`, 2026-09-20):
+
+- **Kiosk v1.0 Sprints 6–7 merged** — Venue/About screen (16, from
+  `restaurants.config`, migration 0071), "About" added to the Attract
+  secondary panel, Games/Table Talk/voice UI classes renamed off the
+  legacy namespace, the Warm Espresso CSS bridge retired
+  (`docs/plans/2026-08-30-kiosk-sprint-6-7.md`).
+- **Per-item structured facts** (migration 0072, `menu_items.facts` jsonb —
+  calories, allergens, spice level, prep time, ingredients) rendered into
+  the LLM menu summary so voice/Ask-AI answers only stated facts, never
+  estimates (`services/order-engine/src/llm/prompts/menu_summary.py`,
+  system prompt Truth Rule 6).
+- **Admin-managed ad carousel** on the kiosk waiting screen (migration
+  0073, new `ads` table with `restaurant_id`/`image_url`/`sort_order`/
+  `active`, RLS: anon reads only `active = true`), replacing the old
+  `restaurants.config.promos` JSONB blob; curated from `apps/dashboard`.
+- **Voice/POS bugfixes**: voice modal crash from Product Detail, mic
+  access on Product Detail + back-to-order from menu, recommendation card
+  image cropping/sizing, idle-kiosk auto-navigation when POS starts an
+  order, filter-intent losing attribute/category, TTS reconnect race
+  silently dropping sentences, POS Add Items dialog scroll/close bug,
+  voice modal left open after a POS-ended session.
+
+Order-engine tests: 197 passed, 3 skipped as of the last verified run
+(2026-08-30, post-ElevenLabs integration) — not re-verified since; the
+suite needs local Supabase running on port 54322.
+Migrations: `main` at 0073 (0066–0070 applied to remote Supabase
+2026-08-30; 0071–0073 not yet confirmed applied to remote — verify before
+relying on them there).
 
 ## Session state architecture — table_events ledger (2026-07-12)
 
@@ -110,17 +136,26 @@ and 5 all landed.
 
 Open items, in rough order:
 
-1. Merge `kiosk-v1-sprint-6-7` — the only unmerged branch. Carries
-   Sprints 6–7 (About/Venue screen, migration 0071, Warm Espresso bridge
-   removal) and the voice channel redesign. Rebase `main` in first
-   (it is 1 commit behind — the `90deb91` types regen).
-2. Show the client the redesigned kiosk (Sprints 0–5); decide on
-   Sprints 6–7 (Games, Table Talk, voice UI).
+1. Merge `kiosk-v1-sprint-6-7` — Sprints 6–7 proper already landed on
+   `main` separately, but the branch is still **ahead** by a voice
+   channel redesign (screens 06/07/08 — `VoiceDockPanel`,
+   `VoiceConversationScreen`, `EarlierStrip`, `VoiceAnswerCard`,
+   `useMicLevels`; 14 commits, latest `7399b60` "Add voice single-surface
+   rework plan"). Specs/plans:
+   `docs/plans/2026-08-30-voice-channel-redesign-spec.md`,
+   `docs/plans/2026-08-30-voice-channel-redesign.md`,
+   `docs/plans/2026-08-31-voice-single-surface-rework.md`. Needs a rebase
+   onto current `main` before merging or continuing.
+2. Show the client the redesigned kiosk (Sprints 0–5, and now 6–7);
+   confirm direction on the voice redesign in progress on
+   `kiosk-v1-sprint-6-7`.
 3. Voice: manual on-device pass on the Tab K9 (both provider defaults and
    the Sarvam fallback flip), and the ElevenLabs voice-ID listening test
    (placeholders Adam/Rachel still seeded).
 4. Deploy to the restaurant — still on the Lenovo Tab K9 bench, not yet
    on the floor.
+5. Confirm migrations 0071–0073 have been applied to the remote Supabase
+   (0066–0070 confirmed applied 2026-08-30; later ones unverified).
 
 ## Tech stack reference
 

@@ -66,7 +66,7 @@ menus/        MENU-CREATION-GUIDE.md + seed validation SQL only — menu data
 packages/         shared types and utilities — currently empty
 supabase/
 migrations/     applied in order; never edit an existing migration
-                currently at 0070
+                currently at 0073
 seed/           reference data only
 ```
 ## Supabase table groups (one project, three logical layers)
@@ -122,11 +122,12 @@ responds in native script only — no romanised transliteration. See
 (always-on voice: feasible, deferred).
 
 **Migrations:** Never edit an existing migration file. Always append a new one.
-`main` is at 0070 and 0066–0070 were applied to the remote Supabase on
-2026-08-30 (commit `90deb91`); 0071 exists only on `kiosk-v1-sprint-6-7`
-and is local-only. Rohan pushes remote himself per convention. Current
-Silver UUID is `b22b5d53-6dd8-4f5b-8276-2e828cd1ab91` (pinned in
-migration 0014).
+`main` is at 0073; 0066–0070 were applied to the remote Supabase on
+2026-08-30 (commit `90deb91`). 0071–0073 (About/Venue config, menu_items
+facts, ads carousel) are on `main` but **not yet confirmed applied to the
+remote** — verify before relying on them there. Rohan pushes remote
+himself per convention. Current Silver UUID is
+`b22b5d53-6dd8-4f5b-8276-2e828cd1ab91` (pinned in migration 0014).
 
 **Env vars:** `VITE_RESTAURANT_ID` and `VITE_TABLE_ID` are set in
 `apps/kiosk/.env.local`. All four services have env vars configured in Railway.
@@ -141,7 +142,7 @@ remove the fallback.
 pairings, anchor items. It is not a menu CRUD tool. Menu CRUD belongs in
 apps/pos and only for restaurants without their own POS admin.
 
-## Current status (as of 2026-09-04)
+## Current status (as of 2026-09-23)
 
 All four services deployed on Railway: kiosk, POS, dashboard, order-engine.
 
@@ -150,16 +151,47 @@ All four services deployed on Railway: kiosk, POS, dashboard, order-engine.
 (Attract, Menu, Detail, Cart/Sent with the 2-minute kitchen hold,
 Confirmation, Table Status, Bill) shipped.
 
-**Sprints 6–7 + reduced Task 7.0 done on `kiosk-v1-sprint-6-7`**
-(2026-08-30, `docs/plans/2026-08-30-kiosk-sprint-6-7.md`, not yet merged):
-new Venue/About screen (16, from `restaurants.config`, migration 0071);
-"About" added to the Attract secondary panel; Games / Table Talk / voice UI
-classes renamed off the legacy namespace; the **Warm Espresso CSS bridge is
-removed** — every `var()` in `tabletot.css` is now `--tt-*`, `design-system.md`
-is retired. Left for a follow-up: renaming the ~16 pre-`.tt-` primitive
+**Sprints 6–7 + reduced Task 7.0 are merged to `main`**
+(2026-08-30, `docs/plans/2026-08-30-kiosk-sprint-6-7.md`): new Venue/About
+screen (16, from `restaurants.config`, migration 0071); "About" added to
+the Attract secondary panel; Games / Table Talk / voice UI classes renamed
+off the legacy namespace; the **Warm Espresso CSS bridge is removed** —
+every `var()` in `tabletot.css` is now `--tt-*`, `design-system.md` is
+retired. Left for a follow-up: renaming the ~16 pre-`.tt-` primitive
 classes (`.eyebrow`, `.summary-line`, `.panel`, `.order-*`, `.bill-row`,
 `.detail-mic-*`) still used by CartView/BillView/DetailView, and deleting the
 ~100 dead pre-v1.0 rules still in the file.
+
+**`kiosk-v1-sprint-6-7` branch still exists and is not merged** — but only
+because it has since grown a **voice channel redesign** on top of the
+already-landed Sprints 6–7 work: screens 06/07/08
+(`VoiceDockPanel`, `VoiceConversationScreen`, `EarlierStrip`,
+`VoiceAnswerCard`, `useMicLevels`), 14 commits, latest `7399b60` ("Add
+voice single-surface rework plan", 2026-08-31). Specs:
+`docs/plans/2026-08-30-voice-channel-redesign-spec.md`,
+`docs/plans/2026-08-30-voice-channel-redesign.md`,
+`docs/plans/2026-08-31-voice-single-surface-rework.md`. Needs a rebase
+onto current `main` before merging or resuming.
+
+**Since 2026-09-04, merged to `main` (latest commit `75367c2`,
+2026-09-20):**
+- Structured per-item **facts** (migration 0072, `menu_items.facts` jsonb
+  — calories/allergens/spice level/prep time/ingredients) feeding the LLM
+  menu summary, with a truth rule barring the model from estimating any
+  fact not present.
+- Admin-managed **ad carousel** on the kiosk waiting screen (migration
+  0073, new `ads` table, RLS-gated to `active = true` for anon), curated
+  from `apps/dashboard`, replacing the old `restaurants.config.promos`
+  blob.
+- A run of voice/POS bugfixes: voice modal crash from Product Detail,
+  mic access + back-to-order navigation fixes, recommendation card image
+  cropping, idle-kiosk auto-navigation on POS-started orders, filter-intent
+  losing attribute/category, a TTS reconnect race silently dropping
+  sentences, POS Add Items dialog scroll/close, voice modal left open
+  after a POS-ended session.
+- Migrations 0071–0073 exist on `main`; only 0066–0070 are confirmed
+  applied to the remote Supabase (2026-08-30) — 0071–0073 need
+  verification before relying on them there.
 
 **Revenue-integrity hardening (2026-08-15/16)** followed the pre-launch
 readiness assessment (`docs/notes/pre-launch-readiness-assessment.md`,
