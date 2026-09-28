@@ -1106,8 +1106,15 @@ button {
   width: 84px;
   height: 84px;
   border-radius: 16px;
-  background-position: center;
-  background-size: cover;
+  /* itemImageBackground() is an inline `background` shorthand — it resets
+     size/position to auto on any layer that doesn't set its own, and wins
+     over this class unless !important fights back. Same reason
+     .tt-dishcard-media and .tt-chefpick-thumb need it (2026-09-29: found
+     live — the real photo was rendering at its natural size instead of
+     cropped-to-cover, showing a near-blank corner crop in the 84px cart
+     row where .tt-dishcard-media's larger box happened to hide it). */
+  background-position: center !important;
+  background-size: cover !important;
 }
 
 
@@ -4954,8 +4961,10 @@ body {
   border-radius: var(--tt-radius-chip);
   border: none;
   padding: 0;
-  background-position: center;
-  background-size: cover;
+  /* Same !important fight as .order-thumb above — itemImageBackground()'s
+     inline `background` shorthand otherwise wins and resets these to auto. */
+  background-position: center !important;
+  background-size: cover !important;
 }
 
 .tt-pairing-info {
@@ -5016,6 +5025,17 @@ body {
   gap: var(--tt-space-3);
 }
 
+/* Own line, top-left, above the category bar — matches "back is always
+   top-left" everywhere else in the app (2026-09-28 UX audit; was crammed
+   between the dish-count heading and the diet filter). */
+.tt-menu-back {
+  flex: none;
+  align-self: flex-start;
+  padding: var(--tt-space-1) 0;
+  font-weight: 700;
+  color: var(--tt-ink-60);
+}
+
 .tt-menu-header {
   display: flex;
   align-items: flex-end;
@@ -5028,6 +5048,15 @@ body {
   font-family: var(--tt-font-display);
   font-weight: 700;
   font-size: var(--tt-size-heading);
+}
+
+/* Was the heading itself ("6 dishes") — the category name reads better
+   there, so the count moved down to a caption (2026-09-28 UX audit). */
+.tt-menu-count {
+  margin-top: 2px;
+  color: var(--tt-ink-60);
+  font-size: var(--tt-size-meta);
+  font-weight: 700;
 }
 
 .tt-dish-list {

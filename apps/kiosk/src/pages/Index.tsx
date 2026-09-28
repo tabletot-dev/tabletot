@@ -11,7 +11,6 @@ import DetailView from "@/components/screens/DetailView";
 import CartView from "@/components/screens/CartView";
 import SentView from "@/components/screens/SentView";
 import CancelConfirm from "@/components/screens/CancelConfirm";
-import ConfirmationView from "@/components/screens/ConfirmationView";
 import WaitingView from "@/components/screens/WaitingView";
 import ScreensaverOverlay from "@/components/ScreensaverOverlay";
 const BillView = lazy(() => import("@/components/screens/BillView"));
@@ -106,6 +105,7 @@ const IndexInner = () => {
         // guest's confirmed round must survive that (2026-08-28 audit,
         // finding 1).
         await confirmOrder(items);
+        setToast("Order sent to the kitchen.");
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setToast(`Order could not be sent: ${msg}`);
@@ -643,12 +643,6 @@ const IndexInner = () => {
             onCancel={() => setCancelConfirmOpen(true)}
             onSendNow={hold.sendNow}
             onOrderMore={() => setCurrentScreen("menu")}
-          />
-        );
-      case "order-confirmation":
-        return (
-          <ConfirmationView
-            onReset={() => setCurrentScreen("session-idle")}
           />
         );
       case "session-idle":

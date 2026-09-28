@@ -13,7 +13,6 @@ export type ScreenType =
   | "item-detail"
   | "order-summary"
   | "sent"
-  | "order-confirmation"
   | "session-idle"
   | "games"
   | "conversation-starters"
@@ -123,7 +122,10 @@ export function useDeviceNavigation() {
       ]);
       setOrder([]);
     }
-    setCurrentScreen("order-confirmation");
+    // Straight to Waiting — the standalone "Order confirmed" screen (and its
+    // fixed 5s pause) is gone; Index.tsx shows a brief toast instead
+    // (2026-09-28 UX audit).
+    setCurrentScreen("session-idle");
   }, []);
 
   const endSession = useCallback(() => {
