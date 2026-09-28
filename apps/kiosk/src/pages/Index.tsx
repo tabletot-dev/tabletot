@@ -13,6 +13,7 @@ import SentView from "@/components/screens/SentView";
 import CancelConfirm from "@/components/screens/CancelConfirm";
 import ConfirmationView from "@/components/screens/ConfirmationView";
 import WaitingView from "@/components/screens/WaitingView";
+import ScreensaverOverlay from "@/components/ScreensaverOverlay";
 const BillView = lazy(() => import("@/components/screens/BillView"));
 const GamesView = lazy(() => import("@/components/screens/GamesView"));
 const ConversationStartersView = lazy(() => import("@/components/screens/ConversationStartersView"));
@@ -58,6 +59,12 @@ function wait(ms: number) {
 // docs/plans/2026-08-03-idle-table-notification.md).
 const NUDGE_ELIGIBLE_SCREENS = new Set(["menu", "item-detail", "order-summary"]);
 const NUDGE_THRESHOLD_MS = 3.5 * 60 * 1000;
+
+// Fullscreen ad screensaver: only on the Attract screen (no session) and the
+// Order Status screen (session-idle, waiting on the kitchen) — the two
+// screens where sustained no-touch is expected rather than a red flag.
+const SCREENSAVER_SCREENS = new Set(["idle", "session-idle"]);
+const SCREENSAVER_THRESHOLD_MS = 2 * 60 * 1000;
 
 const IndexInner = () => {
   const { voiceEnabled, promptForIdentity, venueName, hours, chefName, chefNote } = useRestaurant();
@@ -177,6 +184,7 @@ const IndexInner = () => {
   useEffect(() => {
     lastTouchRef.current = Date.now();
     setShowIdleNudge(false);
+    setShowScreensaver(false);
   }, [currentScreen]);
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -199,6 +207,22 @@ const IndexInner = () => {
     const t = window.setTimeout(() => setNudgeMounted(false), 200);
     return () => window.clearTimeout(t);
   }, [showIdleNudge, nudgeMounted]);
+
+  // Fullscreen ad screensaver — shares lastTouchRef with the "still there?"
+  // nudge above, but a longer threshold and a different screen set (Attract
+  // + Order Status, where sitting untouched is normal, not a stall).
+  const [showScreensaver, setShowScreensaver] = useState(false);
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const eligible = SCREENSAVER_SCREENS.has(currentScreenRef.current);
+      setShowScreensaver(eligible && Date.now() - lastTouchRef.current > SCREENSAVER_THRESHOLD_MS);
+    }, 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const dismissScreensaver = useCallback(() => {
+    lastTouchRef.current = Date.now();
+    setShowScreensaver(false);
+  }, []);
 
   const { items: menuItems, pairingsByItemId, anchors, completionRules } = useMenu();
 
@@ -768,6 +792,8 @@ const IndexInner = () => {
             Still there? Tap anywhere to continue.
           </div>
         )}
+
+        {showScreensaver && <ScreensaverOverlay onDismiss={dismissScreensaver} />}
 
         {completionSuggestion && (
           <CompletionNudge
