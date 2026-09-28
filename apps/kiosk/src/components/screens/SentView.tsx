@@ -29,13 +29,13 @@ export default function SentView({
 
   return (
     <section className="tt-sent">
-      <p className="tt-badge">Round {roundNumber}</p>
-      <h1>Going to the kitchen in {mmss(secondsLeft)}</h1>
+      <p className="eyebrow">Sending to the kitchen</p>
+      <h1>Sending to the kitchen in {mmss(secondsLeft)}</h1>
       <p className="tt-sent-sub">
         {count} item{count === 1 ? "" : "s"} · {formatRupees(total)} · added to your table bill
       </p>
       <p className="tt-sent-note">
-        You can still change this round. After that it's on the pass.
+        You can still change your order until then.
       </p>
 
       <div className="tt-sent-actions">
@@ -43,10 +43,10 @@ export default function SentView({
           Send now
         </button>
         <button type="button" className="tt-btn--secondary" onClick={onEdit}>
-          Edit round
+          Change order
         </button>
         <button type="button" className="tt-btn--tertiary" onClick={onCancel}>
-          Cancel round
+          Cancel order
         </button>
       </div>
 

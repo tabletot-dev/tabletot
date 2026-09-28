@@ -105,7 +105,7 @@ function DishCard({
             tabIndex={0}
             onKeyDown={(e) => e.key === "Enter" && onSelect(item)}
           >
-            <DietMark isVeg={item.is_veg} compact label />
+            <DietMark isVeg={item.is_veg} compact />
             <h3>{item.name}</h3>
           </div>
           {item.description && <p className="tt-dishcard-desc">{item.description}</p>}
@@ -131,7 +131,7 @@ function DishCard({
 
       {showPairingPanel && (
         <div className="tt-pairing-panel">
-          <p className="tt-badge">Goes well with</p>
+          <p className="eyebrow">Goes well with</p>
           <motion.div
             className="tt-pairing-list"
             variants={PAIRING_LIST_VARIANTS}

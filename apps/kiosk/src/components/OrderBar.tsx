@@ -18,9 +18,9 @@ export default function OrderBar({
     <div className="tt-orderbar">
       <div className="tt-orderbar-copy">
         <strong>
-          {itemCount} item{itemCount === 1 ? "" : "s"} · Round {roundNumber}
+          {itemCount} item{itemCount === 1 ? "" : "s"}
         </strong>
-        <span>₹{total} · incl. GST at review</span>
+        <span>₹{total} + GST</span>
       </div>
       <button
         type="button"

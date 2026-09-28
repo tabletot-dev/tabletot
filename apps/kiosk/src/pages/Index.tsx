@@ -793,7 +793,9 @@ const IndexInner = () => {
           </div>
         )}
 
-        {showScreensaver && <ScreensaverOverlay onDismiss={dismissScreensaver} />}
+        {showScreensaver && (
+          <ScreensaverOverlay onDismiss={dismissScreensaver} orderId={currentRoundOrderId} />
+        )}
 
         {completionSuggestion && (
           <CompletionNudge

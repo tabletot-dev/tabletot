@@ -46,8 +46,8 @@ export default function CartView({
         </div>
       )}
 
-      <p className="tt-badge">Current order</p>
-      <h1>Review and adjust before sending</h1>
+      <p className="eyebrow">Current order</p>
+      <h1>Your order</h1>
 
       <div className="tt-cart-list">
         {order.length === 0 ? (
@@ -78,10 +78,10 @@ export default function CartView({
 
       {previousOrders.length > 0 && (
         <div className="tt-cart-sent">
-          <p className="tt-badge">Already sent</p>
+          <p className="eyebrow">Already sent</p>
           {previousOrders.map((round, idx) => (
             <div key={idx} className="tt-cart-sent-row">
-              <span className="tt-cart-sent-label">Round {idx + 1} · Sent</span>
+              <span className="tt-cart-sent-label">Sent</span>
               <span className="tt-cart-sent-items">
                 {round.items.map((i) => i.name).join(", ")}
               </span>
@@ -93,7 +93,7 @@ export default function CartView({
 
       {showNameField && (
         <label className="tt-cart-name-field">
-          <span className="tt-badge">Name for this order</span>
+          <span className="eyebrow">Name for this order</span>
           <input
             className="tt-field"
             value={displayName}
@@ -126,10 +126,10 @@ export default function CartView({
           onClick={() => onConfirm(showNameField ? displayName.trim() || undefined : undefined)}
           disabled={order.length === 0 || isSubmitting}
         >
-          {isSubmitting ? "Sending…" : "Send to kitchen"}
+          {isSubmitting ? "Sending…" : `Place order · ${formatRupees(total)}`}
         </button>
         <button className="tt-btn--secondary" onClick={onContinue} disabled={isSubmitting}>
-          Continue Browsing
+          Back to menu
         </button>
       </div>
     </section>

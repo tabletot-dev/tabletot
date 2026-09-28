@@ -111,7 +111,7 @@ export default function DetailView({
 
         {visiblePairings.length > 0 && (
           <div className="tt-pairing-panel">
-            <p className="tt-badge">Goes well with</p>
+            <p className="eyebrow">Goes well with</p>
             <motion.div
               className="tt-pairing-list"
               variants={PAIRING_LIST_VARIANTS}
@@ -190,7 +190,7 @@ export default function DetailView({
 
       <div className="tt-detail-footer">
         <div>
-          <p className="tt-badge">Item price</p>
+          <p className="eyebrow">Item price</p>
           <strong className="tt-detail-price">₹{item.price}</strong>
         </div>
         {itemQty > 0 ? (

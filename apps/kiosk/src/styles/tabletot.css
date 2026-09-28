@@ -32,19 +32,18 @@
   background: currentColor;
 }
 
+/* FSSAI mark: both diets share the same square-outline icon (2026-09-28 UX
+   audit — the codebase previously gave Veg a circle and Non-Veg a bare
+   triangle with no square, which read as two different symbol systems).
+   Only the dot inside changes shape. */
 .tt-dietmark--veg {
   color: var(--tt-veg);
-}
-
-.tt-dietmark--veg .tt-dietmark-icon {
-  border-radius: 50%;
 }
 
 .tt-dietmark--nonveg {
   color: var(--tt-nonveg);
 }
 
-.tt-dietmark--nonveg .tt-dietmark-icon,
 .tt-dietmark--nonveg .tt-dietmark-dot {
   border-radius: 0;
   clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
@@ -1238,7 +1237,10 @@ button {
 .tt-activities-hero {
   padding: 28px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  /* Back on the left, title fills the rest — was the other way round, so
+     Back sat top-right on every other screen but top-left (2026-09-28 UX
+     audit: back is always top-left). */
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 18px;
   background:
@@ -1254,6 +1256,7 @@ button {
 }
 
 .tt-activities-back-btn {
+  order: -1;
   min-width: 140px;
 }
 
@@ -1582,12 +1585,12 @@ button {
   text-transform: uppercase;
 }
 
+/* Black selected state, matching .tt-chip.active elsewhere in the app —
+   was a red gradient here only (2026-09-28 UX audit). */
 .tt-game-mode-btn.active {
-  background:
-    radial-gradient(circle at 80% 0%, rgba(255, 255, 252, 0.34), transparent 40%),
-    linear-gradient(180deg, #ff704f 0%, #ef3e30 100%);
-  border-color: rgba(255, 112, 79, 0.72);
-  color: #fffaf4;
+  background: var(--tt-ink);
+  border-color: var(--tt-ink);
+  color: var(--tt-on-dark);
 }
 
 .tt-game-mode-btn.active span {
@@ -1602,7 +1605,11 @@ button {
   background:
     linear-gradient(145deg, rgba(255, 255, 252, 0.98), rgba(255, 246, 237, 0.9)),
     radial-gradient(circle at 92% 8%, rgba(243, 108, 49, 0.18), transparent 34%);
-  overflow: hidden;
+  /* Was `hidden` — a board taller than the panel's remaining height got its
+     bottom row clipped with no way to reach it (2026-09-28 UX audit,
+     tic-tac-toe cut off). Scroll is the safety net; the smaller board cap
+     below means it shouldn't usually be needed. */
+  overflow-y: auto;
 }
 
 .tt-game-panel-header {
@@ -1648,7 +1655,9 @@ button {
 }
 
 .tt-tic-board {
-  width: min(100%, 560px);
+  /* Capped lower than before (was 560px) so it reliably fits under the panel
+     header without relying on the scroll fallback above. */
+  width: min(100%, 440px);
   aspect-ratio: 1;
   justify-self: center;
   display: grid;
@@ -5120,7 +5129,9 @@ body {
 
 .tt-cart-row {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) auto auto;
+  /* Was 64px while .order-thumb is 84px wide — the image overflowed its
+     grid track into the name column (2026-09-28 UX audit). */
+  grid-template-columns: 84px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: var(--tt-space-2);
   padding: var(--tt-space-2);
@@ -5306,8 +5317,42 @@ body {
 .tt-screensaver-media {
   position: absolute;
   inset: 0;
-  background-size: cover;
-  background-position: center;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.tt-screensaver-touch {
+  position: absolute;
+  inset: 0;
+}
+
+.tt-screensaver-venue {
+  position: absolute;
+  top: var(--tt-space-4);
+  left: var(--tt-space-4);
+  padding: var(--tt-space-1) var(--tt-space-2);
+  border-radius: var(--tt-radius-pill, 999px);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--tt-ink);
+  font-family: var(--tt-font-text);
+  font-weight: 700;
+  font-size: var(--tt-size-meta);
+  pointer-events: none;
+}
+
+.tt-screensaver-status {
+  position: absolute;
+  bottom: var(--tt-space-4);
+  left: var(--tt-space-4);
+  padding: var(--tt-space-2) var(--tt-space-3);
+  border-radius: var(--tt-radius-pill, 999px);
+  background: var(--tt-paper);
+  color: var(--tt-ink);
+  font-family: var(--tt-font-text);
+  font-weight: 700;
+  border: 2px solid var(--tt-line);
+  pointer-events: none;
 }
 
 .tt-screensaver-exit {
@@ -5316,11 +5361,12 @@ body {
   right: var(--tt-space-4);
   padding: var(--tt-space-2) var(--tt-space-3);
   border-radius: var(--tt-radius-pill, 999px);
-  background: var(--tt-paper);
-  color: var(--tt-ink);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--tt-ink-60);
   font-family: var(--tt-font-text);
   font-weight: 700;
-  border: 2px solid var(--tt-line);
+  font-size: var(--tt-size-meta);
+  pointer-events: none;
 }
 
 .tt-status-card h2 {
@@ -5608,7 +5654,9 @@ body {
   gap: var(--tt-space-3);
 }
 
-/* Coral outline pill — echoes the primary CTA. */
+/* Same grey pill as the Table badge on every other screen (.tt-badge) —
+   was a coral outline here only, so "Table T1" looked like two different
+   indicators depending which screen you were on (2026-09-28 UX audit). */
 .tt-attract-badge {
   display: inline-flex;
   align-items: center;
@@ -5616,8 +5664,9 @@ body {
   min-height: calc(36px * var(--tt-scale));
   padding: 0 var(--tt-space-3);
   border-radius: var(--tt-radius-pill);
-  border: 2px solid var(--tt-action);
-  color: var(--tt-action);
+  background: var(--tt-field);
+  border: 2px solid var(--tt-line);
+  color: var(--tt-ink-60);
   font-weight: 700;
   font-size: var(--tt-size-meta);
 }

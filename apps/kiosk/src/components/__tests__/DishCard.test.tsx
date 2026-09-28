@@ -53,15 +53,22 @@ const pairing = (over: Partial<PairedItem>): PairedItem => ({
   ...over,
 });
 
-describe("DishCard — diet label on the card (A4)", () => {
-  it("shows the 'Veg' word, not just the glyph, for a veg dish", () => {
+// A4 (pre-2026-09-28) required the "Veg"/"Non-Veg" word next to the dish
+// name. The 2026-09-28 UX audit reversed that: the word next to every dish
+// name read as redundant with the icon (kept only in the All/Veg/Non-Veg
+// filter). The icon's accessible name still carries "Veg"/"Non-Veg" for
+// screen readers — only the always-visible text label was dropped.
+describe("DishCard — diet mark on the card", () => {
+  it("carries the 'Veg' accessible name, with no separate visible word, for a veg dish", () => {
     renderCard(base);
-    expect(screen.getByText("Veg")).toBeInTheDocument();
+    expect(screen.getByLabelText("Veg")).toBeInTheDocument();
+    expect(screen.queryByText("Veg")).not.toBeInTheDocument();
   });
 
-  it("shows 'Non-Veg' for a non-veg dish", () => {
+  it("carries the 'Non-Veg' accessible name, with no separate visible word, for a non-veg dish", () => {
     renderCard({ ...base, name: "Egg Bagel", is_veg: false });
-    expect(screen.getByText("Non-Veg")).toBeInTheDocument();
+    expect(screen.getByLabelText("Non-Veg")).toBeInTheDocument();
+    expect(screen.queryByText("Non-Veg")).not.toBeInTheDocument();
   });
 });
 
