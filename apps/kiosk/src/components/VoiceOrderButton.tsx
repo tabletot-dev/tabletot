@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Mic } from "lucide-react";
 import { startSession, endSession } from "@/lib/voice/api";
 import { openTtsClient, unlockAudioContext, type TtsClientHandle } from "@/lib/voice/ttsClient";
 import { startSttPress, MicPermissionDeniedError, type SttPressHandle } from "@/lib/voice/sttClient";
@@ -230,11 +231,12 @@ const VoiceOrderButton = ({ onDone, order, restaurantId, tableId, onStatusChange
               strokeDasharray="31.4" strokeDashoffset="10" />
           </svg>
         ) : (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="tt-voice-ptt-mic-icon">
-            <rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.8" />
-            <path d="M5 10a7 7 0 0014 0" stroke="currentColor" strokeWidth="1.8" fill="none" />
-            <line x1="12" y1="17" x2="12" y2="22" stroke="currentColor" strokeWidth="1.8" />
-          </svg>
+          // Same glyph as everywhere else a mic appears (DetailView's
+          // detail-mic-btn) — was a one-off hand-drawn path here, which read
+          // as a different icon depending which screen you were on
+          // (2026-09-29 UX audit). Visual only: no change to state, classes,
+          // or handlers below.
+          <Mic size={20} strokeWidth={1.8} />
         )}
       </button>
     </div>

@@ -104,6 +104,8 @@ export function MenuProvider({ children }: { children: React.ReactNode }) {
         image: row.image_url ?? undefined,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         prepMinutes: typeof (row as any).facts?.prep_minutes === 'number' ? (row as any).facts.prep_minutes : undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        facts: ((row as any).facts && typeof (row as any).facts === 'object') ? (row as any).facts : undefined,
       })).map(hydrateMenuItemImage);
 
       const itemMap = new Map(mapped.map((i) => [i.id, i]));

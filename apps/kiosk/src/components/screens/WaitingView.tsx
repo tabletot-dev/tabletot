@@ -5,14 +5,7 @@ import { useKotTickets, KOT_ACTIVE, type KotStatus } from "@/hooks/useKotTickets
 import { getDisplayName } from "@/lib/orderSubmission";
 import { useRestaurant } from "@/lib/restaurantContext";
 import { useMenu } from "@/lib/menuStore";
-
-// "1st order", "2nd order"... — never the word "Round" to a customer
-// (2026-09-28 UX audit).
-function ordinal(n: number): string {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
-}
+import { ordinal } from "@/lib/ordinal";
 
 const KOT_LABEL: Record<KotStatus, string> = {
   accepted: "Received",

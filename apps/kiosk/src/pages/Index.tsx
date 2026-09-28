@@ -6,6 +6,7 @@ import ListeningScreen from "@/components/screens/ListeningScreen";
 import MenuView from "@/components/screens/MenuView";
 import FrequentlyOrderedView from "@/components/screens/FrequentlyOrderedView";
 import DetailView from "@/components/screens/DetailView";
+import DetailFooter from "@/components/DetailFooter";
 // HomeView was merged into IdleScreen (T11, 2026-08-29) — the carousel +
 // slide-tap session-start now live there; the "home" screen is gone.
 import CartView from "@/components/screens/CartView";
@@ -26,6 +27,7 @@ import StatusStrip from "@/components/StatusStrip";
 import { useRoundHold } from "@/hooks/useRoundHold";
 import { useSyncHeldRound } from "@/hooks/useSyncHeldRound";
 import { RestaurantProvider, useRestaurant } from "@/lib/restaurantContext";
+import { ordinal } from "@/lib/ordinal";
 import { supabase } from "@/integrations/supabase/client";
 import {
   resolveTableId,
@@ -607,7 +609,6 @@ const IndexInner = () => {
             <DetailView
               item={selectedItem}
               pairings={getDetailPairings(selectedItem)}
-              onAdd={handleAddFromDetail}
               onAddItem={(i) => handleAddToOrder(i, "pairing_chip")}
               onUpdateQuantity={handleUpdateQuantity}
               getQuantity={getOrderQuantity}
@@ -748,12 +749,19 @@ const IndexInner = () => {
             disabled={isSubmitting}
             onReview={() => setCurrentScreen("order-summary")}
           />
+        ) : currentScreen === "item-detail" && selectedItem ? (
+          <DetailFooter
+            item={selectedItem}
+            quantity={getOrderQuantity(selectedItem.id)}
+            onAdd={handleAddFromDetail}
+            onUpdateQuantity={handleUpdateQuantity}
+          />
         ) : null
       }
       statusStrip={
         hold.isHolding && currentScreen !== "sent" ? (
           <StatusStrip
-            label={`Round ${previousOrders.length + 1} → kitchen`}
+            label={`${ordinal(previousOrders.length + 1)} order → kitchen`}
             detail={`${hold.secondsLeft}s · tap to change`}
             onTap={() => setCurrentScreen("sent")}
           />

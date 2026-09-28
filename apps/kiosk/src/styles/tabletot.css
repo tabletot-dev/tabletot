@@ -98,20 +98,22 @@
   padding: 14px 0 24px;
 }
 
+/* Same flat fill as the Menu screen's mic (.tt-voice-ptt-btn) — was its own
+   gradient + highlight here, so the "same" button read as two different
+   features depending which screen you were on (2026-09-29 UX audit).
+   Bigger (84px vs 52px) is intentional: this one is the dedicated entry
+   into the full voice conversation, not the persistent press-to-talk dock. */
 .detail-mic-btn {
   position: relative;
   width: 84px;
   height: 84px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(255, 255, 252, 0.82);
+  border: none;
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 48% 18%, rgba(255, 230, 199, 0.98), transparent 30%),
-    linear-gradient(145deg, #ff8a45 0%, var(--tt-action) 52%, #c44f1f 100%);
-  color: #fffefa;
+  background: var(--tt-action);
+  color: #fff;
   cursor: pointer;
-  animation: mic-ambient-pulse 2.8s ease-in-out infinite;
 }
 
 .detail-mic-btn:hover {
@@ -2858,11 +2860,6 @@ button {
   cursor: not-allowed;
 }
 
-.tt-voice-ptt-mic-icon {
-  stroke: currentColor;
-  fill: none;
-}
-
 .tt-voice-ptt-spinner {
   animation: spin 0.8s linear infinite;
   color: #fff;
@@ -4874,6 +4871,42 @@ body {
   align-items: center;
 }
 
+/* Nutrition/prep/allergen/origin facts (menu_items.facts, migration 0072) —
+   replaces the old redundant Category/Diet boxes (2026-09-29). Only rows
+   the venue actually set ever render; see lib/menuFacts.ts. */
+.tt-detail-factsheet {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--tt-space-2);
+  padding: var(--tt-space-3);
+  border-radius: var(--tt-radius-chip);
+  background: var(--tt-field);
+  border: 2px solid var(--tt-line);
+}
+
+.tt-detail-fact-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--tt-space-3);
+  padding: var(--tt-space-1) 0;
+}
+
+.tt-detail-fact-row + .tt-detail-fact-row {
+  border-top: 1px solid var(--tt-line);
+}
+
+.tt-detail-fact-row span {
+  flex: none;
+  color: var(--tt-ink-60);
+  font-size: var(--tt-size-meta);
+  font-weight: 700;
+}
+
+.tt-detail-fact-row strong {
+  text-align: right;
+}
+
 .tt-pairing-panel {
   display: flex;
   flex-direction: column;
@@ -5080,14 +5113,17 @@ body {
   line-height: 1.5;
 }
 
+/* Docked bar (AppShell orderBar slot, see DetailFooter.tsx) — was
+   position:sticky inside the scrolling content, which doesn't reserve
+   space and so permanently covered the mic-dock chips/button on any tall
+   dish page. Same treatment as .tt-orderbar (2026-09-29 UX audit). */
 .tt-detail-footer {
-  position: sticky;
-  bottom: 0;
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--tt-space-3);
-  margin-top: var(--tt-space-2);
+  min-height: var(--tt-tap-primary);
   padding: var(--tt-space-3) var(--tt-gutter);
   background: var(--tt-paper);
   border-top: 2px solid var(--tt-line);
