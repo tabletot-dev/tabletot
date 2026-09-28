@@ -10,6 +10,9 @@ export interface MenuItem {
   is_veg: boolean;
   description?: string;
   image?: string;
+  /** From menu_items.facts.prep_minutes (migration 0072) — undefined when
+   *  the venue hasn't set it. */
+  prepMinutes?: number;
 }
 
 export interface OrderItem extends MenuItem {

@@ -109,7 +109,10 @@ function DishCard({
             <h3>{item.name}</h3>
           </div>
           {item.description && <p className="tt-dishcard-desc">{item.description}</p>}
-          <strong className="tt-dishcard-price">₹{item.price}</strong>
+          <strong className="tt-dishcard-price">
+            ₹{item.price}
+            {item.prepMinutes != null && <span className="tt-dishcard-prep"> · {item.prepMinutes} min</span>}
+          </strong>
         </div>
 
         <div className="tt-dishcard-action">

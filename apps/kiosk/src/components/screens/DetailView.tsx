@@ -82,7 +82,10 @@ export default function DetailView({
 
       <div className="tt-detail-body">
         <p className="tt-badge">{item.category}</p>
-        <h1>{item.name}</h1>
+        <div className="tt-detail-title-row">
+          <h1>{item.name}</h1>
+          <DietMark isVeg={item.is_veg} label />
+        </div>
         {item.tags.length > 0 && (
           <div className="tt-tag-row">
             {item.tags.map((tag) => (
@@ -95,19 +98,6 @@ export default function DetailView({
         {item.description && (
           <p className="tt-detail-copy">{item.description}</p>
         )}
-
-        <div className="tt-detail-facts">
-          <div>
-            <span>Category</span>
-            <strong>{item.category}</strong>
-          </div>
-          <div>
-            <span>Diet</span>
-            <strong>
-              <DietMark isVeg={item.is_veg} label />
-            </strong>
-          </div>
-        </div>
 
         {visiblePairings.length > 0 && (
           <div className="tt-pairing-panel">
@@ -191,7 +181,10 @@ export default function DetailView({
       <div className="tt-detail-footer">
         <div>
           <p className="eyebrow">Item price</p>
-          <strong className="tt-detail-price">₹{item.price}</strong>
+          <strong className="tt-detail-price">
+            ₹{item.price}
+            {item.prepMinutes != null && <span className="tt-dishcard-prep"> · {item.prepMinutes} min</span>}
+          </strong>
         </div>
         {itemQty > 0 ? (
           <div className="tt-stepper" aria-label={`${item.name} quantity`}>

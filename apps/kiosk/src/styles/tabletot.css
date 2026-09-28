@@ -87,32 +87,19 @@
   color: var(--tt-action);
 }
 
+/* Was position:relative with the bubbles row absolutely centered on top of
+   it (min-height:118px sized for that overlap). Now a plain column, so
+   height is whatever the content needs. */
 .detail-mic-dock {
-  position: relative;
-  min-height: 118px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  gap: var(--tt-space-2);
   padding: 14px 0 24px;
-  overflow: visible;
-}
-
-.detail-mic-dock::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: 18px;
-  width: 132px;
-  height: 70px;
-  border-radius: 999px;
-  background: radial-gradient(circle, rgba(243, 108, 49, 0.36), transparent 68%);
-  filter: blur(12px);
-  transform: translateX(-50%);
 }
 
 .detail-mic-btn {
   position: relative;
-  z-index: 2;
   width: 84px;
   height: 84px;
   display: grid;
@@ -131,19 +118,21 @@
   transform: translateY(-1px) scale(1.03);
 }
 
+/* Was 3 bubbles absolutely positioned at hand-tuned pixel offsets sized for
+   short text — "Make it lighter?" is wider than the box those offsets
+   assumed, so it painted over "Pairing?" (2026-09-29, found live via
+   /browse: the chips visibly overlapped, one showing only "…ring?"). A
+   plain wrapping row can't overlap regardless of how long any one
+   suggestion's text is. */
 .detail-mic-bubbles {
-  position: absolute;
-  left: 50%;
-  bottom: 68px;
-  z-index: 3;
-  width: 245px;
-  height: 58px;
-  transform: translateX(-50%);
-  pointer-events: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: 320px;
 }
 
 .detail-mic-bubbles span {
-  position: absolute;
   display: inline-flex;
   align-items: center;
   min-height: 28px;
@@ -157,24 +146,6 @@
   font-weight: 800;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  animation: mic-bubble-float 3.4s ease-in-out infinite;
-}
-
-.detail-mic-bubbles span:nth-child(1) {
-  left: 6px;
-  bottom: 0;
-}
-
-.detail-mic-bubbles span:nth-child(2) {
-  right: 12px;
-  bottom: 22px;
-  animation-delay: 0.45s;
-}
-
-.detail-mic-bubbles span:nth-child(3) {
-  left: 82px;
-  top: 0;
-  animation-delay: 0.9s;
 }
 
 
@@ -1060,40 +1031,6 @@ button {
 
 
 
-
-.tt-detail-facts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--tt-space-2);
-}
-
-.tt-detail-facts div {
-  min-width: 0;
-  padding: var(--tt-pad-card);
-  border-radius: var(--tt-radius-card);
-  background: var(--tt-paper);
-  border: 2px solid var(--tt-line);
-}
-
-.tt-detail-facts span,
-.tt-detail-facts strong {
-  display: block;
-}
-
-.tt-detail-facts span {
-  color: var(--tt-ink-60);
-  font-size: var(--tt-size-meta);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.tt-detail-facts strong {
-  margin-top: 5px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .tt-detail-price {
   display: block;
@@ -4925,6 +4862,12 @@ body {
   font-size: var(--tt-size-body);
 }
 
+.tt-dishcard-prep {
+  color: var(--tt-ink-60);
+  font-weight: 600;
+  font-size: var(--tt-size-meta);
+}
+
 .tt-dishcard-action {
   flex: none;
   display: flex;
@@ -5115,6 +5058,20 @@ body {
   font-family: var(--tt-font-display);
   font-weight: 700;
   font-size: var(--tt-size-heading);
+}
+
+/* Was two repeated-info cards ("Category" restating the chip above it,
+   "Diet" in its own box) — the diet mark sits with the name instead, where
+   it belongs (2026-09-29, part of the dish-detail redesign). */
+.tt-detail-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--tt-space-2);
+}
+
+.tt-detail-title-row h1 {
+  margin: 0;
 }
 
 .tt-detail-copy {
@@ -5436,6 +5393,96 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: var(--tt-space-1);
+  color: var(--tt-ink-60);
+  font-size: var(--tt-size-meta);
+}
+
+/* One row per kitchen ticket ("1st order · Cooking") — replaces the old
+   single blended item count (2026-09-28 UX audit, Step 6). */
+.tt-status-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--tt-space-2);
+}
+
+.tt-status-summary-row + .tt-status-summary-row {
+  padding-top: var(--tt-space-1);
+  border-top: 1px solid var(--tt-line);
+}
+
+.tt-status-summary-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tt-status-summary-ordinal {
+  color: var(--tt-ink-60);
+  font-size: var(--tt-size-meta);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.tt-status-summary-items {
+  font-size: var(--tt-size-meta);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tt-status-summary-tag {
+  flex: none;
+  padding: 4px var(--tt-space-2);
+  border-radius: var(--tt-radius-pill);
+  font-size: var(--tt-size-meta);
+  font-weight: 800;
+  background: var(--tt-field);
+  color: var(--tt-ink-60);
+  border: 2px solid var(--tt-line);
+}
+
+.tt-status-summary-tag--preparing {
+  background: rgba(243, 108, 49, 0.12);
+  color: var(--tt-action-press);
+  border-color: rgba(243, 108, 49, 0.35);
+}
+
+.tt-status-summary-tag--ready,
+.tt-status-summary-tag--archived {
+  background: rgba(14, 122, 60, 0.1);
+  color: var(--tt-veg);
+  border-color: rgba(14, 122, 60, 0.3);
+}
+
+.tt-status-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--tt-space-2);
+}
+
+.tt-status-eta {
+  margin: 0;
+  text-align: right;
+}
+
+.tt-status-eta strong {
+  display: block;
+  font-family: var(--tt-font-display);
+  font-size: var(--tt-size-body);
+}
+
+.tt-status-eta span {
+  color: var(--tt-ink-60);
+  font-size: var(--tt-size-meta);
+  font-weight: 700;
+}
+
+.tt-status-note {
+  margin: 0;
   color: var(--tt-ink-60);
   font-size: var(--tt-size-meta);
 }
