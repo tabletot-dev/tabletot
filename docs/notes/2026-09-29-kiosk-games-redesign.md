@@ -1,4 +1,4 @@
-# Kiosk Games redesign (2026-09-29)
+# Kiosk Games + Conversation Starters redesign (2026-09-29)
 
 Branch `feat/kiosk-games-redesign`, not merged. Client asked for the Games
 screen to match the rest of the kiosk, Ludo removed, and better games.
@@ -28,6 +28,17 @@ Lenovo Tab K9 in portrait).
 - **Images**: optimized WebPs (`~/Downloads/optimized-images`, 7.6 MB total)
   copied into `public/images/silver/`. `menuImages.ts` fixed for three names
   that pointed at `.png` (espresso-tonic, silver-cold-coffee, teas).
+
+## Conversation Starters (same branch)
+Rebuilt on the same `GameShell` / `tt-gm-*` styles, still its own screen
+(reached from Waiting). Topic list rows (title + hint), then one flat question
+card with progress, Previous / Next, tap and swipe kept. All 9 topics and ~90
+questions untouched. New: status pill and the ready banner (shared through
+`components/games/useFoodStatus.ts` and `ReadyBanner.tsx`, also used by Games),
+`lib/talk.ts` (wrap-around and swipe logic, with tests). Removed the old
+gradient hero, nested panels, "TABLETOT SOCIAL" watermark and about 240 lines
+of `tt-activities-*` / `tt-talk-*` CSS. Mockups: boards 09 and 10 on the same
+canvas as Games.
 
 ## Left out on purpose
 - The hub has the status pill, not the full Received/Cooking/Ready/Served

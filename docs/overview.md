@@ -105,6 +105,7 @@ merged; `docs/notes/2026-09-29-kiosk-games-redesign.md`): Games is now a
 "While you wait" hub with five games (Memory Match, Guess the Dish,
 Tic-Tac-Toe, Word Scramble, Emoji Decode), decks built from the live menu.
 Ludo, Connect 4 and Word Duel removed, about 1,230 lines of game CSS deleted.
+Conversation Starters rebuilt on the same shell (topic list + one question card).
 
 Order-engine tests: 197 passed, 3 skipped as of the last verified run
 (2026-08-30, post-ElevenLabs integration) — not re-verified since; the
