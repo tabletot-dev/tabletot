@@ -57,10 +57,22 @@ export default function Settings() {
       return;
     }
     setSaving(true);
-    const rows = KEYS.map((key) => ({ key, value: values[key] }));
-    const { error } = await supabase
-      .from('restaurant_settings')
-      .upsert(rows, { onConflict: 'key' });
+    // Not upsert: the unique index on `key` is partial (WHERE restaurant_id IS NULL),
+    // which ON CONFLICT can't target — upsert failed for every save. Update the
+    // shared row per key, insert it if missing.
+    let error = null;
+    for (const key of KEYS) {
+      const res = await supabase
+        .from('restaurant_settings')
+        .update({ value: values[key] })
+        .eq('key', key)
+        .is('restaurant_id', null)
+        .select('id');
+      const write = !res.error && res.data.length === 0
+        ? await supabase.from('restaurant_settings').insert({ key, value: values[key] })
+        : res;
+      if (write.error) { error = write.error; break; }
+    }
 
     if (error) {
       toast({ title: 'Error saving settings', description: error.message, variant: 'destructive' });

@@ -4,6 +4,11 @@ import { DEFAULT_GST_RATE_PERCENT } from "@/lib/pricing";
 
 export type Ad = { id: string; image_url: string; title: string | null };
 
+// Pilot values, used until the dashboard's Venue screen sets them in
+// restaurants.config (address, wifi_ssid, wifi_password).
+const DEFAULT_ADDRESS = "Plot 910C, Banjara Hills, Road 46, Khairatabad, Hyderabad";
+const DEFAULT_WIFI_SSID = "SILVER-GUEST";
+
 interface RestaurantCtx {
   restaurantId: string;
   tableId: string;
@@ -14,6 +19,10 @@ interface RestaurantCtx {
   hours: string;
   chefName: string;
   chefNote: string;
+  address: string;
+  wifiSsid: string;
+  /** Empty = open network. */
+  wifiPassword: string;
   gstRatePercent: number;
 }
 
@@ -27,6 +36,9 @@ const RestaurantContext = createContext<RestaurantCtx>({
   hours: "",
   chefName: "",
   chefNote: "",
+  address: DEFAULT_ADDRESS,
+  wifiSsid: DEFAULT_WIFI_SSID,
+  wifiPassword: "",
   gstRatePercent: DEFAULT_GST_RATE_PERCENT,
 });
 
@@ -44,6 +56,9 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
   const [hours, setHours] = useState("");
   const [chefName, setChefName] = useState("");
   const [chefNote, setChefNote] = useState("");
+  const [address, setAddress] = useState(DEFAULT_ADDRESS);
+  const [wifiSsid, setWifiSsid] = useState(DEFAULT_WIFI_SSID);
+  const [wifiPassword, setWifiPassword] = useState("");
   // Defaults to DEFAULT_GST_RATE_PERCENT (5) to avoid a flash of 0% tax
   // before the fetch resolves, same reasoning as voiceEnabled above — not
   // a fallback path, just the pre-load display value.
@@ -76,6 +91,10 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
           if (typeof cfg.hours === "string") setHours(cfg.hours);
           if (typeof cfg.chef_name === "string") setChefName(cfg.chef_name);
           if (typeof cfg.chef_note === "string") setChefNote(cfg.chef_note);
+          // Blank address / network name keep the pilot default above.
+          if (typeof cfg.address === "string" && cfg.address) setAddress(cfg.address);
+          if (typeof cfg.wifi_ssid === "string" && cfg.wifi_ssid) setWifiSsid(cfg.wifi_ssid);
+          if (typeof cfg.wifi_password === "string") setWifiPassword(cfg.wifi_password);
         }
       });
 
@@ -120,7 +139,7 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
 
   return (
     <RestaurantContext.Provider
-      value={{ restaurantId, tableId, voiceEnabled, promptForIdentity, venueName, ads, hours, chefName, chefNote, gstRatePercent }}
+      value={{ restaurantId, tableId, voiceEnabled, promptForIdentity, venueName, ads, hours, chefName, chefNote, address, wifiSsid, wifiPassword, gstRatePercent }}
     >
       {children}
     </RestaurantContext.Provider>

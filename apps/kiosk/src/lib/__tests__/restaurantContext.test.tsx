@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 
-// restaurantContext fires two queries on mount:
+// restaurantContext fires three queries on mount:
 //   from("restaurants").select("name, config").eq(...).single()
+//   from("ads").select(...).eq(...).order(...)
 //   from("restaurant_settings").select("value").eq(...).or(...).order(...).limit(1).maybeSingle()
-// Only the first carries the About-screen config we care about here.
+// Only the first carries the venue config we care about here.
 vi.mock("@/integrations/supabase/client", () => {
   const restaurantsChain = {
     select: () => ({
@@ -18,6 +19,9 @@ vi.mock("@/integrations/supabase/client", () => {
                 hours: "11 AM - 11 PM, every day",
                 chef_name: "Rohit Nair",
                 chef_note: "Small batches, lever machine.",
+                address: "12 Test Road",
+                wifi_ssid: "CAFE-WIFI",
+                wifi_password: "beans123",
               },
             },
             error: null,
@@ -38,11 +42,14 @@ vi.mock("@/integrations/supabase/client", () => {
       }),
     }),
   };
+  const adsChain = {
+    select: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }),
+  };
   return {
     hasSupabaseConfig: true,
     supabase: {
       from: (table: string) =>
-        table === "restaurants" ? restaurantsChain : settingsChain,
+        table === "restaurants" ? restaurantsChain : table === "ads" ? adsChain : settingsChain,
     },
   };
 });
@@ -53,13 +60,13 @@ function Probe() {
   const r = useRestaurant();
   return (
     <span data-testid="v">
-      {r.hours}|{r.chefName}|{r.chefNote}
+      {r.hours}|{r.chefName}|{r.chefNote}|{r.address}|{r.wifiSsid}|{r.wifiPassword}
     </span>
   );
 }
 
 describe("restaurantContext — About-screen config", () => {
-  it("exposes hours, chefName and chefNote from restaurants.config", async () => {
+  it("exposes hours, chef, address and Wi-Fi from restaurants.config", async () => {
     render(
       <RestaurantProvider>
         <Probe />
@@ -67,7 +74,7 @@ describe("restaurantContext — About-screen config", () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId("v").textContent).toBe(
-        "11 AM - 11 PM, every day|Rohit Nair|Small batches, lever machine.",
+        "11 AM - 11 PM, every day|Rohit Nair|Small batches, lever machine.|12 Test Road|CAFE-WIFI|beans123",
       ),
     );
   });

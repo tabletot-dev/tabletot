@@ -68,7 +68,7 @@ const SCREENSAVER_SCREENS = new Set(["idle", "session-idle"]);
 const SCREENSAVER_THRESHOLD_MS = 2 * 60 * 1000;
 
 const IndexInner = () => {
-  const { voiceEnabled, promptForIdentity, venueName, hours, chefName, chefNote } = useRestaurant();
+  const { voiceEnabled, promptForIdentity, venueName, hours, address, chefName, chefNote } = useRestaurant();
   const {
     currentScreen,
     setCurrentScreen,
@@ -722,7 +722,7 @@ const IndexInner = () => {
           <AboutView
             venueName={venueName || "Silver Specialty Coffee"}
             hours={hours}
-            address="Plot 910C, Banjara Hills, Road 46, Khairatabad, Hyderabad"
+            address={address}
             chefName={chefName}
             chefNote={chefNote}
             onBack={() => setCurrentScreen(aboutReturn)}

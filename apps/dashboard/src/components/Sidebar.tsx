@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom';
-import { BarChart2, Anchor, GitFork, CheckSquare, Image, UtensilsCrossed } from 'lucide-react';
+import { BarChart2, Anchor, GitFork, CheckSquare, Image, UtensilsCrossed, Store } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import TabletotLogo from '@/components/TabletotLogo';
 
 const navItems = [
   { to: '/menu', label: 'Menu', icon: UtensilsCrossed },
+  { to: '/venue', label: 'Venue', icon: Store },
   { to: '/curation/anchors', label: 'Anchor Items', icon: Anchor },
   { to: '/curation/pairings', label: 'Item Pairings', icon: GitFork },
   { to: '/curation/rules', label: 'Completion Rules', icon: CheckSquare },
