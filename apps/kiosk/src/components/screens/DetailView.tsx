@@ -163,7 +163,7 @@ export default function DetailView({
                         onClick={() => handleAddPairing(p)}
                         aria-label={`Add ${p.name}`}
                       >
-                        +
+                        Add
                       </button>
                     )}
                   </motion.div>

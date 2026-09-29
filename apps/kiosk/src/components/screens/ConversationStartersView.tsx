@@ -208,7 +208,6 @@ export default function ConversationStartersView({ onBack }: ConversationStarter
     <section className="view tt-activities-view tt-talk-layer-view">
       <div className="tt-activities-hero tt-talk-hero panel">
         <div>
-          <p className="eyebrow">Table Mode</p>
           <h1>Conversation Starters</h1>
           <p className="hero-sub">A premium social layer for thoughtful, natural table energy.</p>
         </div>

@@ -4966,15 +4966,32 @@ body {
 }
 
 .tt-pairing-add {
-  width: 44px;
+  min-width: 64px;
   height: 44px;
+  padding: 0 var(--tt-space-3);
   border-radius: var(--tt-radius-pill);
   border: none;
-  background: var(--tt-ink);
-  color: var(--tt-on-dark);
-  font-size: 22px;
-  line-height: 1;
+  background: var(--tt-action);
+  color: #fff;
+  font-weight: 800;
+  font-size: var(--tt-size-meta);
   cursor: pointer;
+}
+
+.tt-pairing-add:active {
+  background: var(--tt-action-press);
+}
+
+/* Games / Screensaver-style kitchen status line. */
+.tt-food-strip {
+  display: inline-block;
+  margin-top: var(--tt-space-2);
+  padding: var(--tt-space-2) var(--tt-space-3);
+  border-radius: var(--tt-radius-pill, 999px);
+  border: 2px solid var(--tt-line);
+  background: var(--tt-paper);
+  color: var(--tt-ink);
+  font-weight: 700;
 }
 
 /* ── Tags ───────────────────────────────────────────────────── */

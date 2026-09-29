@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { supabase, hasSupabaseConfig } from "@/integrations/supabase/client";
 
 export type KitchenStatus = "new" | "preparing" | "ready" | "served" | "unknown";
@@ -27,12 +27,16 @@ export const STAGE_LABELS = ["Received", "Cooking", "Ready", "Served"];
  */
 export function useKitchenStatus(orderId: string | null): KitchenStatus {
   const [status, setStatus] = useState<KitchenStatus>("unknown");
+  // Unique per hook instance: supabase.channel(name) returns the existing
+  // channel for a repeated name, and adding `.on()` after `subscribe()` throws.
+  // WaitingView, ScreensaverOverlay and GamesView can all watch one order.
+  const instanceId = useId();
 
   useEffect(() => {
     if (!orderId || !hasSupabaseConfig) return;
 
     const channel = supabase
-      .channel(`order-status-${orderId}`)
+      .channel(`order-status-${orderId}-${instanceId}`)
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${orderId}` },
@@ -55,7 +59,7 @@ export function useKitchenStatus(orderId: string | null): KitchenStatus {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [orderId]);
+  }, [orderId, instanceId]);
 
   return status;
 }

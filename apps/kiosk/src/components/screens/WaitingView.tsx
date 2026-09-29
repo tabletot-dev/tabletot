@@ -76,31 +76,18 @@ export default function WaitingView({
     [kotTickets],
   );
 
-  // Longest prep time among items still cooking, minus minutes already
-  // elapsed on the oldest active ticket — never below 1. Hidden entirely if
-  // no active item has a prep time set (menu_items.facts.prep_minutes).
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
-  }, []);
+  // Longest prep time among items on tickets still cooking. Deliberately a
+  // fixed number, not a countdown: it only changes when the kitchen moves a
+  // ticket or a new order arrives. Hidden if no active item has a prep time
+  // set (menu_items.facts.prep_minutes).
   const etaMinutes = useMemo(() => {
-    const active = kotTickets.filter((t) => KOT_ACTIVE.includes(t.status));
-    if (active.length === 0) return null;
     const prepById = new Map(menuItems.map((m) => [m.id, m.prepMinutes]));
-    let maxRemaining: number | null = null;
-    for (const ticket of active) {
-      const longestItem = Math.max(
-        0,
-        ...ticket.items.map((i) => prepById.get(i.id) ?? 0).filter((m) => m > 0),
-      );
-      if (longestItem === 0) continue;
-      const elapsedMin = (now - new Date(ticket.createdAt).getTime()) / 60_000;
-      const remaining = Math.max(1, Math.round(longestItem - elapsedMin));
-      maxRemaining = maxRemaining === null ? remaining : Math.max(maxRemaining, remaining);
-    }
-    return maxRemaining;
-  }, [kotTickets, menuItems, now]);
+    const longest = kotTickets
+      .filter((t) => KOT_ACTIVE.includes(t.status))
+      .flatMap((t) => t.items.map((i) => prepById.get(i.id) ?? 0));
+    const max = Math.max(0, ...longest);
+    return max > 0 ? max : null;
+  }, [kotTickets, menuItems]);
 
   const ad = ads[promoIndex];
 

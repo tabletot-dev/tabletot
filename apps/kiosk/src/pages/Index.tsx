@@ -691,7 +691,7 @@ const IndexInner = () => {
       case "games":
         return (
           <Suspense fallback={null}>
-            <GamesView onBack={() => setCurrentScreen("session-idle")} />
+            <GamesView onBack={() => setCurrentScreen("session-idle")} orderId={currentRoundOrderId} />
           </Suspense>
         );
       case "conversation-starters":

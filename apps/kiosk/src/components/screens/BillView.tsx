@@ -111,7 +111,7 @@ export default function BillView({
         </p>
         {onBackToStatus && (
           <button className="tt-btn--secondary" onClick={onBackToStatus}>
-            Back to my order
+            Order status
           </button>
         )}
       </section>
@@ -120,6 +120,11 @@ export default function BillView({
 
   return (
     <section className="tt-bill">
+      {onBackToStatus && (
+        <button type="button" className="tt-menu-back" onClick={onBackToStatus}>
+          ← Order status
+        </button>
+      )}
       <p className="eyebrow">Itemized bill</p>
       <h1>Your bill</h1>
 
@@ -166,7 +171,7 @@ export default function BillView({
         </button>
         {onContinueOrdering && (
           <button className="tt-btn--secondary" onClick={onContinueOrdering}>
-            Continue Ordering
+            Order more
           </button>
         )}
         <p className="tt-bill-note">

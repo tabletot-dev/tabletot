@@ -46,6 +46,9 @@ export default function CartView({
         </div>
       )}
 
+      <button type="button" className="tt-menu-back" onClick={onContinue} disabled={isSubmitting}>
+        ← Back to menu
+      </button>
       <p className="eyebrow">Current order</p>
       <h1>Your order</h1>
 
@@ -127,9 +130,6 @@ export default function CartView({
           disabled={order.length === 0 || isSubmitting}
         >
           {isSubmitting ? "Sending…" : `Place order · ${formatRupees(total)}`}
-        </button>
-        <button className="tt-btn--secondary" onClick={onContinue} disabled={isSubmitting}>
-          Back to menu
         </button>
       </div>
     </section>

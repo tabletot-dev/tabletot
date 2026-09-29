@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { useKitchenStatus, STATUS_STAGE } from "@/hooks/useKitchenStatus";
 
 interface GamesViewProps {
   onBack: () => void;
+  /** Live order id — shows a "Your food" strip so the guest keeps sight of the kitchen. */
+  orderId?: string | null;
 }
 
 type GameId = "tic-tac-toe" | "connect-four" | "word-duel" | "ludo";
@@ -213,7 +216,8 @@ function DiceFace({ value, rolling }: { value: number | null; rolling: boolean }
   );
 }
 
-export default function GamesView({ onBack }: GamesViewProps) {
+export default function GamesView({ onBack, orderId = null }: GamesViewProps) {
+  const kitchenStatus = useKitchenStatus(orderId);
   const [activeGame, setActiveGame] = useState<GameId>("tic-tac-toe");
 
   const [ticBoard, setTicBoard] = useState<Array<TicPlayer | null>>(Array(9).fill(null));
@@ -436,9 +440,11 @@ export default function GamesView({ onBack }: GamesViewProps) {
     <section className="view tt-activities-view tt-game-feature-view">
       <div className="tt-activities-hero tt-game-feature-hero panel">
         <div>
-          <p className="eyebrow">Table Mode</p>
           <h1>Games</h1>
           <p className="hero-sub">Fast social games built for the table while the kitchen works.</p>
+          {orderId && kitchenStatus !== "unknown" && (
+            <p className="tt-food-strip">Your food: {STATUS_STAGE[kitchenStatus].label}</p>
+          )}
         </div>
         <button className="secondary-btn tt-activities-back-btn" onClick={onBack}>
           Back
@@ -462,7 +468,6 @@ export default function GamesView({ onBack }: GamesViewProps) {
         <div className="tt-game-panel panel">
           <div className="tt-game-panel-header">
             <div>
-              <p className="eyebrow">Precision Grid</p>
               <h2>Tic-Tac-Toe</h2>
             </div>
             <div className="tt-game-status-block">

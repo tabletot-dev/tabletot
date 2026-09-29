@@ -168,7 +168,7 @@ function DishCard({
                     onClick={() => handleAddPairing(paired)}
                     aria-label={`Add ${paired.name} — ₹${paired.price}`}
                   >
-                    +
+                    Add
                   </button>
                 )}
               </motion.div>
