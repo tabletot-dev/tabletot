@@ -1,12 +1,11 @@
 import { useMemo, useState } from "react";
 import { ChevronRight, Hash, LayoutGrid, Search, Shuffle, Smile } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useKitchenStatus, STATUS_STAGE } from "@/hooks/useKitchenStatus";
-import { useKotTickets } from "@/hooks/useKotTickets";
 import { useMenu } from "@/lib/menuStore";
-import { computeEta } from "@/lib/eta";
 import { guessRounds, memoryDeck, scrambleWords } from "@/lib/games/decks";
 import GameShell from "@/components/games/GameShell";
+import ReadyBanner from "@/components/games/ReadyBanner";
+import { useFoodStatus } from "@/components/games/useFoodStatus";
 import MemoryMatch from "@/components/games/MemoryMatch";
 import GuessDish from "@/components/games/GuessDish";
 import TicTacToe from "@/components/games/TicTacToe";
@@ -31,9 +30,7 @@ const GAMES: Array<{ id: GameId; title: string; blurb: string; Icon: LucideIcon 
 
 export default function GamesView({ onBack, orderId = null }: GamesViewProps) {
   const { items } = useMenu();
-  const kitchen = useKitchenStatus(orderId);
-  const tickets = useKotTickets(orderId);
-  const eta = useMemo(() => computeEta(tickets, items), [tickets, items]);
+  const { status, ready } = useFoodStatus(orderId);
   const [active, setActive] = useState<GameId | null>(null);
   const [round, setRound] = useState(0); // bumped by "Play again" → remounts the game with a fresh deck
 
@@ -48,12 +45,6 @@ export default function GamesView({ onBack, orderId = null }: GamesViewProps) {
     }),
     [items],
   );
-
-  const ready = kitchen === "ready" || kitchen === "served";
-  const status =
-    orderId && kitchen !== "unknown"
-      ? `${STATUS_STAGE[kitchen].label}${eta && !ready ? ` · ~${eta} min` : ""}`
-      : null;
 
   const exit = () => setActive(null);
   const again = () => setRound((r) => r + 1);
@@ -72,15 +63,7 @@ export default function GamesView({ onBack, orderId = null }: GamesViewProps) {
 
   return (
     <>
-      {ready && (
-        <button type="button" className="tt-gm-ready" onClick={onBack}>
-          <span>
-            <strong>Your food is ready</strong>
-            <small>A server is bringing it to your table</small>
-          </span>
-          <span className="tt-gm-ready-cta">See order</span>
-        </button>
-      )}
+      {ready && <ReadyBanner onSeeOrder={onBack} />}
       {game ?? (
         <GameShell eyebrow="While you wait" title="Pick a game" backLabel="Order status" onBack={onBack} status={status}>
           <div className="tt-gm-list">

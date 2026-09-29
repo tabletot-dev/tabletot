@@ -1127,68 +1127,6 @@ button {
   border-radius: inherit;
 }
 
-.tt-activities-view {
-  min-height: 100%;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 18px;
-}
-
-.tt-activities-hero {
-  padding: 28px;
-  display: grid;
-  /* Back on the left, title fills the rest — was the other way round, so
-     Back sat top-right on every other screen but top-left (2026-09-28 UX
-     audit: back is always top-left). */
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 18px;
-  background:
-    radial-gradient(circle at 86% 12%, rgba(243, 108, 49, 0.16), transparent 28%),
-    linear-gradient(135deg, rgba(255, 255, 252, 0.98), rgba(255, 246, 237, 0.9));
-}
-
-.tt-activities-hero h1 {
-  margin: 8px 0 8px;
-  font-family: "Sora", sans-serif;
-  font-size: 48px;
-  line-height: 1;
-}
-
-.tt-activities-back-btn {
-  order: -1;
-  min-width: 140px;
-}
-
-.tt-activities-grid {
-  min-height: 0;
-  display: grid;
-  gap: 14px;
-}
-
-.tt-activities-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.tt-activities-card {
-  width: 100%;
-  min-height: 178px;
-  display: grid;
-  align-content: start;
-  gap: 10px;
-  text-align: left;
-  border-radius: 24px;
-  border: 1px solid rgba(23, 24, 22, 0.12);
-  background:
-    linear-gradient(160deg, rgba(255, 255, 252, 0.98), rgba(255, 245, 236, 0.9)),
-    radial-gradient(circle at 78% 8%, rgba(243, 108, 49, 0.18), transparent 32%);
-  color: var(--tt-ink);
-}
-
-.tt-activities-card {
-  padding: 22px;
-}
-
 .utility-card-index {
   width: max-content;
   padding: 6px 10px;
@@ -1199,248 +1137,6 @@ button {
   font-weight: 900;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-}
-
-.tt-activities-card strong {
-  font-family: "Sora", sans-serif;
-  font-size: 25px;
-  line-height: 1.05;
-}
-
-.tt-activities-card small {
-  width: max-content;
-  padding: 6px 9px;
-  border-radius: 999px;
-  background: rgba(243, 108, 49, 0.12);
-  color: var(--tt-action-press);
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.tt-activities-card p {
-  margin: 0;
-  color: var(--tt-ink-60);
-  font-size: 16px;
-  line-height: 1.35;
-}
-
-.tt-talk-layer-view {
-  grid-template-rows: auto minmax(0, 1fr);
-}
-
-.tt-talk-hero {
-  padding-bottom: 24px;
-}
-
-.tt-talk-category-grid {
-  min-height: 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.tt-talk-category-grid::-webkit-scrollbar {
-  width: 0;
-}
-
-.tt-talk-category-card {
-  min-height: 178px;
-  display: grid;
-  align-content: start;
-  gap: 8px;
-  padding: 18px;
-  text-align: left;
-  border-radius: 22px;
-  border: 1px solid rgba(23, 24, 22, 0.12);
-  background:
-    radial-gradient(circle at 90% 0%, rgba(243, 108, 49, 0.16), transparent 34%),
-    linear-gradient(155deg, rgba(255, 255, 252, 0.98), rgba(255, 245, 236, 0.9));
-  color: var(--tt-ink);
-}
-
-.tt-talk-category-card:active,
-.tt-talk-question-card:active {
-  transform: translateY(1px);
-}
-
-.tt-talk-category-index {
-  width: max-content;
-  padding: 5px 9px;
-  border-radius: 999px;
-  background: rgba(17, 19, 17, 0.92);
-  color: #fff8f2;
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-}
-
-.tt-talk-category-card strong {
-  font-family: "Archivo", "Sora", sans-serif;
-  font-size: 24px;
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
-
-.tt-talk-category-card small {
-  width: fit-content;
-  padding: 5px 8px;
-  border-radius: 999px;
-  background: rgba(243, 108, 49, 0.11);
-  color: var(--tt-action-press);
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.tt-talk-category-card p {
-  margin: 0;
-  color: #555b54;
-  font-size: 14px;
-  font-weight: 650;
-  line-height: 1.32;
-}
-
-.tt-talk-session-panel {
-  min-height: 0;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 16px;
-  padding: 22px;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 74% 12%, rgba(243, 108, 49, 0.14), transparent 28%),
-    linear-gradient(145deg, rgba(255, 255, 252, 0.98), rgba(255, 245, 236, 0.9));
-}
-
-.tt-talk-session-head {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 14px;
-  align-items: center;
-}
-
-.tt-talk-session-head h2 {
-  margin: 5px 0 0;
-  font-family: "Archivo", "Sora", sans-serif;
-  font-size: 36px;
-  line-height: 1;
-}
-
-.tt-talk-change-btn,
-.tt-talk-counter {
-  min-height: 46px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 16px;
-  border-radius: 999px;
-  border: 1px solid rgba(23, 24, 22, 0.12);
-  background: rgba(255, 255, 252, 0.82);
-  color: var(--tt-ink);
-  font-size: 13px;
-  font-weight: 900;
-}
-
-.tt-talk-counter {
-  font-family: "JetBrains Mono", monospace;
-  letter-spacing: 0.08em;
-}
-
-.tt-talk-question-card {
-  position: relative;
-  min-height: 430px;
-  display: grid;
-  align-content: center;
-  justify-items: start;
-  gap: 16px;
-  padding: 36px;
-  overflow: hidden;
-  text-align: left;
-  border-radius: 34px;
-  border: 1px solid rgba(23, 24, 22, 0.12);
-  background:
-    radial-gradient(circle at 82% 20%, rgba(243, 108, 49, 0.19), transparent 34%),
-    radial-gradient(circle at 8% 92%, rgba(23, 24, 22, 0.07), transparent 34%),
-    linear-gradient(145deg, rgba(255, 255, 252, 0.98), rgba(255, 247, 240, 0.94));
-  color: var(--tt-ink);
-  animation: conversationQuestionIn 260ms cubic-bezier(.16, 1, .3, 1);
-  touch-action: pan-y;
-}
-
-.tt-talk-question-card::after {
-  content: "TABLETOT SOCIAL";
-  position: absolute;
-  right: -14px;
-  bottom: -8px;
-  color: transparent;
-  -webkit-text-stroke: 1px rgba(23, 24, 22, 0.08);
-  font-family: "Archivo", sans-serif;
-  font-size: 78px;
-  font-weight: 900;
-  line-height: 0.8;
-  pointer-events: none;
-}
-
-.tt-talk-question-card span {
-  position: relative;
-  z-index: 1;
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: #151614;
-  color: #fff8f2;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.tt-talk-question-card strong {
-  position: relative;
-  z-index: 1;
-  max-width: 760px;
-  font-family: "Archivo", "Sora", sans-serif;
-  font-size: clamp(42px, 5.2vw, 68px);
-  font-weight: 900;
-  line-height: 0.98;
-  letter-spacing: -0.035em;
-}
-
-.tt-talk-question-card small {
-  position: relative;
-  z-index: 1;
-  color: #626861;
-  font-size: 16px;
-  font-weight: 800;
-}
-
-.tt-talk-controls {
-  display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-  gap: 12px;
-}
-
-.tt-talk-controls .primary-btn,
-.tt-talk-controls .secondary-btn {
-  min-height: 62px;
-  font-size: 18px;
-}
-
-@keyframes conversationQuestionIn {
-  from {
-    opacity: 0;
-    transform: translateX(18px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-  }
 }
 
 @keyframes ludoTokenPulse {
@@ -5723,5 +5419,66 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .tt-gm-photo img {
     transition: none;
+  }
+}
+
+/* Conversation starters (reuses the .tt-gm shell above) */
+.tt-gm-lede {
+  margin: 0;
+  color: var(--tt-ink-60);
+  font-size: var(--tt-size-body);
+}
+
+.tt-gm-item--compact {
+  min-height: calc(88px * var(--tt-scale));
+  padding: var(--tt-space-2) var(--tt-space-4);
+}
+
+.tt-gm-qcard {
+  min-height: calc(620px * var(--tt-scale));
+  padding: var(--tt-space-5) var(--tt-space-4);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--tt-space-4);
+  border-radius: var(--tt-radius-card);
+  background: var(--tt-paper);
+  border: 2px solid var(--tt-line);
+  color: var(--tt-ink);
+  text-align: left;
+  cursor: pointer;
+  animation: tt-gm-fade var(--tt-dur-nav) var(--tt-ease);
+}
+
+.tt-gm-qcard:active {
+  border-color: var(--tt-ink);
+}
+
+.tt-gm-qcard strong {
+  font-family: var(--tt-font-display);
+  font-size: calc(46px * var(--tt-scale));
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.tt-gm-qcard small {
+  color: var(--tt-ink-60);
+  font-size: var(--tt-size-meta);
+}
+
+.tt-gm-navrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: var(--tt-space-2);
+}
+
+@keyframes tt-gm-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tt-gm-qcard {
+    animation: none;
   }
 }

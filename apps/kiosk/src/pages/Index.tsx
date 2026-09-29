@@ -697,7 +697,7 @@ const IndexInner = () => {
       case "conversation-starters":
         return (
           <Suspense fallback={null}>
-            <ConversationStartersView onBack={() => setCurrentScreen("session-idle")} />
+            <ConversationStartersView onBack={() => setCurrentScreen("session-idle")} orderId={currentRoundOrderId} />
           </Suspense>
         );
       case "bill-summary":
