@@ -122,10 +122,9 @@ responds in native script only — no romanised transliteration. See
 (always-on voice: feasible, deferred).
 
 **Migrations:** Never edit an existing migration file. Always append a new one.
-`main` is at 0076. The remote Supabase has 0001–0075 (`supabase migration
-list --linked`, checked 2026-09-29: 0074–0075 pushed that day); **0076 is
-merged but not yet pushed to remote** — dashboard photo uploads fail until
-it is. Rohan pushes remote himself per convention. Current Silver UUID is
+`main` is at 0076, and the remote Supabase is in sync (`supabase migration
+list --linked` confirmed 0001–0076 applied on 2026-09-29; 0074–0076 were
+pushed that day). Rohan pushes remote himself per convention. Current Silver UUID is
 `b22b5d53-6dd8-4f5b-8276-2e828cd1ab91` (pinned in migration 0014).
 
 **Env vars:** `VITE_RESTAURANT_ID` and `VITE_TABLE_ID` are set in
@@ -199,7 +198,7 @@ onto current `main` before merging or resuming.
 screens; POS Sold-out page replaces the POS menu editors; POS admin sidebar
 links to the dashboard (`VITE_DASHBOARD_URL`); kiosk reads Wi-Fi + address
 from `restaurants.config` and generates the Wi-Fi QR. Migration 0076
-(menu-images bucket policies) still needs `supabase db push`. Railway env:
+(menu-images bucket policies, staff-only writes) is on remote. Railway env:
 dashboard needs `VITE_VOICE_ENGINE_URL` + `VITE_VOICE_ADMIN_KEY` (post-save
 voice refresh); POS needs `VITE_DASHBOARD_URL`; all three services need a
 rebuild to pick up build-time vars. Still to do by hand: replace the
