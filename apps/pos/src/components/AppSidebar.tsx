@@ -47,6 +47,7 @@ const NAV_GROUPS = [
       { title: 'Billing',  url: '/billing',  icon: ShoppingCart,  roles: ['staff', 'manager', 'admin'] },
       { title: 'Kitchen',  url: '/kitchen',  icon: ChefHat,       roles: ['staff', 'manager', 'admin'] },
       { title: 'Orders',   url: '/orders',   icon: ClipboardList, roles: ['staff', 'manager', 'admin'] },
+      { title: 'Sold out', url: '/sold-out', icon: UtensilsCrossed, roles: ['staff', 'manager', 'admin'] },
     ],
   },
   {
@@ -59,7 +60,6 @@ const NAV_GROUPS = [
   {
     label: 'Admin',
     items: [
-      { title: 'Menu',     url: '/menu',     icon: UtensilsCrossed, roles: ['admin'] },
       { title: 'Staff',    url: '/staff',    icon: Users,           roles: ['admin'] },
       { title: 'Settings', url: '/settings', icon: Settings,        roles: ['admin'] },
     ],

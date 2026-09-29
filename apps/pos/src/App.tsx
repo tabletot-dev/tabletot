@@ -9,7 +9,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Layout } from "@/components/Layout";
 import Auth from "./pages/Auth";
 import Billing from "./pages/Billing";
-import Menu from "./pages/Menu";
+import SoldOut from "./pages/SoldOut";
 import Orders from "./pages/Orders";
 import Kitchen from "./pages/Kitchen";
 import StaffManagement from "./pages/StaffManagement";
@@ -44,6 +44,11 @@ const App = () => (
             <Route path="/orders" element={
               <ProtectedRoute><Layout><Orders /></Layout></ProtectedRoute>
             } />
+            <Route path="/sold-out" element={
+              <ProtectedRoute><Layout><SoldOut /></Layout></ProtectedRoute>
+            } />
+            {/* Menu editing moved to the dashboard (ADR 0025) */}
+            <Route path="/menu" element={<Navigate to="/sold-out" replace />} />
 
             {/* Manager + above */}
             <Route path="/tables" element={
@@ -58,11 +63,6 @@ const App = () => (
             } />
 
             {/* Admin only */}
-            <Route path="/menu" element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <Layout><Menu /></Layout>
-              </ProtectedRoute>
-            } />
             <Route path="/staff" element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <Layout><StaffManagement /></Layout>

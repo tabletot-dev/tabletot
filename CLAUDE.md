@@ -193,6 +193,14 @@ onto current `main` before merging or resuming.
 - Migrations 0071–0073 are applied to the remote Supabase (confirmed
   2026-09-29).
 
+**Dashboard-as-kiosk-editor (2026-09-29)** is on branch
+`feat/dashboard-kiosk-editor`, not yet merged (ADR 0025): dashboard Menu,
+Venue and editable Completion Rules screens; POS Sold-out page replaces the
+POS menu editors; kiosk reads Wi-Fi + address from `restaurants.config`.
+Adds migration 0076 (menu-images bucket policies), local only until pushed.
+Dashboard env needs `VITE_VOICE_ENGINE_URL` + `VITE_VOICE_ADMIN_KEY` in
+Railway for the post-save voice refresh.
+
 **Kiosk UX-audit fixes + games redesign (2026-09-29)** are merged to
 `main` (PR #24, `79fdb3d`): egg dishes fixed to Non-Veg,
 per-order kitchen status + a fixed (non-countdown) ETA from
