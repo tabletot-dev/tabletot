@@ -7,10 +7,9 @@ import { useMenu } from "@/lib/menuStore";
 import type { AnchorItem } from "@/lib/menuStore";
 import { itemImageBackground } from "@/lib/menuImages";
 import { track } from "@/lib/eventBus";
-import wifiQrSrc from "@/assets/wifi-qr.svg";
-
-// Pilot is a single open network. TODO: restaurant_settings key when multi-restaurant lands.
-const WIFI_SSID = "SILVER-GUEST";
+import { QRCodeSVG } from "qrcode.react";
+import { useRestaurant } from "@/lib/restaurantContext";
+import { wifiQrPayload } from "@/lib/wifi";
 
 interface IdleScreenProps {
   /** "See the menu" / touch anywhere — starts the session and goes to the menu. */
@@ -29,6 +28,7 @@ const MAX_SLIDES = 5;
 
 const IdleScreen = ({ onActivate, onSelectHeroItem, onOpenPopular, onOpenAbout, tableId }: IdleScreenProps) => {
   const { anchors, loading } = useMenu();
+  const { wifiSsid, wifiPassword } = useRestaurant();
   const reduceMotion = useReducedMotion();
 
   const chefPicks = anchors
@@ -263,16 +263,20 @@ const IdleScreen = ({ onActivate, onSelectHeroItem, onOpenPopular, onOpenAbout, 
           <Dialog.Overlay className="tt-modal-scrim" />
           <Dialog.Content className="tt-modal tt-wifi-dialog" aria-describedby={undefined}>
             <Dialog.Title>Join the café Wi-Fi</Dialog.Title>
-            <img
+            <QRCodeSVG
               className="tt-wifi-qr"
-              src={wifiQrSrc}
-              alt={`QR code to join the ${WIFI_SSID} Wi-Fi network`}
+              value={wifiQrPayload(wifiSsid, wifiPassword)}
+              size={220}
+              role="img"
+              aria-label={`QR code to join the ${wifiSsid} Wi-Fi network`}
             />
             <p>
-              Point your phone camera at the code — the network is open, no
-              password needed.
+              {wifiPassword
+                ? "Point your phone camera at the code to join."
+                : "Point your phone camera at the code — the network is open, no password needed."}
             </p>
-            <p className="tt-wifi-network">Network: {WIFI_SSID}</p>
+            <p className="tt-wifi-network">Network: {wifiSsid}</p>
+            {wifiPassword && <p className="tt-wifi-network">Password: {wifiPassword}</p>}
             <div className="tt-modal-actions">
               <Dialog.Close asChild>
                 <button type="button" className="tt-btn--secondary">

@@ -6,6 +6,10 @@ Customer-facing tablet ordering app (React + Vite, Android Chrome kiosk mode).
 
 ## [Unreleased]
 
+### Changed
+
+- **Wi-Fi QR and street address come from `restaurants.config`** (`lib/restaurantContext.tsx`, `lib/wifi.ts`, `IdleScreen`, `Index`) — keys `wifi_ssid`, `wifi_password`, `address`, set from the dashboard Venue screen (ADR 0025). The QR is generated with `qrcode.react` (blank password = open network, as before); the pilot's `SILVER-GUEST` / Banjara Hills values remain the defaults. Static `assets/wifi-qr.svg` removed. `package-lock.json` synced (Dockerfile uses `npm ci`).
+
 ### Added
 
 - **Session lifecycle — DB-backed** (`lib/orderSubmission.ts`, `pages/Index.tsx`, `hooks/useDeviceNavigation.ts`) — "Start Ordering" tap now INSERTs a `sessions` row before navigating to the menu. A DB trigger marks the table as occupied immediately; no POS action required. Session key (`tt_session_id`) is stored in `sessionStorage` and written to every `orders` and `kot_tickets` row. See ADR 0010.

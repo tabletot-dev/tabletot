@@ -6,7 +6,15 @@ Restaurant management app: KOT display, order management, billing, tables.
 
 ## [Unreleased]
 
+### Changed
+
+- **Menu editing moved to the dashboard** (ADR 0025) — `pages/Menu.tsx` and the unrouted `pages/AdminMenuItems.tsx` are deleted. New **Sold out** page (`pages/SoldOut.tsx`, `/sold-out`, all roles): one on/off switch per dish (`menu_items.active`), refreshes the voice engine's menu. `/menu` redirects there.
+
+- **Dashboard link in the admin sidebar** (`components/AppSidebar.tsx`) — opens `VITE_DASHBOARD_URL` in a new tab; admins only, hidden when the variable is blank. Same variable as the Reports → AOV link.
+
 ### Fixed
+
+- **Settings never saved** — `pages/Settings.tsx` used `upsert(onConflict: 'key')`, which fails because the unique index on `restaurant_settings.key` is partial (`WHERE restaurant_id IS NULL`). Now update-then-insert per key.
 
 - **Stale sessions and unresolved `bill_requested` rows** — root cause was on the kiosk side (see kiosk CHANGELOG). No POS code changed; `handleCleanupStaleSessions` and the billing close paths in `Billing.tsx` are unchanged and remain correct as the authoritative close path from the staff side.
 

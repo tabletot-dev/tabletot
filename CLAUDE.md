@@ -66,7 +66,7 @@ menus/        MENU-CREATION-GUIDE.md + seed validation SQL only — menu data
 packages/         shared types and utilities — currently empty
 supabase/
 migrations/     applied in order; never edit an existing migration
-                currently at 0073
+                currently at 0075
 seed/           reference data only
 ```
 ## Supabase table groups (one project, three logical layers)
@@ -122,11 +122,9 @@ responds in native script only — no romanised transliteration. See
 (always-on voice: feasible, deferred).
 
 **Migrations:** Never edit an existing migration file. Always append a new one.
-`main` is at 0073; 0066–0070 were applied to the remote Supabase on
-2026-08-30 (commit `90deb91`). 0071–0073 (About/Venue config, menu_items
-facts, ads carousel) are on `main` but **not yet confirmed applied to the
-remote** — verify before relying on them there. Rohan pushes remote
-himself per convention. Current Silver UUID is
+`main` is at 0075, and the remote Supabase is in sync: `supabase migration
+list --linked` confirmed 0001–0073 applied, and 0074–0075 were pushed on
+2026-09-29. Rohan pushes remote himself per convention. Current Silver UUID is
 `b22b5d53-6dd8-4f5b-8276-2e828cd1ab91` (pinned in migration 0014).
 
 **Env vars:** `VITE_RESTAURANT_ID` and `VITE_TABLE_ID` are set in
@@ -138,9 +136,12 @@ himself per convention. Current Silver UUID is
 WaitingView all fall back to category-gradient placeholders when null — do not
 remove the fallback.
 
-**Dashboard:** `apps/dashboard` is curation-only — recommendation rules,
-pairings, anchor items. It is not a menu CRUD tool. Menu CRUD belongs in
-apps/pos and only for restaurants without their own POS admin.
+**Dashboard:** `apps/dashboard` is the single editor for everything the
+kiosk shows (ADR 0025, supersedes 0008): menu items + dish facts, venue
+info, completion rules, anchors, pairings, ads. Admin only. `apps/pos` runs
+orders only, plus a sold-out switch (`menu_items.active`) and its Settings
+page (GST). Dishes are switched off, never deleted. Plan:
+`docs/plans/2026-09-29-dashboard-kiosk-editor.md`.
 
 ## Current status (as of 2026-09-23)
 
@@ -189,16 +190,23 @@ onto current `main` before merging or resuming.
   losing attribute/category, a TTS reconnect race silently dropping
   sentences, POS Add Items dialog scroll/close, voice modal left open
   after a POS-ended session.
-- Migrations 0071–0073 exist on `main`; only 0066–0070 are confirmed
-  applied to the remote Supabase (2026-08-30) — 0071–0073 need
-  verification before relying on them there.
+- Migrations 0071–0073 are applied to the remote Supabase (confirmed
+  2026-09-29).
 
-**Kiosk UX-audit fixes (2026-09-29)** are on branch
-`feat/kiosk-ux-audit-fixes`, not yet merged: egg dishes fixed to Non-Veg,
+**Dashboard-as-kiosk-editor (2026-09-29)** is on branch
+`feat/dashboard-kiosk-editor`, not yet merged (ADR 0025): dashboard Menu,
+Venue and editable Completion Rules screens; POS Sold-out page replaces the
+POS menu editors; kiosk reads Wi-Fi + address from `restaurants.config`.
+Adds migration 0076 (menu-images bucket policies), local only until pushed.
+Dashboard env needs `VITE_VOICE_ENGINE_URL` + `VITE_VOICE_ADMIN_KEY` in
+Railway for the post-save voice refresh.
+
+**Kiosk UX-audit fixes + games redesign (2026-09-29)** are merged to
+`main` (PR #24, `79fdb3d`): egg dishes fixed to Non-Veg,
 per-order kitchen status + a fixed (non-countdown) ETA from
 `menu_items.facts.prep_minutes`, dish-detail facts card, Order-confirmed
 screen removed, screensaver/Games "Your food" strip. Adds migrations 0074
-(egg data) and 0075 (Silver name prompt off), local only. Plan + outcome:
+(egg data) and 0075 (Silver name prompt off), pushed to remote 2026-09-29. Plan + outcome:
 `docs/plans/2026-09-28-kiosk-ux-audit-fixes.md`. Silver's real
 `prep_minutes` still need filling in.
 

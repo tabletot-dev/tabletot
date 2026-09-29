@@ -8,6 +8,8 @@ import ItemPairings from '@/pages/ItemPairings';
 import CompletionRules from '@/pages/CompletionRules';
 import AovView from '@/pages/AovView';
 import AdsView from '@/pages/AdsView';
+import MenuItems from '@/pages/MenuItems';
+import Venue from '@/pages/Venue';
 import Login from '@/pages/Login';
 import './index.css';
 
@@ -34,6 +36,8 @@ export default function App() {
                 <Layout>
                   <Routes>
                     <Route path="/" element={<Navigate to="/curation/anchors" replace />} />
+                    <Route path="/menu" element={<MenuItems />} />
+                    <Route path="/venue" element={<Venue />} />
                     <Route path="/curation/anchors" element={<AnchorItems />} />
                     <Route path="/curation/pairings" element={<ItemPairings />} />
                     <Route path="/curation/rules" element={<CompletionRules />} />

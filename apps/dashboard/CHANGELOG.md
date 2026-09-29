@@ -6,7 +6,18 @@ Recommendation curation and AOV measurement app (internal, port 8081).
 
 ## [Unreleased]
 
-_No unreleased changes._
+### Added
+
+The dashboard is now the single editor for everything the kiosk shows — ADR 0025 (supersedes 0008). Plan: `docs/plans/2026-09-29-dashboard-kiosk-editor.md`.
+
+- **Menu screen** (`pages/MenuItems.tsx`) — edit name, price, category, description, Veg/Non-Veg, on/off, tags, photo upload and dish facts (`menu_items.facts`: prep minutes, calories, allergens, spice, ingredients, notes). Dishes are switched off, never deleted. Saving refreshes the voice engine's menu (`VITE_VOICE_ENGINE_URL` / `VITE_VOICE_ADMIN_KEY`). Photo uploads need migration 0076.
+- **Venue screen** (`pages/Venue.tsx`) — hours, chef name/note, street address, Wi-Fi name + password (blank = open network), GST rate, voice and "ask for a name" switches. Saves merge into `restaurants.config`, keeping unknown keys.
+- **Completion Rules editable** (`pages/CompletionRules.tsx`) — form for the two rule shapes the kiosk reads; other shapes show as read-only "Custom rule".
+- `pnpm test` runs the pure-helper self-checks (`src/lib/*.test.ts`, node's built-in runner).
+
+### Fixed
+
+- **GST save** — the shared `gst_rate` row is written with update-then-insert; `upsert(onConflict: 'key')` fails because the unique index on `key` is partial.
 
 ---
 

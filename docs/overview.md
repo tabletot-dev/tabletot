@@ -79,8 +79,24 @@ Since Sep 4 (all merged to `main`, latest commit `75367c2`, 2026-09-20):
   silently dropping sentences, POS Add Items dialog scroll/close bug,
   voice modal left open after a POS-ended session.
 
-Kiosk UX audit (2026-09-28/29, branch `feat/kiosk-ux-audit-fixes`, not yet
-merged; plan and outcome in `docs/plans/2026-09-28-kiosk-ux-audit-fixes.md`):
+Dashboard as the kiosk editor (2026-09-29, branch
+`feat/dashboard-kiosk-editor`, not yet merged; ADR 0025 supersedes 0008; plan
+in `docs/plans/2026-09-29-dashboard-kiosk-editor.md`):
+
+- **Dashboard owns everything the kiosk shows** — new Menu screen (dish
+  details, photo upload, `facts`; switch-off only), new Venue screen (hours,
+  chef, address, Wi-Fi name/password, GST, voice + name-prompt switches),
+  editable Completion Rules. Kiosk now reads Wi-Fi + address from
+  `restaurants.config` and generates the Wi-Fi QR.
+- **POS runs orders only** — menu editors removed; a Sold out page (all
+  roles) flips `menu_items.active`; Settings kept. Migration 0076 lets staff
+  upload to the `menu-images` bucket (local only until Rohan pushes).
+- **Bug found on the way** — GST/settings saves used `upsert(onConflict:
+  'key')` against a partial unique index and always failed (POS Settings
+  included); fixed in both apps.
+
+Kiosk UX audit (2026-09-28/29, merged to `main` via PR #24; plan and outcome
+in `docs/plans/2026-09-28-kiosk-ux-audit-fixes.md`):
 
 - **Trust fixes** — egg dishes corrected to Non-Veg (migration 0074), square
   FSSAI diet marks, "Round" wording removed, prices without `.00`, phone

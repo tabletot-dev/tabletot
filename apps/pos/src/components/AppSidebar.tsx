@@ -22,6 +22,8 @@ import {
   UtensilsCrossed,
   Users,
   Settings,
+  LayoutDashboard,
+  ExternalLink,
   LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -40,6 +42,10 @@ const ROLE_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = {
   staff: 'outline',
 };
 
+// Same variable Reports uses. Blank = no link. The dashboard is admin-only, so
+// only admins see it.
+const DASHBOARD_URL = (import.meta.env.VITE_DASHBOARD_URL as string | undefined)?.replace(/\/$/, '') || '';
+
 const NAV_GROUPS = [
   {
     label: 'Operations',
@@ -47,6 +53,7 @@ const NAV_GROUPS = [
       { title: 'Billing',  url: '/billing',  icon: ShoppingCart,  roles: ['staff', 'manager', 'admin'] },
       { title: 'Kitchen',  url: '/kitchen',  icon: ChefHat,       roles: ['staff', 'manager', 'admin'] },
       { title: 'Orders',   url: '/orders',   icon: ClipboardList, roles: ['staff', 'manager', 'admin'] },
+      { title: 'Sold out', url: '/sold-out', icon: UtensilsCrossed, roles: ['staff', 'manager', 'admin'] },
     ],
   },
   {
@@ -59,9 +66,9 @@ const NAV_GROUPS = [
   {
     label: 'Admin',
     items: [
-      { title: 'Menu',     url: '/menu',     icon: UtensilsCrossed, roles: ['admin'] },
       { title: 'Staff',    url: '/staff',    icon: Users,           roles: ['admin'] },
       { title: 'Settings', url: '/settings', icon: Settings,        roles: ['admin'] },
+      ...(DASHBOARD_URL ? [{ title: 'Dashboard', url: DASHBOARD_URL, icon: LayoutDashboard, roles: ['admin'], external: true }] : []),
     ],
   },
 ];
@@ -95,16 +102,29 @@ export function AppSidebar() {
               <SidebarMenu>
                 {group.items.map(item => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={currentPath === item.url}>
-                      <NavLink
-                        to={item.url}
-                        end
-                        className="hover:bg-muted/50"
-                        activeClassName="bg-muted text-primary font-medium"
-                      >
-                        <item.icon className="h-4 w-4" />
-                        {!isCollapsed && <span>{item.title}</span>}
-                      </NavLink>
+                    <SidebarMenuButton asChild isActive={!('external' in item) && currentPath === item.url}>
+                      {'external' in item ? (
+                        <a href={item.url} target="_blank" rel="noopener noreferrer" className="hover:bg-muted/50">
+                          <item.icon className="h-4 w-4" />
+                          {!isCollapsed && (
+                            <>
+                              <span>{item.title}</span>
+                              <ExternalLink className="ml-auto h-3 w-3 opacity-60" aria-hidden="true" />
+                              <span className="sr-only">(opens in a new tab)</span>
+                            </>
+                          )}
+                        </a>
+                      ) : (
+                        <NavLink
+                          to={item.url}
+                          end
+                          className="hover:bg-muted/50"
+                          activeClassName="bg-muted text-primary font-medium"
+                        >
+                          <item.icon className="h-4 w-4" />
+                          {!isCollapsed && <span>{item.title}</span>}
+                        </NavLink>
+                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
