@@ -1,7 +1,7 @@
 # Kiosk UX-audit fixes
 
 **Date:** 2026-09-28
-**Status:** Plan — awaiting go-ahead
+**Status:** Executed on `feat/kiosk-ux-audit-fixes` (2026-09-29), uncommitted follow-up pass pending. See "Outcome" at the end.
 **Branch:** new branch off `fix/pos-add-items-modal-ux` *after* the screensaver work is committed (see Step 0)
 **Mockup:** https://claude.ai/artifact/XBgV5tC6u6dxu6S2FicLCo (11 screens, numbered notes per screen)
 
@@ -166,3 +166,51 @@ first and the ones that need new data or decisions land last.
   closes on Ready.
 - After merge: refresh graphify (code and docs only) and update
   `docs/overview.md`.
+
+## Outcome (2026-09-29)
+
+Steps 0–2 and 6 shipped as planned. Steps 3–5 shipped except the items
+below. Commits: `00af469` (Step 1), `ed717ad` (Steps 2–5), `70a668e`,
+`643f705` (Step 6 + Step 7 decisions), `0259111` (mic, facts panel,
+sticky footer). A follow-up pass (uncommitted at time of writing) added the
+items marked "follow-up".
+
+**Changed from the plan**
+- **ETA is a fixed number, not a countdown** (follow-up). Step 6 said "minus
+  minutes since the KOT was created". Rohan didn't want a timer that shrinks
+  with no kitchen change. ETA is now the longest `prep_minutes` among items on
+  tickets still cooking, and only moves when a ticket or order changes.
+- **Games food-status strip** (follow-up): "Your food: <stage>" sits in the
+  Games hero. Status only, no ETA.
+- **Screensaver crash fix** (follow-up): `useKitchenStatus` now uses a unique
+  realtime channel name per instance. Two watchers of one order (Waiting +
+  Screensaver, or Games) collided on `order-status-<id>` and threw "cannot add
+  `postgres_changes` callbacks after `subscribe()`". Test:
+  `hooks/__tests__/useKitchenStatus.test.tsx`.
+- Follow-up small items: pairing Add is now the orange "Add" pill; Games and
+  Conversation Starters eyebrows removed; Cart has "← Back to menu" and Bill
+  has "← Order status" top-left; Bill's "Continue Ordering" is "Order more".
+
+**Step 7 decisions**
+- Phone step: kept, reworded (no WhatsApp promise).
+- "Order more" after a bill request: stays disabled, reason shown as text.
+- Name field: off for Silver (migration 0075).
+- Pre-submit nudge: data gap, `meal_completion_rules` is empty for Silver;
+  author a rule in `apps/dashboard`.
+- Cheezious "Order now" line: Rohan's call in the ads dashboard.
+- Attract "Ask by voice" button: skipped (would mount a second
+  `VoiceOrderButton`; voice code is frozen).
+
+**Not done, left on purpose**
+- Waiting-screen reorder (status card first, action icons, "While you wait"
+  block).
+- Screensaver blurred fill behind the contained ad.
+- Mic inside the cart bar with an "Ask" label.
+- Attract carousel repeating a dish when there are few chef picks (the
+  three-copy loop is by design; check Silver's chef-pick count first).
+
+**Still open**
+- Silver's real `prep_minutes` values (local test data only was seeded).
+- Manual pass on the Lenovo Tab K9.
+- Bill screen at ~800px height: the "Ready to pay?" card covers the Total row
+  (pre-existing).

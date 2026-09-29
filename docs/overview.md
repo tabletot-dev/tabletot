@@ -1,7 +1,7 @@
 # tabletot-pilot — overview
 
 > Living document. Update when the state of the project changes meaningfully.
-> Last updated: 2026-09-23
+> Last updated: 2026-09-29
 
 ## What this is
 
@@ -78,6 +78,27 @@ Since Sep 4 (all merged to `main`, latest commit `75367c2`, 2026-09-20):
   order, filter-intent losing attribute/category, TTS reconnect race
   silently dropping sentences, POS Add Items dialog scroll/close bug,
   voice modal left open after a POS-ended session.
+
+Kiosk UX audit (2026-09-28/29, branch `feat/kiosk-ux-audit-fixes`, not yet
+merged; plan and outcome in `docs/plans/2026-09-28-kiosk-ux-audit-fixes.md`):
+
+- **Trust fixes** — egg dishes corrected to Non-Veg (migration 0074), square
+  FSSAI diet marks, "Round" wording removed, prices without `.00`, phone
+  prompt reworded, Order-confirmed screen replaced by a toast.
+- **Per-order status + ETA** — Waiting shows one row per KOT ("1st order ·
+  Cooking") from `kot_tickets` (`useKotTickets`); ETA is the longest
+  `facts.prep_minutes` among items still cooking, a fixed number that changes
+  only when the kitchen moves a ticket. Prep times show on dish cards.
+- **Dish detail** — "Details" card from `menu_items.facts` (`menuFacts.ts`),
+  sticky footer no longer covers the mic dock, one mic icon everywhere.
+- **Screensaver / Games** — tap anywhere dismisses, closes when food is
+  Ready, shows "Your food: <stage>" (also on Games). `useKitchenStatus` uses a
+  per-instance realtime channel; sharing one name crashed the screensaver.
+- Migration 0075 turns the "Name for this order" prompt off for Silver.
+  0074 and 0075 exist on the branch only, applied locally, not on `main` or
+  the remote.
+- Left on purpose: Waiting reorder, blurred screensaver fill, mic in the cart
+  bar, Attract carousel repeat.
 
 Order-engine tests: 197 passed, 3 skipped as of the last verified run
 (2026-08-30, post-ElevenLabs integration) — not re-verified since; the

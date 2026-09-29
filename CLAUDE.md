@@ -193,6 +193,15 @@ onto current `main` before merging or resuming.
   applied to the remote Supabase (2026-08-30) — 0071–0073 need
   verification before relying on them there.
 
+**Kiosk UX-audit fixes (2026-09-29)** are on branch
+`feat/kiosk-ux-audit-fixes`, not yet merged: egg dishes fixed to Non-Veg,
+per-order kitchen status + a fixed (non-countdown) ETA from
+`menu_items.facts.prep_minutes`, dish-detail facts card, Order-confirmed
+screen removed, screensaver/Games "Your food" strip. Adds migrations 0074
+(egg data) and 0075 (Silver name prompt off), local only. Plan + outcome:
+`docs/plans/2026-09-28-kiosk-ux-audit-fixes.md`. Silver's real
+`prep_minutes` still need filling in.
+
 **Revenue-integrity hardening (2026-08-15/16)** followed the pre-launch
 readiness assessment (`docs/notes/pre-launch-readiness-assessment.md`,
 verdict: not ready on documented findings alone). AOV is now
