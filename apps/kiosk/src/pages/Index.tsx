@@ -6,13 +6,14 @@ import ListeningScreen from "@/components/screens/ListeningScreen";
 import MenuView from "@/components/screens/MenuView";
 import FrequentlyOrderedView from "@/components/screens/FrequentlyOrderedView";
 import DetailView from "@/components/screens/DetailView";
+import DetailFooter from "@/components/DetailFooter";
 // HomeView was merged into IdleScreen (T11, 2026-08-29) — the carousel +
 // slide-tap session-start now live there; the "home" screen is gone.
 import CartView from "@/components/screens/CartView";
 import SentView from "@/components/screens/SentView";
 import CancelConfirm from "@/components/screens/CancelConfirm";
-import ConfirmationView from "@/components/screens/ConfirmationView";
 import WaitingView from "@/components/screens/WaitingView";
+import ScreensaverOverlay from "@/components/ScreensaverOverlay";
 const BillView = lazy(() => import("@/components/screens/BillView"));
 const GamesView = lazy(() => import("@/components/screens/GamesView"));
 const ConversationStartersView = lazy(() => import("@/components/screens/ConversationStartersView"));
@@ -26,6 +27,7 @@ import StatusStrip from "@/components/StatusStrip";
 import { useRoundHold } from "@/hooks/useRoundHold";
 import { useSyncHeldRound } from "@/hooks/useSyncHeldRound";
 import { RestaurantProvider, useRestaurant } from "@/lib/restaurantContext";
+import { ordinal } from "@/lib/ordinal";
 import { supabase } from "@/integrations/supabase/client";
 import {
   resolveTableId,
@@ -58,6 +60,12 @@ function wait(ms: number) {
 // docs/plans/2026-08-03-idle-table-notification.md).
 const NUDGE_ELIGIBLE_SCREENS = new Set(["menu", "item-detail", "order-summary"]);
 const NUDGE_THRESHOLD_MS = 3.5 * 60 * 1000;
+
+// Fullscreen ad screensaver: only on the Attract screen (no session) and the
+// Order Status screen (session-idle, waiting on the kitchen) — the two
+// screens where sustained no-touch is expected rather than a red flag.
+const SCREENSAVER_SCREENS = new Set(["idle", "session-idle"]);
+const SCREENSAVER_THRESHOLD_MS = 2 * 60 * 1000;
 
 const IndexInner = () => {
   const { voiceEnabled, promptForIdentity, venueName, hours, chefName, chefNote } = useRestaurant();
@@ -99,6 +107,7 @@ const IndexInner = () => {
         // guest's confirmed round must survive that (2026-08-28 audit,
         // finding 1).
         await confirmOrder(items);
+        setToast("Order sent to the kitchen.");
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setToast(`Order could not be sent: ${msg}`);
@@ -177,6 +186,7 @@ const IndexInner = () => {
   useEffect(() => {
     lastTouchRef.current = Date.now();
     setShowIdleNudge(false);
+    setShowScreensaver(false);
   }, [currentScreen]);
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -199,6 +209,22 @@ const IndexInner = () => {
     const t = window.setTimeout(() => setNudgeMounted(false), 200);
     return () => window.clearTimeout(t);
   }, [showIdleNudge, nudgeMounted]);
+
+  // Fullscreen ad screensaver — shares lastTouchRef with the "still there?"
+  // nudge above, but a longer threshold and a different screen set (Attract
+  // + Order Status, where sitting untouched is normal, not a stall).
+  const [showScreensaver, setShowScreensaver] = useState(false);
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const eligible = SCREENSAVER_SCREENS.has(currentScreenRef.current);
+      setShowScreensaver(eligible && Date.now() - lastTouchRef.current > SCREENSAVER_THRESHOLD_MS);
+    }, 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const dismissScreensaver = useCallback(() => {
+    lastTouchRef.current = Date.now();
+    setShowScreensaver(false);
+  }, []);
 
   const { items: menuItems, pairingsByItemId, anchors, completionRules } = useMenu();
 
@@ -583,7 +609,6 @@ const IndexInner = () => {
             <DetailView
               item={selectedItem}
               pairings={getDetailPairings(selectedItem)}
-              onAdd={handleAddFromDetail}
               onAddItem={(i) => handleAddToOrder(i, "pairing_chip")}
               onUpdateQuantity={handleUpdateQuantity}
               getQuantity={getOrderQuantity}
@@ -619,12 +644,6 @@ const IndexInner = () => {
             onCancel={() => setCancelConfirmOpen(true)}
             onSendNow={hold.sendNow}
             onOrderMore={() => setCurrentScreen("menu")}
-          />
-        );
-      case "order-confirmation":
-        return (
-          <ConfirmationView
-            onReset={() => setCurrentScreen("session-idle")}
           />
         );
       case "session-idle":
@@ -672,13 +691,13 @@ const IndexInner = () => {
       case "games":
         return (
           <Suspense fallback={null}>
-            <GamesView onBack={() => setCurrentScreen("session-idle")} />
+            <GamesView onBack={() => setCurrentScreen("session-idle")} orderId={currentRoundOrderId} />
           </Suspense>
         );
       case "conversation-starters":
         return (
           <Suspense fallback={null}>
-            <ConversationStartersView onBack={() => setCurrentScreen("session-idle")} />
+            <ConversationStartersView onBack={() => setCurrentScreen("session-idle")} orderId={currentRoundOrderId} />
           </Suspense>
         );
       case "bill-summary":
@@ -730,12 +749,19 @@ const IndexInner = () => {
             disabled={isSubmitting}
             onReview={() => setCurrentScreen("order-summary")}
           />
+        ) : currentScreen === "item-detail" && selectedItem ? (
+          <DetailFooter
+            item={selectedItem}
+            quantity={getOrderQuantity(selectedItem.id)}
+            onAdd={handleAddFromDetail}
+            onUpdateQuantity={handleUpdateQuantity}
+          />
         ) : null
       }
       statusStrip={
         hold.isHolding && currentScreen !== "sent" ? (
           <StatusStrip
-            label={`Round ${previousOrders.length + 1} → kitchen`}
+            label={`${ordinal(previousOrders.length + 1)} order → kitchen`}
             detail={`${hold.secondsLeft}s · tap to change`}
             onTap={() => setCurrentScreen("sent")}
           />
@@ -767,6 +793,10 @@ const IndexInner = () => {
           <div className={`tt-idle-nudge${nudgeExiting ? " tt-idle-nudge--out" : ""}`}>
             Still there? Tap anywhere to continue.
           </div>
+        )}
+
+        {showScreensaver && (
+          <ScreensaverOverlay onDismiss={dismissScreensaver} orderId={currentRoundOrderId} />
         )}
 
         {completionSuggestion && (

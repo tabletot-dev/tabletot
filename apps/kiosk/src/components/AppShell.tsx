@@ -13,7 +13,7 @@ interface AppShellProps {
 }
 
 // Screens that own their full canvas and draw no chrome.
-const BARE_SCREENS: ScreenType[] = ["idle", "order-confirmation"];
+const BARE_SCREENS: ScreenType[] = ["idle"];
 
 // The invariant for every screen in the product: AppBar (optional) → exactly
 // one scroll region → docked bars, bars always flex: none. If a new screen

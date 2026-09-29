@@ -104,14 +104,14 @@ export default function BillView({
     return (
       <section className="tt-bill-flow" role="status" aria-live="polite">
         <TabletotLogo className="tt-bill-flow-logo" />
-        <p className="tt-badge">Bill Requested</p>
+        <p className="eyebrow">Bill requested</p>
         <h1>Bill coming your way.</h1>
         <p className="tt-bill-flow-copy">
-          A server will bring the bill to your table.
+          A server will bring the bill to your table. Pay by UPI, card or cash.
         </p>
         {onBackToStatus && (
           <button className="tt-btn--secondary" onClick={onBackToStatus}>
-            Back to my order
+            Order status
           </button>
         )}
       </section>
@@ -120,8 +120,13 @@ export default function BillView({
 
   return (
     <section className="tt-bill">
-      <p className="tt-badge">Itemized bill</p>
-      <h1>Review before asking to settle</h1>
+      {onBackToStatus && (
+        <button type="button" className="tt-menu-back" onClick={onBackToStatus}>
+          ← Order status
+        </button>
+      )}
+      <p className="eyebrow">Itemized bill</p>
+      <h1>Your bill</h1>
 
       {previousOrders.length === 0 ? (
         <div className="tt-empty">No orders yet this session.</div>
@@ -129,7 +134,7 @@ export default function BillView({
         <div className="tt-bill-rounds">
           {previousOrders.map((round, roundIdx) => (
             <div key={roundIdx} className="tt-bill-round">
-              <p className="tt-bill-round-label">Round {roundIdx + 1} · Sent</p>
+              <p className="tt-bill-round-label">Sent</p>
               {round.items.map((item) => (
                 <div key={item.id} className="bill-row">
                   <span>
@@ -159,18 +164,18 @@ export default function BillView({
       )}
 
       <div className="tt-bill-settle">
-        <p className="tt-badge">Settle up</p>
-        <h2>Choose the next step</h2>
+        <p className="eyebrow">Ready to pay?</p>
+        <h2>Pay by UPI, card or cash</h2>
         <button className="tt-btn--primary" onClick={() => setStage("phone")}>
           Request Bill at Table
         </button>
         {onContinueOrdering && (
           <button className="tt-btn--secondary" onClick={onContinueOrdering}>
-            Continue Ordering
+            Order more
           </button>
         )}
         <p className="tt-bill-note">
-          Once requested, a server brings the card reader directly to your table.
+          A server will bring the bill to your table.
         </p>
       </div>
 
@@ -183,13 +188,13 @@ export default function BillView({
               submitBillRequest();
             }}
           >
-            <p className="tt-badge">Guest record</p>
-            <h2 id="bill-phone-title">A server is bringing the card reader over</h2>
+            <p className="eyebrow">Optional</p>
+            <h2 id="bill-phone-title">Add a phone number to your bill?</h2>
             <p>
-              Optional — a phone number lets us link this request to your visit if there's a mix-up.
+              Lets us link this request to your visit if there's a mix-up. You can skip this.
             </p>
             <label>
-              <span className="tt-badge">Phone number (optional)</span>
+              <span className="eyebrow">Phone number (optional)</span>
               <input
                 className="tt-field"
                 value={phone}

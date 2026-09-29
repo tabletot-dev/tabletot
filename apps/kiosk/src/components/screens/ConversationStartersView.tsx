@@ -1,7 +1,14 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { ChevronRight } from "lucide-react";
+import GameShell from "@/components/games/GameShell";
+import ReadyBanner from "@/components/games/ReadyBanner";
+import { useFoodStatus } from "@/components/games/useFoodStatus";
+import { stepIndex, swipeDir } from "@/lib/talk";
 
 interface ConversationStartersViewProps {
   onBack: () => void;
+  /** Live order id — drives the food status pill and the "food is ready" banner. */
+  orderId?: string | null;
 }
 
 type ConversationCategory = {
@@ -177,111 +184,89 @@ const categories: ConversationCategory[] = [
   },
 ];
 
-export default function ConversationStartersView({ onBack }: ConversationStartersViewProps) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [questionIndex, setQuestionIndex] = useState(0);
+/** "History / Chaos / Nostalgia" → "History · Chaos · Nostalgia" (the slash reads like a fraction at this size). */
+const dots = (signal: string) => signal.replace(/ \/ /g, " · ");
+
+export default function ConversationStartersView({ onBack, orderId = null }: ConversationStartersViewProps) {
+  const { status, ready } = useFoodStatus(orderId);
+  const [selected, setSelected] = useState<ConversationCategory | null>(null);
+  const [index, setIndex] = useState(0);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
-  const selectedCategory = useMemo(
-    () => categories.find((category) => category.id === selectedId) ?? null,
-    [selectedId],
-  );
-
-  const nextQuestion = () => {
-    if (!selectedCategory) return;
-    setQuestionIndex((current) => (current + 1) % selectedCategory.questions.length);
+  const step = (dir: 1 | -1) => {
+    if (selected) setIndex((i) => stepIndex(i, selected.questions.length, dir));
   };
-
-  const previousQuestion = () => {
-    if (!selectedCategory) return;
-    setQuestionIndex((current) =>
-      current === 0 ? selectedCategory.questions.length - 1 : current - 1,
-    );
-  };
-
-  const selectCategory = (category: ConversationCategory) => {
-    setSelectedId(category.id);
-    setQuestionIndex(0);
+  const backToTopics = () => {
+    setSelected(null);
+    setIndex(0);
   };
 
   return (
-    <section className="view tt-activities-view tt-talk-layer-view">
-      <div className="tt-activities-hero tt-talk-hero panel">
-        <div>
-          <p className="eyebrow">Table Mode</p>
-          <h1>Conversation Starters</h1>
-          <p className="hero-sub">A premium social layer for thoughtful, natural table energy.</p>
-        </div>
-        <button className="secondary-btn tt-activities-back-btn" onClick={onBack}>
-          Back
-        </button>
-      </div>
-
-      {!selectedCategory ? (
-        <div className="tt-talk-category-grid">
-          {categories.map((category, index) => (
-            <button
-              className="tt-talk-category-card"
-              key={category.id}
-              onClick={() => selectCategory(category)}
-            >
-              <span className="tt-talk-category-index">{String(index + 1).padStart(2, "0")}</span>
-              <strong>{category.title}</strong>
-              <small>{category.signal}</small>
-              <p>{category.description}</p>
-            </button>
-          ))}
-        </div>
+    <>
+      {ready && <ReadyBanner onSeeOrder={onBack} />}
+      {!selected ? (
+        <GameShell eyebrow="While you wait" title="Conversation starters" backLabel="Order status" onBack={onBack} status={status}>
+          <p className="tt-gm-lede">Pick a topic, then tap through the questions together.</p>
+          <div className="tt-gm-list">
+            {categories.map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                className="tt-gm-item tt-gm-item--compact"
+                onClick={() => {
+                  setSelected(category);
+                  setIndex(0);
+                }}
+              >
+                <span className="tt-gm-item-text">
+                  <strong>{category.title}</strong>
+                  <small>{dots(category.signal)}</small>
+                </span>
+                <ChevronRight size={32} aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+        </GameShell>
       ) : (
-        <div className="tt-talk-session-panel panel">
-          <div className="tt-talk-session-head">
-            <button
-              className="tt-talk-change-btn"
-              onClick={() => {
-                setSelectedId(null);
-                setQuestionIndex(0);
-              }}
-            >
-              Categories
-            </button>
-            <div>
-              <p className="eyebrow">{selectedCategory.signal}</p>
-              <h2>{selectedCategory.title}</h2>
+        <GameShell
+          eyebrow={dots(selected.signal)}
+          title={selected.title}
+          backLabel="All topics"
+          onBack={backToTopics}
+          status={status}
+        >
+          <div className="tt-gm-progress">
+            <div className="tt-gm-progress-bar" aria-hidden="true">
+              {selected.questions.map((_, n) => (
+                <span key={n} className={n === index ? "current" : undefined} />
+              ))}
             </div>
-            <span className="tt-talk-counter">
-              {String(questionIndex + 1).padStart(2, "0")} / {String(selectedCategory.questions.length).padStart(2, "0")}
-            </span>
+            <span className="tt-gm-progress-label">Question {index + 1} of {selected.questions.length}</span>
           </div>
 
           <button
-            className="tt-talk-question-card"
-            key={`${selectedCategory.id}-${questionIndex}`}
-            onClick={nextQuestion}
-            onPointerDown={(event) => setTouchStartX(event.clientX)}
-            onPointerUp={(event) => {
+            type="button"
+            className="tt-gm-qcard"
+            key={`${selected.id}-${index}`}
+            onClick={() => step(1)}
+            onPointerDown={(e) => setTouchStartX(e.clientX)}
+            onPointerUp={(e) => {
               if (touchStartX === null) return;
-              const delta = event.clientX - touchStartX;
+              const dir = swipeDir(e.clientX - touchStartX);
               setTouchStartX(null);
-              if (Math.abs(delta) < 42) return;
-              if (delta < 0) nextQuestion();
-              else previousQuestion();
+              if (dir) step(dir);
             }}
           >
-            <span>Question</span>
-            <strong>{selectedCategory.questions[questionIndex]}</strong>
-            <small>Tap or swipe for the next question</small>
+            <strong>{selected.questions[index]}</strong>
+            <small>Tap the card or swipe for the next question</small>
           </button>
 
-          <div className="tt-talk-controls">
-            <button className="secondary-btn" onClick={previousQuestion}>
-              Previous
-            </button>
-            <button className="primary-btn" onClick={nextQuestion}>
-              Next Question
-            </button>
+          <div className="tt-gm-navrow">
+            <button type="button" className="tt-btn--secondary" onClick={() => step(-1)}>Previous</button>
+            <button type="button" className="tt-btn--primary" onClick={() => step(1)}>Next question</button>
           </div>
-        </div>
+        </GameShell>
       )}
-    </section>
+    </>
   );
 }

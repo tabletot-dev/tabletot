@@ -1,8 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
-import { supabase, hasSupabaseConfig } from "@/integrations/supabase/client";
+import { useMemo, useState, useEffect } from "react";
 import type { OrderRound } from "@/hooks/useDeviceNavigation";
+import { useKitchenStatus, STATUS_STAGE, STAGE_LABELS } from "@/hooks/useKitchenStatus";
+import { computeEta } from "@/lib/eta";
+import { useKotTickets, type KotStatus } from "@/hooks/useKotTickets";
 import { getDisplayName } from "@/lib/orderSubmission";
 import { useRestaurant } from "@/lib/restaurantContext";
+import { useMenu } from "@/lib/menuStore";
+import { ordinal } from "@/lib/ordinal";
+
+const KOT_LABEL: Record<KotStatus, string> = {
+  accepted: "Received",
+  preparing: "Cooking",
+  ready: "Ready",
+  archived: "Ready",
+  cancelled: "Cancelled",
+};
 
 interface WaitingViewProps {
   previousOrders: OrderRound[];
@@ -15,19 +27,6 @@ interface WaitingViewProps {
   onRequestWater?: () => void;
   onCallStaff?: () => void;
 }
-
-type KitchenStatus = "new" | "preparing" | "ready" | "served" | "unknown";
-
-// Index into the four-stage strip (Queued · Cooking · Plating · Served).
-const STATUS_STAGE: Record<KitchenStatus, { label: string; index: number }> = {
-  new:       { label: "Queued",  index: 0 },
-  preparing: { label: "Cooking", index: 1 },
-  ready:     { label: "Plating", index: 2 },
-  served:    { label: "Served",  index: 3 },
-  unknown:   { label: "Queued",  index: 0 },
-};
-
-const STAGES = ["Queued", "Cooking", "Plating", "Served"];
 
 function WaterIcon() {
   return (
@@ -49,52 +48,16 @@ export default function WaitingView({
   onCallStaff,
 }: WaitingViewProps) {
   const { ads } = useRestaurant();
+  const { items: menuItems } = useMenu();
   const [promoIndex, setPromoIndex] = useState(0);
-  const [kitchenStatus, setKitchenStatus] = useState<KitchenStatus>("unknown");
+  const kitchenStatus = useKitchenStatus(currentRoundOrderId);
+  const kotTickets = useKotTickets(currentRoundOrderId);
 
   useEffect(() => {
     if (ads.length === 0) return;
     const id = setInterval(() => setPromoIndex((i) => (i + 1) % ads.length), 4500);
     return () => clearInterval(id);
   }, [ads.length]);
-
-  useEffect(() => {
-    if (!currentRoundOrderId || !hasSupabaseConfig) return;
-
-    const channel = supabase
-      .channel(`order-status-${currentRoundOrderId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "orders",
-          filter: `id=eq.${currentRoundOrderId}`,
-        },
-        (payload) => {
-          const status = (payload.new as { status?: string }).status;
-          if (status && status in STATUS_STAGE) {
-            setKitchenStatus(status as KitchenStatus);
-          }
-        },
-      )
-      .subscribe();
-
-    supabase
-      .from("orders")
-      .select("status")
-      .eq("id", currentRoundOrderId)
-      .single()
-      .then(({ data }) => {
-        if (data?.status && data.status in STATUS_STAGE) {
-          setKitchenStatus(data.status as KitchenStatus);
-        }
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [currentRoundOrderId]);
 
   const { label: stage, index: stageIndex } = STATUS_STAGE[kitchenStatus];
 
@@ -103,15 +66,18 @@ export default function WaitingView({
     return last ? last.items.reduce((s, i) => s + i.quantity, 0) : 0;
   }, [previousOrders]);
 
-  const sentItems = useMemo(
-    () => previousOrders.flatMap((round, roundIdx) =>
-      round.items.map((item) => ({
-        ...item,
-        roundNumber: roundIdx + 1,
-      })),
-    ),
-    [previousOrders],
+  // "1st order · Cooking / 2nd order · Received" instead of one blended
+  // count — fixes the "1 item vs 2 items" mix-up when two rounds are at
+  // different kitchen stages (2026-09-28 UX audit). Cancelled tickets never
+  // reached the kitchen, so they're left out of what the guest sees.
+  const orderedTickets = useMemo(
+    () => kotTickets
+      .filter((t) => t.status !== "cancelled")
+      .map((t, i) => ({ ...t, position: i + 1 })),
+    [kotTickets],
   );
+
+  const etaMinutes = useMemo(() => computeEta(kotTickets, menuItems), [kotTickets, menuItems]);
 
   const ad = ads[promoIndex];
 
@@ -125,7 +91,7 @@ export default function WaitingView({
           />
           {(ad.title || ads.length > 1) && (
             <div className="tt-status-promo-copy">
-              <p className="tt-badge">While you wait</p>
+              <p className="eyebrow">While you wait</p>
               {ad.title && <strong>{ad.title}</strong>}
               {ads.length > 1 && (
                 <div className="tt-status-promo-dots">
@@ -140,7 +106,15 @@ export default function WaitingView({
       )}
 
       <div className="tt-status-card">
-        <p className="tt-badge">Order Status</p>
+        <div className="tt-status-head">
+          <p className="eyebrow">Order status</p>
+          {etaMinutes != null && kitchenStatus !== "served" && (
+            <p className="tt-status-eta">
+              <strong>~{etaMinutes} min</strong>
+              <span>estimated</span>
+            </p>
+          )}
+        </div>
         <h2>
           {(() => {
             const name = getDisplayName();
@@ -152,32 +126,47 @@ export default function WaitingView({
               : "Your order is being prepared";
           })()}
         </h2>
-        <p className="tt-status-sub">
-          {itemCount > 0 ? `${itemCount} item${itemCount === 1 ? "" : "s"} in progress. ` : ""}
-          {kitchenStatus === "served"
-            ? "Enjoy your meal!"
-            : `The kitchen is currently at the `}
-          {kitchenStatus !== "served" && <strong>{stage.toLowerCase()}</strong>}
-          {kitchenStatus !== "served" && " stage."}
-        </p>
-        {sentItems.length > 0 && (
+        {(itemCount > 0 || kitchenStatus === "served") && (
+          <p className="tt-status-sub">
+            {kitchenStatus === "served"
+              ? "Enjoy your meal!"
+              : `${itemCount} item${itemCount === 1 ? "" : "s"} in progress.`}
+          </p>
+        )}
+        {orderedTickets.length > 0 ? (
+          <div className="tt-status-summary" aria-label="Orders sent this session">
+            {orderedTickets.map((ticket) => (
+              <div key={ticket.id} className="tt-status-summary-row">
+                <div>
+                  <span className="tt-status-summary-ordinal">{ordinal(ticket.position)} order</span>
+                  <span className="tt-status-summary-items">
+                    {ticket.items.map((i) => `${i.qty}x ${i.name}`).join(", ")}
+                  </span>
+                </div>
+                <span className={`tt-status-summary-tag tt-status-summary-tag--${ticket.status}`}>
+                  {KOT_LABEL[ticket.status]}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : previousOrders.length > 0 ? (
+          // Fallback while the kitchen-ticket fetch is still in flight (or
+          // unavailable) — previousOrders is client state, always ready
+          // instantly, so the guest is never left with a blank summary.
           <div className="tt-status-summary" aria-label="Already ordered items">
             <div className="tt-status-summary-head">
               <span>Already ordered</span>
-              <strong>{sentItems.length} item{sentItems.length === 1 ? "" : "s"}</strong>
+              <strong>{itemCount} item{itemCount === 1 ? "" : "s"}</strong>
             </div>
             <div className="tt-status-summary-list">
-              {sentItems.slice(0, 4).map((item) => (
-                <span key={`${item.roundNumber}-${item.id}`}>
-                  {item.quantity}x {item.name}
-                </span>
+              {previousOrders.flatMap((round) => round.items).slice(0, 4).map((item) => (
+                <span key={item.id}>{item.quantity}x {item.name}</span>
               ))}
-              {sentItems.length > 4 && <span>+{sentItems.length - 4} more</span>}
             </div>
           </div>
-        )}
+        ) : null}
         <div className="tt-stages" aria-label={`Kitchen stage: ${stage}`}>
-          {STAGES.map((label, i) => (
+          {STAGE_LABELS.map((label, i) => (
             <div
               key={label}
               className={`tt-stages-step${
@@ -191,22 +180,14 @@ export default function WaitingView({
       </div>
 
       <div className="tt-status-actions">
-        <button
-          className="tt-btn--primary"
-          onClick={onOrderMore}
-          disabled={billRequested}
-          title={billRequested ? "Bill requested — ask staff to reopen ordering" : undefined}
-        >
+        <button className="tt-btn--primary" onClick={onOrderMore} disabled={billRequested}>
           Order More
         </button>
-        <div className="tt-status-actions-row">
-          <button className="tt-btn--secondary" onClick={onGames}>
-            Games
-          </button>
-          <button className="tt-btn--secondary" onClick={onConversationStarters}>
-            Conversation Starters
-          </button>
-        </div>
+        {/* A disabled button's `title` tooltip never shows on a touchscreen —
+            the reason has to be visible text, not a hover-only hint. */}
+        {billRequested && (
+          <p className="tt-status-note">Bill requested — ask staff to add more.</p>
+        )}
         <div className="tt-status-actions-row">
           {onRequestWater && (
             <button
@@ -228,6 +209,14 @@ export default function WaitingView({
             onClick={onRequestBill}
           >
             {billRequested ? "Bill Requested" : "Bill"}
+          </button>
+        </div>
+        <div className="tt-status-actions-row">
+          <button className="tt-btn--secondary" onClick={onGames}>
+            Games
+          </button>
+          <button className="tt-btn--secondary" onClick={onConversationStarters}>
+            Conversation Starters
           </button>
         </div>
       </div>

@@ -147,7 +147,7 @@ const IdleScreen = ({ onActivate, onSelectHeroItem, onOpenPopular, onOpenAbout, 
           <p className="tt-attract-tagline">
             Your table waiter.
             <br />
-            Browse the menu, or just ask out loud.
+            Browse the menu, or tap the mic once you're ordering.
           </p>
         </div>
 

@@ -77,6 +77,12 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onCl
 
   return (
     <section className="tt-menu">
+      {onBackToStatus && (
+        <button type="button" className="tt-menu-back" onClick={onBackToStatus}>
+          ← Order status
+        </button>
+      )}
+
       {/* Horizontal category bar */}
       <div className="tt-navbar">
         {categories.map((cat) => (
@@ -92,12 +98,10 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onCl
       </div>
 
       <div className="tt-menu-header">
-        <h1>{filteredItems.length} {filteredItems.length === 1 ? "dish" : "dishes"}</h1>
-        {onBackToStatus && (
-          <button type="button" className="tt-btn--secondary" onClick={onBackToStatus}>
-            Back to order
-          </button>
-        )}
+        <div>
+          <h1>{resolvedCategory}</h1>
+          <p className="tt-menu-count">{filteredItems.length} {filteredItems.length === 1 ? "dish" : "dishes"}</p>
+        </div>
         <div className="tt-segmented">
           {(["all", "veg", "nonveg"] as DietFilter[]).map((d) => (
             <button

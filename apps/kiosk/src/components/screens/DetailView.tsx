@@ -4,6 +4,7 @@ import type { MenuItem } from "@/data/menu";
 import type { PairedItem } from "@/lib/menuStore";
 import { itemImageBackground } from "@/lib/menuImages";
 import { track, type Source } from "@/lib/eventBus";
+import { formatMenuFacts } from "@/lib/menuFacts";
 import DietMark from "@/components/DietMark";
 import { Mic, X } from "lucide-react";
 
@@ -17,7 +18,6 @@ const PAIRING_LIST_VARIANTS = {
 interface DetailViewProps {
   item: MenuItem;
   pairings: PairedItem[];
-  onAdd: () => void;
   onAddItem?: (item: MenuItem) => void;
   onUpdateQuantity?: (itemId: string, delta: number, source?: Source) => void;
   getQuantity?: (itemId: string) => number;
@@ -26,10 +26,12 @@ interface DetailViewProps {
   onOpenVoice?: () => void;
 }
 
+// The price/quantity footer renders through AppShell's orderBar slot
+// (see components/DetailFooter.tsx) — kept out of this component so it's a
+// docked bar like every other screen's, not in-flow scrolling content.
 export default function DetailView({
   item,
   pairings,
-  onAdd,
   onAddItem,
   onUpdateQuantity,
   getQuantity,
@@ -39,7 +41,7 @@ export default function DetailView({
 }: DetailViewProps) {
   const bg = itemImageBackground(item);
   const visiblePairings = pairings.slice(0, 4);
-  const itemQty = getQuantity?.(item.id) ?? 0;
+  const factRows = formatMenuFacts(item.facts);
 
   const reduceMotion = useReducedMotion();
   const pairingRowVariants = {
@@ -82,7 +84,10 @@ export default function DetailView({
 
       <div className="tt-detail-body">
         <p className="tt-badge">{item.category}</p>
-        <h1>{item.name}</h1>
+        <div className="tt-detail-title-row">
+          <h1>{item.name}</h1>
+          <DietMark isVeg={item.is_veg} label />
+        </div>
         {item.tags.length > 0 && (
           <div className="tt-tag-row">
             {item.tags.map((tag) => (
@@ -96,22 +101,21 @@ export default function DetailView({
           <p className="tt-detail-copy">{item.description}</p>
         )}
 
-        <div className="tt-detail-facts">
-          <div>
-            <span>Category</span>
-            <strong>{item.category}</strong>
+        {factRows.length > 0 && (
+          <div className="tt-detail-factsheet">
+            <p className="eyebrow">Details</p>
+            {factRows.map((row) => (
+              <div key={row.label} className="tt-detail-fact-row">
+                <span>{row.label}</span>
+                <strong>{row.value}</strong>
+              </div>
+            ))}
           </div>
-          <div>
-            <span>Diet</span>
-            <strong>
-              <DietMark isVeg={item.is_veg} label />
-            </strong>
-          </div>
-        </div>
+        )}
 
         {visiblePairings.length > 0 && (
           <div className="tt-pairing-panel">
-            <p className="tt-badge">Goes well with</p>
+            <p className="eyebrow">Goes well with</p>
             <motion.div
               className="tt-pairing-list"
               variants={PAIRING_LIST_VARIANTS}
@@ -159,7 +163,7 @@ export default function DetailView({
                         onClick={() => handleAddPairing(p)}
                         aria-label={`Add ${p.name}`}
                       >
-                        +
+                        Add
                       </button>
                     )}
                   </motion.div>
@@ -185,33 +189,6 @@ export default function DetailView({
               <Mic size={34} strokeWidth={2.2} />
             </button>
           </div>
-        )}
-      </div>
-
-      <div className="tt-detail-footer">
-        <div>
-          <p className="tt-badge">Item price</p>
-          <strong className="tt-detail-price">₹{item.price}</strong>
-        </div>
-        {itemQty > 0 ? (
-          <div className="tt-stepper" aria-label={`${item.name} quantity`}>
-            <button
-              type="button"
-              className={itemQty === 1 ? "tt-stepper-minus--floor" : undefined}
-              onClick={() => onUpdateQuantity?.(item.id, -1)}
-              aria-label={`Decrease ${item.name}`}
-            >
-              −
-            </button>
-            <span>{itemQty}</span>
-            <button type="button" onClick={() => onUpdateQuantity?.(item.id, 1)} aria-label={`Increase ${item.name}`}>
-              +
-            </button>
-          </div>
-        ) : (
-          <button type="button" className="tt-btn--primary" onClick={onAdd}>
-            Add to Order
-          </button>
         )}
       </div>
     </section>

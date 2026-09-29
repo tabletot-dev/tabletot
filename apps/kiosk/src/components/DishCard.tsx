@@ -105,11 +105,14 @@ function DishCard({
             tabIndex={0}
             onKeyDown={(e) => e.key === "Enter" && onSelect(item)}
           >
-            <DietMark isVeg={item.is_veg} compact label />
+            <DietMark isVeg={item.is_veg} compact />
             <h3>{item.name}</h3>
           </div>
           {item.description && <p className="tt-dishcard-desc">{item.description}</p>}
-          <strong className="tt-dishcard-price">₹{item.price}</strong>
+          <strong className="tt-dishcard-price">
+            ₹{item.price}
+            {item.prepMinutes != null && <span className="tt-dishcard-prep"> · {item.prepMinutes} min</span>}
+          </strong>
         </div>
 
         <div className="tt-dishcard-action">
@@ -131,7 +134,7 @@ function DishCard({
 
       {showPairingPanel && (
         <div className="tt-pairing-panel">
-          <p className="tt-badge">Goes well with</p>
+          <p className="eyebrow">Goes well with</p>
           <motion.div
             className="tt-pairing-list"
             variants={PAIRING_LIST_VARIANTS}
@@ -165,7 +168,7 @@ function DishCard({
                     onClick={() => handleAddPairing(paired)}
                     aria-label={`Add ${paired.name} — ₹${paired.price}`}
                   >
-                    +
+                    Add
                   </button>
                 )}
               </motion.div>

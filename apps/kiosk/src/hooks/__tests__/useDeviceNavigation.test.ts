@@ -43,7 +43,10 @@ describe("confirmOrder submits the items it is given, not the live cart", () => 
     expect(submitOrder).toHaveBeenCalledWith(heldItems);
     expect(result.current.previousOrders).toHaveLength(1);
     expect(result.current.previousOrders[0].items).toEqual(heldItems);
-    expect(result.current.currentScreen).toBe("order-confirmation");
+    // Goes straight to Waiting — the standalone "Order confirmed" screen
+    // (and its fixed 5s pause) was removed in the 2026-09-28 UX audit;
+    // Index.tsx shows a brief toast on top of Waiting instead.
+    expect(result.current.currentScreen).toBe("session-idle");
   });
 
   it("does not call submitOrder for an empty round, but still confirms", async () => {
@@ -54,7 +57,7 @@ describe("confirmOrder submits the items it is given, not the live cart", () => 
     });
 
     expect(submitOrder).not.toHaveBeenCalled();
-    expect(result.current.currentScreen).toBe("order-confirmation");
+    expect(result.current.currentScreen).toBe("session-idle");
   });
 });
 
