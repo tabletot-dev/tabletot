@@ -1,7 +1,8 @@
 import { useMemo, useState, useEffect } from "react";
 import type { OrderRound } from "@/hooks/useDeviceNavigation";
 import { useKitchenStatus, STATUS_STAGE, STAGE_LABELS } from "@/hooks/useKitchenStatus";
-import { useKotTickets, KOT_ACTIVE, type KotStatus } from "@/hooks/useKotTickets";
+import { computeEta } from "@/lib/eta";
+import { useKotTickets, type KotStatus } from "@/hooks/useKotTickets";
 import { getDisplayName } from "@/lib/orderSubmission";
 import { useRestaurant } from "@/lib/restaurantContext";
 import { useMenu } from "@/lib/menuStore";
@@ -76,18 +77,7 @@ export default function WaitingView({
     [kotTickets],
   );
 
-  // Longest prep time among items on tickets still cooking. Deliberately a
-  // fixed number, not a countdown: it only changes when the kitchen moves a
-  // ticket or a new order arrives. Hidden if no active item has a prep time
-  // set (menu_items.facts.prep_minutes).
-  const etaMinutes = useMemo(() => {
-    const prepById = new Map(menuItems.map((m) => [m.id, m.prepMinutes]));
-    const longest = kotTickets
-      .filter((t) => KOT_ACTIVE.includes(t.status))
-      .flatMap((t) => t.items.map((i) => prepById.get(i.id) ?? 0));
-    const max = Math.max(0, ...longest);
-    return max > 0 ? max : null;
-  }, [kotTickets, menuItems]);
+  const etaMinutes = useMemo(() => computeEta(kotTickets, menuItems), [kotTickets, menuItems]);
 
   const ad = ads[promoIndex];
 
