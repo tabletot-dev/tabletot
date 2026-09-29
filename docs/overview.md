@@ -100,6 +100,12 @@ merged; plan and outcome in `docs/plans/2026-09-28-kiosk-ux-audit-fixes.md`):
 - Left on purpose: Waiting reorder, blurred screensaver fill, mic in the cart
   bar, Attract carousel repeat.
 
+Kiosk Games redesign (2026-09-29, branch `feat/kiosk-games-redesign`, not
+merged; `docs/notes/2026-09-29-kiosk-games-redesign.md`): Games is now a
+"While you wait" hub with five games (Memory Match, Guess the Dish,
+Tic-Tac-Toe, Word Scramble, Emoji Decode), decks built from the live menu.
+Ludo, Connect 4 and Word Duel removed, about 1,230 lines of game CSS deleted.
+
 Order-engine tests: 197 passed, 3 skipped as of the last verified run
 (2026-08-30, post-ElevenLabs integration) — not re-verified since; the
 suite needs local Supabase running on port 54322.
