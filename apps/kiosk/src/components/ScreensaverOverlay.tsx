@@ -7,12 +7,14 @@ interface ScreensaverOverlayProps {
   /** Live order id, when there is one — lets the screensaver show a food
    *  status strip and auto-dismiss once the order is ready. */
   orderId?: string | null;
+  /** Override for the bottom-right hint — the Attract screen says "Tap to order". */
+  cta?: string;
 }
 
-// Fullscreen ad carousel shown after a period of no touch on the Attract or
-// Order Status screens. Reuses the same `ads` data + rotation cadence as
+// Fullscreen ad carousel shown after a period of no touch on the Attract (20s) or
+// Order Status (30s) screens. Reuses the same `ads` data + rotation cadence as
 // WaitingView's inline promo strip (apps/kiosk/src/components/screens/WaitingView.tsx).
-export default function ScreensaverOverlay({ onDismiss, orderId = null }: ScreensaverOverlayProps) {
+export default function ScreensaverOverlay({ onDismiss, orderId = null, cta = "Tap anywhere to continue" }: ScreensaverOverlayProps) {
   const { ads, venueName } = useRestaurant();
   const [index, setIndex] = useState(0);
   const [failed, setFailed] = useState<Set<string>>(new Set());
@@ -55,7 +57,7 @@ export default function ScreensaverOverlay({ onDismiss, orderId = null }: Screen
           Your food: {STATUS_STAGE[kitchenStatus].label}
         </span>
       )}
-      <span className="tt-screensaver-exit" aria-hidden="true">Tap anywhere to continue</span>
+      <span className="tt-screensaver-exit" aria-hidden="true">{cta}</span>
     </div>
   );
 }

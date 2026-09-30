@@ -1,12 +1,14 @@
+import { Wifi } from "lucide-react";
 import TabletotLogo from "@/components/TabletotLogo";
 
 interface AppBarProps {
   venueName: string;
   tableId: string;
   onAbout?: () => void;
+  onWifi?: () => void;
 }
 
-export default function AppBar({ venueName, tableId, onAbout }: AppBarProps) {
+export default function AppBar({ venueName, tableId, onAbout, onWifi }: AppBarProps) {
   const [venueFirst, ...venueRest] = venueName.split(" ");
   const venueTag = venueRest.join(" ");
 
@@ -29,6 +31,11 @@ export default function AppBar({ venueName, tableId, onAbout }: AppBarProps) {
         <p className="tt-appbar-venue-name">{venueFirst}</p>
         {venueTag && <p className="tt-appbar-venue-tag">{venueTag}</p>}
       </button>
+      {onWifi && (
+        <button type="button" className="tt-iconbtn tt-iconbtn--outline tt-appbar-wifi" onClick={onWifi} aria-label="Wi-Fi details">
+          <Wifi size={22} aria-hidden="true" />
+        </button>
+      )}
       <span className="tt-badge">Table {tableId || "—"}</span>
     </header>
   );

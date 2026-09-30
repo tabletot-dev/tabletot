@@ -225,6 +225,10 @@ async def refresh_menu(request: Request) -> dict:
     restaurant_configs: dict = app.state.restaurant_configs
     db_url: str = app.state.db_url
 
+    # Voice config (speaker / voice IDs). Update in place: session_manager holds
+    # this same dict, so new sessions pick it up; open sessions keep their voice.
+    restaurant_configs.update(await asyncio.to_thread(load_restaurant_config, db_url))
+
     total_items = 0
     for rid, cfg in restaurant_configs.items():
         db_rid = getattr(cfg, "db_restaurant_id", None)

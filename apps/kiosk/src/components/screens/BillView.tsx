@@ -95,7 +95,7 @@ export default function BillView({
   if (stage === "loading") {
     return (
       <section className="tt-bill-flow" role="status" aria-live="polite">
-        <TabletotLogo className="tt-bill-flow-logo" />
+        <TabletotLogo className="tt-bill-flow-logo" spinning />
       </section>
     );
   }

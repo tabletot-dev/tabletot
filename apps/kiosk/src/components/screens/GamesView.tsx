@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { ChevronRight, Hash, LayoutGrid, Search, Shuffle, Smile } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMenu } from "@/lib/menuStore";
-import { guessRounds, memoryDeck, scrambleWords } from "@/lib/games/decks";
+import { memoryDeck, scrambleWords } from "@/lib/games/decks";
 import GameShell from "@/components/games/GameShell";
 import ReadyBanner from "@/components/games/ReadyBanner";
 import { useFoodStatus } from "@/components/games/useFoodStatus";
@@ -38,7 +38,7 @@ export default function GamesView({ onBack, orderId = null }: GamesViewProps) {
   const available = useMemo(
     () => ({
       memory: memoryDeck(items) !== null,
-      guess: guessRounds(items) !== null,
+      guess: false, // hidden 2026-09-30 — GuessDish + guessRounds kept; flip to guessRounds(items) !== null to bring it back
       scramble: scrambleWords(items) !== null,
       tictactoe: true,
       emoji: true,

@@ -62,8 +62,15 @@ export default function MemoryMatch({ items, status, onExit, onAgain }: GameProp
   };
 
   const done = elapsed !== null;
+  // Solo move cap = one flip-pair per card (2n for n pairs). A perfect-memory
+  // player needs n moves and an optimal one averages ~1.6n (Zwick & Paterson),
+  // so 2n is hard but winnable. Two-player is already a contest on pairs.
+  const maxMoves = deck.length;
+  const lost = !done && !twoPlayer && moves >= maxMoves && open.length === 0;
   const dishes = deck.filter((c) => c.key.endsWith("-0"));
-  const title = !done
+  const title = lost
+    ? "Out of moves"
+    : !done
     ? "Find the pairs"
     : twoPlayer
       ? pairs[0] === pairs[1] ? "It's a tie" : `Player ${pairs[0] > pairs[1] ? 1 : 2} wins`
@@ -71,7 +78,13 @@ export default function MemoryMatch({ items, status, onExit, onAgain }: GameProp
 
   return (
     <GameShell eyebrow="Memory Match" title={title} backLabel="All games" onBack={onExit} status={status}>
-      {done ? (
+      {lost ? (
+        <GameEnd
+          stats={[{ label: "Pairs found", value: `${matched.length} of ${deck.length / 2}` }, { label: "Moves", value: moves }]}
+          onAgain={onAgain}
+          onExit={onExit}
+        />
+      ) : done ? (
         <GameEnd
           stats={
             twoPlayer
@@ -96,7 +109,7 @@ export default function MemoryMatch({ items, status, onExit, onAgain }: GameProp
       ) : (
         <>
           <div className="tt-gm-row">
-            <span className="tt-gm-chip">Moves {moves}</span>
+            <span className="tt-gm-chip">Moves {moves}{twoPlayer ? "" : ` of ${maxMoves}`}</span>
             <span className="tt-gm-chip">Pairs {matched.length} of {deck.length / 2}</span>
             {twoPlayer && <span className="tt-gm-chip is-ink">Player {turn + 1}'s turn</span>}
             <button type="button" className="tt-gm-pill" onClick={onAgain}>Restart</button>
