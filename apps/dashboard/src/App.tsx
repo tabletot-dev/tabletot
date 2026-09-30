@@ -11,6 +11,7 @@ import AdsView from '@/pages/AdsView';
 import MenuItems from '@/pages/MenuItems';
 import Venue from '@/pages/Venue';
 import Login from '@/pages/Login';
+import { useReloadOnDeploy } from '@/lib/reloadOnDeploy';
 import './index.css';
 
 function Layout({ children }: { children: React.ReactNode }) {
@@ -23,8 +24,16 @@ function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  // Never auto-reloads (forms may have unsaved edits); offers a refresh instead.
+  const updateAvailable = useReloadOnDeploy();
   return (
     <BrowserRouter>
+      {updateAvailable && (
+        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md bg-black px-4 py-2 text-sm text-white shadow-lg">
+          A new version is available.{' '}
+          <button className="underline" onClick={() => window.location.reload()}>Refresh</button>
+        </div>
+      )}
       <AuthProvider>
         <Toaster richColors position="top-right" />
         <Routes>

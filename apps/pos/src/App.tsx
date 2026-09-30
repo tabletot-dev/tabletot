@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { ConfirmDialogHost } from "@/hooks/use-confirm";
@@ -17,8 +18,16 @@ import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import TableManagement from "./pages/TableManagement";
 import NotFound from "./pages/NotFound";
+import { useReloadOnDeploy, trackActivity, posIsIdle } from "./lib/reloadOnDeploy";
 
 const queryClient = new QueryClient();
+
+// Reloads the POS after a new deploy, only when nobody is using it.
+const DeployWatcher = () => {
+  useEffect(trackActivity, []);
+  useReloadOnDeploy(posIsIdle);
+  return null;
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -26,6 +35,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <ConfirmDialogHost />
+      <DeployWatcher />
       <BrowserRouter>
         <AuthProvider>
           <Routes>

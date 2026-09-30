@@ -7,6 +7,7 @@ Restaurant management app: KOT display, order management, billing, tables.
 ## [Unreleased]
 
 ### Changed
+- Auto-reload on deploy: same `version.json` check; reloads only after 60s of no touch/keys, with no dialog open and no field focused.
 
 - **Menu editing moved to the dashboard** (ADR 0025) — `pages/Menu.tsx` and the unrouted `pages/AdminMenuItems.tsx` are deleted. New **Sold out** page (`pages/SoldOut.tsx`, `/sold-out`, all roles): one on/off switch per dish (`menu_items.active`), refreshes the voice engine's menu. `/menu` redirects there.
 
