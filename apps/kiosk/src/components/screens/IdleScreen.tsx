@@ -1,15 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
-import * as Dialog from "@radix-ui/react-dialog";
 import { ChevronLeft, ChevronRight, Info, Star, Wifi } from "lucide-react";
 import TabletotLogo from "@/components/TabletotLogo";
 import { useMenu } from "@/lib/menuStore";
 import type { AnchorItem } from "@/lib/menuStore";
 import { itemImageBackground } from "@/lib/menuImages";
 import { track } from "@/lib/eventBus";
-import { QRCodeSVG } from "qrcode.react";
-import { useRestaurant } from "@/lib/restaurantContext";
-import { wifiQrPayload } from "@/lib/wifi";
 
 interface IdleScreenProps {
   /** "See the menu" / touch anywhere — starts the session and goes to the menu. */
@@ -20,15 +16,16 @@ interface IdleScreenProps {
   onOpenPopular: () => void;
   /** "About" secondary — opens the Venue/About screen. Does NOT start a session. */
   onOpenAbout: () => void;
+  /** "Wi-Fi" secondary — opens the shared Wi-Fi dialog (owned by Index). */
+  onOpenWifi: () => void;
   tableId?: string;
 }
 
 const ADVANCE_MS = 3500;
 const MAX_SLIDES = 5;
 
-const IdleScreen = ({ onActivate, onSelectHeroItem, onOpenPopular, onOpenAbout, tableId }: IdleScreenProps) => {
+const IdleScreen = ({ onActivate, onSelectHeroItem, onOpenPopular, onOpenAbout, onOpenWifi, tableId }: IdleScreenProps) => {
   const { anchors, loading } = useMenu();
-  const { wifiSsid, wifiPassword } = useRestaurant();
   const reduceMotion = useReducedMotion();
 
   const chefPicks = anchors
@@ -37,7 +34,6 @@ const IdleScreen = ({ onActivate, onSelectHeroItem, onOpenPopular, onOpenAbout, 
   const multi = chefPicks.length > 1;
 
   const n = chefPicks.length;
-  const [wifiOpen, setWifiOpen] = useState(false);
 
   // One-way infinite filmstrip. `loopPos` indexes into a tripled `loop` array;
   // auto-advance only ever moves it forward. When a slide settles outside the
@@ -240,7 +236,7 @@ const IdleScreen = ({ onActivate, onSelectHeroItem, onOpenPopular, onOpenAbout, 
           <button
             type="button"
             className="tt-attract-secondary"
-            onClick={() => setWifiOpen(true)}
+            onClick={onOpenWifi}
           >
             <span className="tt-attract-secondary-icon">
               <Wifi size={18} aria-hidden="true" />
@@ -257,36 +253,6 @@ const IdleScreen = ({ onActivate, onSelectHeroItem, onOpenPopular, onOpenAbout, 
           </button>
         </div>
       </div>
-
-      <Dialog.Root open={wifiOpen} onOpenChange={setWifiOpen}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="tt-modal-scrim" />
-          <Dialog.Content className="tt-modal tt-wifi-dialog" aria-describedby={undefined}>
-            <Dialog.Title>Join the café Wi-Fi</Dialog.Title>
-            <QRCodeSVG
-              className="tt-wifi-qr"
-              value={wifiQrPayload(wifiSsid, wifiPassword)}
-              size={220}
-              role="img"
-              aria-label={`QR code to join the ${wifiSsid} Wi-Fi network`}
-            />
-            <p>
-              {wifiPassword
-                ? "Point your phone camera at the code to join."
-                : "Point your phone camera at the code — the network is open, no password needed."}
-            </p>
-            <p className="tt-wifi-network">Network: {wifiSsid}</p>
-            {wifiPassword && <p className="tt-wifi-network">Password: {wifiPassword}</p>}
-            <div className="tt-modal-actions">
-              <Dialog.Close asChild>
-                <button type="button" className="tt-btn--secondary">
-                  Close
-                </button>
-              </Dialog.Close>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
     </div>
   );
 };

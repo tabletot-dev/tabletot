@@ -22,6 +22,8 @@ import CompletionNudge from "@/components/CompletionNudge";
 import VoiceOrderButton from "@/components/VoiceOrderButton";
 import VoiceConversationPanel from "@/components/VoiceConversationPanel";
 import AppShell from "@/components/AppShell";
+import WifiDialog from "@/components/WifiDialog";
+import { LoadingMark } from "@/components/TabletotLogo";
 import OrderBar from "@/components/OrderBar";
 import StatusStrip from "@/components/StatusStrip";
 import { useRoundHold } from "@/hooks/useRoundHold";
@@ -64,8 +66,10 @@ const NUDGE_THRESHOLD_MS = 3.5 * 60 * 1000;
 // Fullscreen ad screensaver: only on the Attract screen (no session) and the
 // Order Status screen (session-idle, waiting on the kitchen) — the two
 // screens where sustained no-touch is expected rather than a red flag.
-const SCREENSAVER_SCREENS = new Set(["idle", "session-idle"]);
-const SCREENSAVER_THRESHOLD_MS = 2 * 60 * 1000;
+const SCREENSAVER_THRESHOLDS_MS: Record<string, number> = {
+  idle: 20_000,
+  "session-idle": 30_000,
+};
 
 const IndexInner = () => {
   const { voiceEnabled, promptForIdentity, venueName, hours, address, chefName, chefNote } = useRestaurant();
@@ -214,13 +218,18 @@ const IndexInner = () => {
   // nudge above, but a longer threshold and a different screen set (Attract
   // + Order Status, where sitting untouched is normal, not a stall).
   const [showScreensaver, setShowScreensaver] = useState(false);
+  // Wi-Fi dialog (Attract screen + app bar). Paused-screensaver while open so
+  // the ads never cover the QR code mid-scan.
+  const [wifiOpen, setWifiOpen] = useState(false);
   useEffect(() => {
     const id = window.setInterval(() => {
-      const eligible = SCREENSAVER_SCREENS.has(currentScreenRef.current);
-      setShowScreensaver(eligible && Date.now() - lastTouchRef.current > SCREENSAVER_THRESHOLD_MS);
-    }, 30_000);
+      const threshold = SCREENSAVER_THRESHOLDS_MS[currentScreenRef.current];
+      setShowScreensaver(
+        threshold !== undefined && !wifiOpen && Date.now() - lastTouchRef.current > threshold,
+      );
+    }, 5_000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [wifiOpen]);
   const dismissScreensaver = useCallback(() => {
     lastTouchRef.current = Date.now();
     setShowScreensaver(false);
@@ -566,6 +575,7 @@ const IndexInner = () => {
             // no startSession() here, unlike onOpenPopular — About is read-only
             // and a guest reading venue info pre-order should not open a span.
             onOpenAbout={openAbout}
+            onOpenWifi={() => setWifiOpen(true)}
             tableId={TABLE_ID}
           />
         );
@@ -690,19 +700,19 @@ const IndexInner = () => {
         );
       case "games":
         return (
-          <Suspense fallback={null}>
+          <Suspense fallback={<LoadingMark />}>
             <GamesView onBack={() => setCurrentScreen("session-idle")} orderId={currentRoundOrderId} />
           </Suspense>
         );
       case "conversation-starters":
         return (
-          <Suspense fallback={null}>
+          <Suspense fallback={<LoadingMark />}>
             <ConversationStartersView onBack={() => setCurrentScreen("session-idle")} orderId={currentRoundOrderId} />
           </Suspense>
         );
       case "bill-summary":
         return (
-          <Suspense fallback={null}>
+          <Suspense fallback={<LoadingMark />}>
             <BillView
               previousOrders={previousOrders}
               sessionTotal={sessionTotal}
@@ -739,6 +749,7 @@ const IndexInner = () => {
       tableId={TABLE_ID}
       venueName={venueName || "Tabletot"}
       onAbout={openAbout}
+      onWifi={() => setWifiOpen(true)}
       voiceDock={voiceDock}
       orderBar={
         currentScreen === "menu" ? (
@@ -795,8 +806,14 @@ const IndexInner = () => {
           </div>
         )}
 
+        <WifiDialog open={wifiOpen} onOpenChange={setWifiOpen} />
+
         {showScreensaver && (
-          <ScreensaverOverlay onDismiss={dismissScreensaver} orderId={currentRoundOrderId} />
+          <ScreensaverOverlay
+            onDismiss={dismissScreensaver}
+            orderId={currentRoundOrderId}
+            cta={currentScreen === "idle" ? "Tap to order" : undefined}
+          />
         )}
 
         {completionSuggestion && (

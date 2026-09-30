@@ -7,9 +7,6 @@ vi.mock("@/lib/menuStore", () => ({
   useMenu: () => ({ anchors: menu.anchors, loading: menu.loading }),
 }));
 
-const restaurant = vi.hoisted(() => ({ wifiSsid: "SILVER-GUEST", wifiPassword: "" }));
-vi.mock("@/lib/restaurantContext", () => ({ useRestaurant: () => restaurant }));
-
 const motionState = vi.hoisted(() => ({ reduced: false }));
 vi.mock("framer-motion", async (imp) => {
   const actual = await imp<typeof import("framer-motion")>();
@@ -41,6 +38,7 @@ function renderIdle(props: Partial<React.ComponentProps<typeof IdleScreen>> = {}
       onSelectHeroItem={props.onSelectHeroItem ?? vi.fn()}
       onOpenPopular={props.onOpenPopular ?? vi.fn()}
       onOpenAbout={props.onOpenAbout ?? vi.fn()}
+      onOpenWifi={props.onOpenWifi ?? vi.fn()}
       tableId="T1"
     />,
   );
@@ -49,8 +47,6 @@ function renderIdle(props: Partial<React.ComponentProps<typeof IdleScreen>> = {}
 beforeEach(() => {
   menu.anchors = [];
   menu.loading = false;
-  restaurant.wifiSsid = "SILVER-GUEST";
-  restaurant.wifiPassword = "";
   motionState.reduced = false;
   track.mockClear();
 });
@@ -169,26 +165,10 @@ describe("IdleScreen (merged attract)", () => {
     expect(onOpenAbout).toHaveBeenCalledTimes(1);
   });
 
-  it("Wi-Fi button opens a dialog with the heading, instruction and a Close", () => {
-    renderIdle();
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  it("the 'Wi-Fi' secondary calls onOpenWifi", () => {
+    const onOpenWifi = vi.fn();
+    renderIdle({ onOpenWifi });
     fireEvent.click(screen.getByRole("button", { name: "Wi-Fi" }));
-    const dialog = screen.getByRole("dialog");
-    expect(dialog).toHaveTextContent("Join the café Wi-Fi");
-    expect(dialog).toHaveTextContent(/network is open, no\s+password needed/);
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  });
-
-  it("Wi-Fi dialog shows the configured network and password, and a generated QR", () => {
-    restaurant.wifiSsid = "CAFE-WIFI";
-    restaurant.wifiPassword = "beans123";
-    renderIdle();
-    fireEvent.click(screen.getByRole("button", { name: "Wi-Fi" }));
-    const dialog = screen.getByRole("dialog");
-    expect(dialog).toHaveTextContent("Network: CAFE-WIFI");
-    expect(dialog).toHaveTextContent("Password: beans123");
-    expect(dialog).not.toHaveTextContent(/network is open/);
-    expect(screen.getByRole("img", { name: "QR code to join the CAFE-WIFI Wi-Fi network" })).toBeInTheDocument();
+    expect(onOpenWifi).toHaveBeenCalledTimes(1);
   });
 });

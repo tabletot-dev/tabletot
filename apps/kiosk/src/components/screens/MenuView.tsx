@@ -1,5 +1,6 @@
 import { useMemo, useState, useCallback, type ReactNode } from "react";
 import { useMenu } from "@/lib/menuStore";
+import { LoadingMark } from "@/components/TabletotLogo";
 import DishCard from "@/components/DishCard";
 import DietMark from "@/components/DietMark";
 import type { MenuItem, OrderItem } from "@/data/menu";
@@ -50,7 +51,7 @@ export default function MenuView({ onSelect, onAddToCart, onUpdateQuantity, onCl
   if (loading) {
     return (
       <section className="tt-menu">
-        <p className="tt-badge">Loading today's menu…</p>
+        <LoadingMark />
         <div className="tt-skeleton-list" aria-hidden="true">
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className="tt-skeleton tt-skeleton--card" />

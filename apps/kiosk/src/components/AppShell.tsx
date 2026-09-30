@@ -7,6 +7,7 @@ interface AppShellProps {
   venueName?: string;
   tableId: string;
   onAbout?: () => void;
+  onWifi?: () => void;
   orderBar?: React.ReactNode;
   statusStrip?: React.ReactNode;
   voiceDock?: React.ReactNode;
@@ -24,6 +25,7 @@ export default function AppShell({
   venueName = "Tabletot",
   tableId,
   onAbout,
+  onWifi,
   orderBar,
   statusStrip,
   voiceDock,
@@ -32,7 +34,7 @@ export default function AppShell({
 
   return (
     <div className="tt-shell">
-      {!bare && <AppBar venueName={venueName} tableId={tableId} onAbout={onAbout} />}
+      {!bare && <AppBar venueName={venueName} tableId={tableId} onAbout={onAbout} onWifi={onWifi} />}
       <main className="tt-scroll" style={bare ? { padding: 0 } : undefined}>{children}</main>
       {statusStrip}
       {orderBar}
