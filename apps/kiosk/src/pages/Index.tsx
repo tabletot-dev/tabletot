@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDeviceNavigation, type ScreenType } from "@/hooks/useDeviceNavigation";
+import { useReloadOnDeploy } from "@/lib/reloadOnDeploy";
 import IdleScreen from "@/components/screens/IdleScreen";
 import ListeningScreen from "@/components/screens/ListeningScreen";
 import MenuView from "@/components/screens/MenuView";
@@ -164,6 +165,10 @@ const IndexInner = () => {
   // the latest value without needing to re-subscribe on every screen change.
   const currentScreenRef = useRef(currentScreen);
   useEffect(() => { currentScreenRef.current = currentScreen; }, [currentScreen]);
+
+  // New Railway deploy -> reload, but only from the Attract screen (no session,
+  // nothing in the cart, no voice). Anywhere else it waits for the next check.
+  useReloadOnDeploy(() => currentScreenRef.current === "idle");
 
   // Venue/About (screen 16). Reached from the app bar mid-session and from the
   // Attract screen. `aboutReturn` is where Back goes — the screen you came from.

@@ -7,6 +7,7 @@ Recommendation curation and AOV measurement app (internal, port 8081).
 ## [Unreleased]
 
 ### Added
+- "New version available — Refresh" banner when a newer deploy exists (never auto-reloads, to protect unsaved edits). Build writes `version.json`.
 
 The dashboard is now the single editor for everything the kiosk shows — ADR 0025 (supersedes 0008). Plan: `docs/plans/2026-09-29-dashboard-kiosk-editor.md`.
 

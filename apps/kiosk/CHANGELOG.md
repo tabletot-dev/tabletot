@@ -7,6 +7,7 @@ Customer-facing tablet ordering app (React + Vite, Android Chrome kiosk mode).
 ## [Unreleased]
 
 ### Changed
+- Auto-reload on deploy: the build writes `version.json`; the app checks it every 3 min and reloads itself, but only from the Attract screen (no session, empty cart). nginx serves `version.json`/`index.html` uncached. Plan: `docs/plans/2026-09-30-auto-reload-on-deploy.md`.
 
 - **Wi-Fi QR and street address come from `restaurants.config`** (`lib/restaurantContext.tsx`, `lib/wifi.ts`, `IdleScreen`, `Index`) — keys `wifi_ssid`, `wifi_password`, `address`, set from the dashboard Venue screen (ADR 0025). The QR is generated with `qrcode.react` (blank password = open network, as before); the pilot's `SILVER-GUEST` / Banjara Hills values remain the defaults. Static `assets/wifi-qr.svg` removed. `package-lock.json` synced (Dockerfile uses `npm ci`).
 
