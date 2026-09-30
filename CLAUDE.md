@@ -66,7 +66,7 @@ menus/        MENU-CREATION-GUIDE.md + seed validation SQL only — menu data
 packages/         shared types and utilities — currently empty
 supabase/
 migrations/     applied in order; never edit an existing migration
-                currently at 0075
+                currently at 0076
 seed/           reference data only
 ```
 ## Supabase table groups (one project, three logical layers)
@@ -122,9 +122,9 @@ responds in native script only — no romanised transliteration. See
 (always-on voice: feasible, deferred).
 
 **Migrations:** Never edit an existing migration file. Always append a new one.
-`main` is at 0075, and the remote Supabase is in sync: `supabase migration
-list --linked` confirmed 0001–0073 applied, and 0074–0075 were pushed on
-2026-09-29. Rohan pushes remote himself per convention. Current Silver UUID is
+`main` is at 0076, and the remote Supabase is in sync (`supabase migration
+list --linked` confirmed 0001–0076 applied on 2026-09-29; 0074–0076 were
+pushed that day). Rohan pushes remote himself per convention. Current Silver UUID is
 `b22b5d53-6dd8-4f5b-8276-2e828cd1ab91` (pinned in migration 0014).
 
 **Env vars:** `VITE_RESTAURANT_ID` and `VITE_TABLE_ID` are set in
@@ -193,13 +193,19 @@ onto current `main` before merging or resuming.
 - Migrations 0071–0073 are applied to the remote Supabase (confirmed
   2026-09-29).
 
-**Dashboard-as-kiosk-editor (2026-09-29)** is on branch
-`feat/dashboard-kiosk-editor`, not yet merged (ADR 0025): dashboard Menu,
-Venue and editable Completion Rules screens; POS Sold-out page replaces the
-POS menu editors; kiosk reads Wi-Fi + address from `restaurants.config`.
-Adds migration 0076 (menu-images bucket policies), local only until pushed.
-Dashboard env needs `VITE_VOICE_ENGINE_URL` + `VITE_VOICE_ADMIN_KEY` in
-Railway for the post-save voice refresh.
+**Dashboard-as-kiosk-editor (2026-09-29)** is merged to `main` (PR #25,
+`192d665`; ADR 0025): dashboard Menu, Venue and editable Completion Rules
+screens; POS Sold-out page replaces the POS menu editors; POS admin sidebar
+links to the dashboard (`VITE_DASHBOARD_URL`); kiosk reads Wi-Fi + address
+from `restaurants.config` and generates the Wi-Fi QR. Migration 0076
+(menu-images bucket policies, staff-only writes) is on remote. Railway env:
+dashboard needs `VITE_VOICE_ENGINE_URL` + `VITE_VOICE_ADMIN_KEY` (post-save
+voice refresh); POS needs `VITE_DASHBOARD_URL`; all three services need a
+rebuild to pick up build-time vars. Still to do by hand: replace the
+placeholder chef name/note (Venue screen), fill Silver's real
+`prep_minutes`, and check remote `restaurant_settings` for a per-restaurant
+`gst_rate` override row (kiosk prefers it over the shared row the dashboard
+and POS edit).
 
 **Kiosk UX-audit fixes + games redesign (2026-09-29)** are merged to
 `main` (PR #24, `79fdb3d`): egg dishes fixed to Non-Veg,
