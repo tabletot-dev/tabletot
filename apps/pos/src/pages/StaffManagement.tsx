@@ -22,6 +22,7 @@ interface StaffMember {
   phone: string | null;
   is_active: boolean;
   created_at: string;
+  loginOnly?: boolean; // a POS login with no `staff` roster row
 }
 
 interface UserRole {
@@ -66,14 +67,27 @@ export default function StaffManagement() {
 
     if (staffRes.error) {
       toast({ title: 'Error', description: staffRes.error.message, variant: 'destructive' });
-    } else {
-      setStaff(staffRes.data || []);
     }
+    const map = new Map<string, string>();
     if (!rolesRes.error) {
-      const map = new Map<string, string>();
       (rolesRes.data as UserRole[] || []).forEach(r => map.set(r.user_id, r.role));
       setUserRoles(map);
     }
+    // Admin logins are never listed here, so the owner can't be edited by mistake.
+    const roster = ((staffRes.data || []) as StaffMember[]).filter(s => map.get(s.user_id) !== 'admin');
+    // Manager/staff logins with no roster row (e.g. created by the bootstrap
+    // script, or approved from Pending Approvals) would otherwise be invisible.
+    const rosterIds = new Set(roster.map(s => s.user_id));
+    const loginIds = [...map].filter(([id, role]) => (role === 'manager' || role === 'staff') && !rosterIds.has(id)).map(([id]) => id);
+    let loginOnly: StaffMember[] = [];
+    if (loginIds.length) {
+      const { data: profiles } = await supabase.from('profiles').select('id, email, full_name').in('id', loginIds);
+      loginOnly = (profiles || []).map(p => ({
+        id: `login-${p.id}`, user_id: p.id, full_name: p.full_name || p.email || 'Unnamed',
+        role: map.get(p.id) as string, phone: null, is_active: true, created_at: '', loginOnly: true,
+      }));
+    }
+    setStaff([...roster, ...loginOnly]);
     setLoading(false);
   };
 
@@ -120,6 +134,7 @@ export default function StaffManagement() {
     await updatePosRole(userId, role);
     setPendingAccounts((prev) => prev.filter((a) => a.user_id !== userId));
     setApproving(null);
+    fetchStaff(); // the approved login now shows in the list below
   };
 
   const resetForm = () => {
@@ -467,25 +482,31 @@ export default function StaffManagement() {
                       {member.phone || '-'}
                     </TableCell>
                     <TableCell className="text-center">
-                      <Switch
-                        checked={member.is_active}
-                        onCheckedChange={() => toggleActive(member.id, member.is_active)}
-                      />
+                      {member.loginOnly ? (
+                        <span className="text-xs text-muted-foreground">Login only</span>
+                      ) : (
+                        <Switch
+                          checked={member.is_active}
+                          onCheckedChange={() => toggleActive(member.id, member.is_active)}
+                        />
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(member)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(member.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {!member.loginOnly && (
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(member)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(member.id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -15,6 +15,8 @@ Restaurant management app: KOT display, order management, billing, tables.
 
 ### Fixed
 
+- **Staff Management hid logins without a `staff` roster row** — it listed only the `staff` table, so manager/staff logins made by `create_restaurant_admin.py` (and any login after approval from Pending Approvals) never appeared. `fetchStaff` now also lists manager/staff logins from `user_roles` + `profiles` as "Login only" rows (role dropdown works; no active switch, edit or delete, since there is no roster row). Admin logins are never listed, roster rows linked to an admin login included. Approving a pending account now refreshes the list.
+
 - **Deployed POS missed `VITE_DASHBOARD_URL` and `VITE_VOICE_ADMIN_KEY`** — the Dockerfile only declared four `ARG`s, and Railway passes variables into a Docker build only if declared. The Dashboard link stayed hidden and the post-toggle voice-menu refresh had no admin key. Both `ARG`s added.
 
 - **Settings never saved** — `pages/Settings.tsx` used `upsert(onConflict: 'key')`, which fails because the unique index on `restaurant_settings.key` is partial (`WHERE restaurant_id IS NULL`). Now update-then-insert per key.
