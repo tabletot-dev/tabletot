@@ -46,7 +46,7 @@ import sys
 import requests
 
 
-def bootstrap_admin(email: str, full_name: str, password: str | None) -> None:
+def bootstrap_admin(email: str, full_name: str, password: str | None, role: str = "admin") -> None:
     supabase_url = os.environ.get("SUPABASE_URL")
     service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     if not supabase_url or not service_key:
@@ -86,7 +86,7 @@ def bootstrap_admin(email: str, full_name: str, password: str | None) -> None:
             print(f"User {email} reportedly exists but could not be found.", file=sys.stderr)
             sys.exit(1)
         user_id = users[0]["id"]
-        print(f"{email} already exists (id={user_id}) — promoting to admin, password unchanged.")
+        print(f"{email} already exists (id={user_id}) — promoting to {role}, password unchanged.")
     else:
         resp.raise_for_status()
         user_id = resp.json()["id"]
@@ -96,17 +96,17 @@ def bootstrap_admin(email: str, full_name: str, password: str | None) -> None:
 
     # handle_new_user() (0040, defaults changed in 0068) already inserted a
     # user_roles row with role='pending' via the auth.users INSERT trigger
-    # fired above. Promote it to admin. service_role bypasses RLS, so this
+    # fired above. Promote it to the requested role. service_role bypasses RLS, so this
     # works regardless of is_authorized_staff() — which would otherwise
     # block a non-staff caller from writing user_roles.
     role_resp = requests.post(
         f"{supabase_url}/rest/v1/user_roles",
         headers={**headers, "Prefer": "resolution=merge-duplicates"},
-        json={"user_id": user_id, "role": "admin"},
+        json={"user_id": user_id, "role": role},
         timeout=15,
     )
     role_resp.raise_for_status()
-    print(f"{email} is now an admin.")
+    print(f"{email} is now {role}.")
 
 
 if __name__ == "__main__":
@@ -116,5 +116,6 @@ if __name__ == "__main__":
     parser.add_argument("--email", required=True, help="Admin's login email")
     parser.add_argument("--full-name", required=True, help="Admin's display name")
     parser.add_argument("--password", help="Explicit password (default: generated and printed once)")
+    parser.add_argument("--role", choices=["admin", "manager", "staff"], default="admin", help="Role to grant (default: admin)")
     args = parser.parse_args()
-    bootstrap_admin(args.email, args.full_name, args.password)
+    bootstrap_admin(args.email, args.full_name, args.password, args.role)
