@@ -1999,6 +1999,80 @@ button {
   display: none;
 }
 
+/* Menu invitation only. Keep the existing voice handlers and dock lifecycle. */
+.tt-voice-ptt-btn.tt-voice-ptt-btn--invitation {
+  display: flex;
+  align-items: center;
+  gap: var(--tt-space-3);
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  padding: 0;
+  border-radius: var(--tt-radius-pill);
+  background: transparent;
+  color: var(--tt-ink);
+  text-align: left;
+}
+
+.tt-voice-ptt-btn--invitation .tt-voice-invitation-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: calc(96px * var(--tt-scale));
+  height: calc(96px * var(--tt-scale));
+  border-radius: 50%;
+  background: var(--tt-action);
+  color: var(--tt-paper);
+}
+
+.tt-voice-invitation-icon svg {
+  width: calc(38px * var(--tt-scale));
+  height: calc(38px * var(--tt-scale));
+}
+
+.tt-voice-invitation-copy {
+  display: flex;
+  flex-direction: column;
+  gap: calc(4px * var(--tt-scale));
+  font-family: var(--tt-font-text);
+  line-height: 1.35;
+  animation: tt-voice-invitation-float 3.6s ease-in-out infinite;
+}
+
+.tt-voice-invitation-copy strong {
+  font-size: var(--tt-size-cta);
+  font-weight: 800;
+}
+
+.tt-voice-invitation-copy > span {
+  font-size: var(--tt-size-meta);
+  font-weight: 600;
+  color: var(--tt-ink-60);
+}
+
+.tt-voice-ptt-btn--invitation:focus-visible {
+  outline: 3px solid var(--tt-ink);
+  outline-offset: 6px;
+}
+
+.tt-voice-ptt-btn--invitation:hover:not(:disabled) {
+  transform: none;
+  background: transparent;
+}
+
+.tt-voice-ptt-btn--invitation:hover .tt-voice-invitation-icon {
+  background: var(--tt-action-press);
+}
+
+@keyframes tt-voice-invitation-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(calc(-4px * var(--tt-scale))); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tt-voice-invitation-copy { animation: none; }
+}
+
 @keyframes tt-voice-ptt-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.88; }

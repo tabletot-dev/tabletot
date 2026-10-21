@@ -192,7 +192,7 @@ const VoiceOrderButton = ({ onDone, order, restaurantId, tableId, onStatusChange
   const disabled = !conversationMode && (backendStatus !== "ready" || pressStatus === "processing");
 
   const label =
-    conversationMode ? "Open voice conversation"
+    conversationMode ? "At your service — tap to talk"
     : pressStatus === "recording" ? "Tap to stop"
     : pressStatus === "processing" ? "Processing…"
     : backendStatus === "error" ? "Voice unavailable"
@@ -200,6 +200,7 @@ const VoiceOrderButton = ({ onDone, order, restaurantId, tableId, onStatusChange
 
   const btnClass = [
     "tt-voice-ptt-btn",
+    conversationMode ? "tt-voice-ptt-btn--invitation" : "",
     pressStatus === "recording" ? "tt-voice-ptt-recording" : "",
     pressStatus === "processing" ? "tt-voice-ptt-processing" : "",
     !conversationMode && (backendStatus === "error" || micBlocked) ? "tt-voice-ptt-error" : "",
@@ -225,18 +226,26 @@ const VoiceOrderButton = ({ onDone, order, restaurantId, tableId, onStatusChange
         aria-label={label}
         title={label}
       >
-        {pressStatus === "processing" ? (
-          <svg className="tt-voice-ptt-spinner" width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"
-              strokeDasharray="31.4" strokeDashoffset="10" />
-          </svg>
-        ) : (
-          // Same glyph as everywhere else a mic appears (DetailView's
-          // detail-mic-btn) — was a one-off hand-drawn path here, which read
-          // as a different icon depending which screen you were on
-          // (2026-09-29 UX audit). Visual only: no change to state, classes,
-          // or handlers below.
-          <Mic size={20} strokeWidth={1.8} />
+        <span className={conversationMode ? "tt-voice-invitation-icon" : undefined} aria-hidden="true">
+          {pressStatus === "processing" ? (
+            <svg className="tt-voice-ptt-spinner" width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"
+                strokeDasharray="31.4" strokeDashoffset="10" />
+            </svg>
+          ) : (
+            // Same glyph as everywhere else a mic appears (DetailView's
+            // detail-mic-btn) — was a one-off hand-drawn path here, which read
+            // as a different icon depending which screen you were on
+            // (2026-09-29 UX audit). Visual only: no change to state, classes,
+            // or handlers below.
+            <Mic size={20} strokeWidth={1.8} />
+          )}
+        </span>
+        {conversationMode && (
+          <span className="tt-voice-invitation-copy" aria-hidden="true">
+            <strong>At your service</strong>
+            <span>Tap to talk</span>
+          </span>
         )}
       </button>
     </div>
